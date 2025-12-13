@@ -1,0 +1,32 @@
+# Production Environment Variables for EC2 Deployment
+# Copy this content to a new file named .env on your EC2 instance
+
+# Server Configuration
+PORT=5000
+NODE_ENV=production
+
+# MongoDB Configuration
+MONGODB_URI=mongodb+srv://upscholarapp:TCoQKYoSDv0t5fIK@cluster0.uylkcsv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+
+# JWT Configuration
+JWT_SECRET=BarriBuddy
+JWT_EXPIRE=7d
+
+# Frontend URL (Production)
+FRONTEND_URL=http://43.205.46.154
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_51RtkJxQIoLE8hev1JY0rTmanuAnvYdu34qfFbjMx52aIoXG48g8ICaCmDtAtaukzmJV5ioSAqSG0Qmi9BSw3iVTG00D5GWNwS0
+STRIPE_PUBLISHABLE_KEY=pk_test_51RtkJxQIoLE8hev1341PsYzfvMA601wnHDV2mV2QT9iLIh7V6iZ1WSIsCmzL5CiqDNcmZL8KailgObH0ozdoQS6F009JIHecNx
+
+# Email Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=botclap.crm@gmail.com
+SMTP_PASS=cpfm jymb piyw aqhv
+
+# File Upload Configuration
+MAX_FILE_SIZE=5242880
+UPLOAD_PATH=./uploads
+
+

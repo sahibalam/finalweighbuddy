@@ -1,0 +1,476 @@
+{
+  "testVehicles": [
+    {
+      "make": "Toyota",
+      "model": "LandCruiser",
+      "year": 2020,
+      "numberPlate": "ABC123",
+      "gvm": 3500,
+      "gcm": 7000,
+      "btc": 3500,
+      "tbm": 350,
+      "frontAxleCapacity": 1750,
+      "rearAxleCapacity": 1750,
+      "bodyType": "SUV",
+      "axleCount": 2
+    },
+    {
+      "make": "Ford",
+      "model": "Ranger",
+      "year": 2021,
+      "numberPlate": "DEF456",
+      "gvm": 3200,
+      "gcm": 6000,
+      "btc": 3500,
+      "tbm": 350,
+      "frontAxleCapacity": 1600,
+      "rearAxleCapacity": 1600,
+      "bodyType": "Ute",
+      "axleCount": 2
+    },
+    {
+      "make": "Nissan",
+      "model": "Patrol",
+      "year": 2019,
+      "numberPlate": "GHI789",
+      "gvm": 3800,
+      "gcm": 7500,
+      "btc": 3500,
+      "tbm": 350,
+      "frontAxleCapacity": 1900,
+      "rearAxleCapacity": 1900,
+      "bodyType": "SUV",
+      "axleCount": 2
+    },
+    {
+      "make": "Mitsubishi",
+      "model": "Pajero",
+      "year": 2018,
+      "numberPlate": "JKL012",
+      "gvm": 3000,
+      "gcm": 5500,
+      "btc": 3000,
+      "tbm": 300,
+      "frontAxleCapacity": 1500,
+      "rearAxleCapacity": 1500,
+      "bodyType": "SUV",
+      "axleCount": 2
+    },
+    {
+      "make": "Isuzu",
+      "model": "D-Max",
+      "year": 2022,
+      "numberPlate": "MNO345",
+      "gvm": 3100,
+      "gcm": 5800,
+      "btc": 3500,
+      "tbm": 350,
+      "frontAxleCapacity": 1550,
+      "rearAxleCapacity": 1550,
+      "bodyType": "Ute",
+      "axleCount": 2
+    },
+    {
+      "make": "Mazda",
+      "model": "BT-50",
+      "year": 2021,
+      "numberPlate": "PQR678",
+      "gvm": 3350,
+      "gcm": 6000,
+      "btc": 3500,
+      "tbm": 350,
+      "frontAxleCapacity": 1675,
+      "rearAxleCapacity": 1675,
+      "bodyType": "Ute",
+      "axleCount": 2
+    },
+    {
+      "make": "Volkswagen",
+      "model": "Amarok",
+      "year": 2020,
+      "numberPlate": "STU901",
+      "gvm": 3400,
+      "gcm": 6500,
+      "btc": 3500,
+      "tbm": 350,
+      "frontAxleCapacity": 1700,
+      "rearAxleCapacity": 1700,
+      "bodyType": "Ute",
+      "axleCount": 2
+    },
+    {
+      "make": "Mercedes-Benz",
+      "model": "Sprinter",
+      "year": 2019,
+      "numberPlate": "VWX234",
+      "gvm": 3550,
+      "gcm": 5500,
+      "btc": 2000,
+      "tbm": 200,
+      "frontAxleCapacity": 1775,
+      "rearAxleCapacity": 1775,
+      "bodyType": "Van",
+      "axleCount": 2
+    }
+  ],
+  "testCaravans": [
+    {
+      "make": "Jayco",
+      "model": "Starcraft",
+      "year": 2020,
+      "length": 18,
+      "gtm": 2500,
+      "atm": 2500,
+      "axleGroupLoading": 1250,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "Coromal",
+      "model": "Pioneer",
+      "year": 2021,
+      "length": 20,
+      "gtm": 3000,
+      "atm": 3000,
+      "axleGroupLoading": 1500,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "New Age",
+      "model": "Gecko",
+      "year": 2019,
+      "length": 16,
+      "gtm": 2000,
+      "atm": 1500,
+      "axleGroupLoading": 1400,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "Avida",
+      "model": "Birdsville",
+      "year": 2022,
+      "length": 19,
+      "gtm": 2800,
+      "atm": 2800,
+      "axleGroupLoading": 1400,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "Cub",
+      "model": "Camel",
+      "year": 2020,
+      "length": 15,
+      "gtm": 1800,
+      "atm": 1800,
+      "axleGroupLoading": 900,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "Adria",
+      "model": "Altea",
+      "year": 2021,
+      "length": 17,
+      "gtm": 2200,
+      "atm": 2200,
+      "axleGroupLoading": 1100,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "Winnebago",
+      "model": "LifeStyle",
+      "year": 2019,
+      "length": 21,
+      "gtm": 3200,
+      "atm": 3200,
+      "axleGroupLoading": 1600,
+      "bodyType": "caravan",
+      "axleCount": 2
+    },
+    {
+      "make": "Roadstar",
+      "model": "Eagle",
+      "year": 2020,
+      "length": 14,
+      "gtm": 1600,
+      "atm": 1600,
+      "axleGroupLoading": 800,
+      "bodyType": "caravan",
+      "axleCount": 2
+    }
+  ],
+  "testScenarios": [
+    {
+      "name": "Compliant Scenario - Toyota LandCruiser + Jayco Starcraft",
+      "vehicle": "Toyota LandCruiser 2020",
+      "caravan": "Jayco Starcraft 2020",
+      "weights": {
+        "frontAxle": 1600,
+        "rearAxle": 1650,
+        "totalVehicle": 3250,
+        "frontAxleGroup": 1200,
+        "rearAxleGroup": 1250,
+        "totalCaravan": 2450,
+        "grossCombination": 5700,
+        "tbm": 300
+      },
+      "expectedCompliance": {
+        "vehicle": {
+          "gvm": { "compliant": true, "percentage": "92.9" },
+          "frontAxle": { "compliant": true, "percentage": "91.4" },
+          "rearAxle": { "compliant": true, "percentage": "94.3" },
+          "tbm": { "compliant": true, "percentage": "85.7" },
+          "btc": { "compliant": true, "percentage": "70.0" }
+        },
+        "caravan": {
+          "atm": { "compliant": true, "percentage": "98.0" },
+          "frontAxleGroup": { "compliant": true, "percentage": "96.0" },
+          "rearAxleGroup": { "compliant": true, "percentage": "100.0" }
+        },
+        "combination": {
+          "gcm": { "compliant": true, "percentage": "81.4" }
+        },
+        "overall": { "compliant": true }
+      }
+    },
+    {
+      "name": "Non-Compliant Scenario - Overloaded Vehicle",
+      "vehicle": "Ford Ranger 2021",
+      "caravan": "Coromal Pioneer 2021",
+      "weights": {
+        "frontAxle": 1700,
+        "rearAxle": 1800,
+        "totalVehicle": 3500,
+        "frontAxleGroup": 1400,
+        "rearAxleGroup": 1600,
+        "totalCaravan": 3000,
+        "grossCombination": 6500,
+        "tbm": 400
+      },
+      "expectedCompliance": {
+        "vehicle": {
+          "gvm": { "compliant": false, "percentage": "109.4" },
+          "frontAxle": { "compliant": false, "percentage": "106.3" },
+          "rearAxle": { "compliant": false, "percentage": "112.5" },
+          "tbm": { "compliant": false, "percentage": "114.3" },
+          "btc": { "compliant": true, "percentage": "85.7" }
+        },
+        "caravan": {
+          "atm": { "compliant": true, "percentage": "100.0" },
+          "frontAxleGroup": { "compliant": true, "percentage": "93.3" },
+          "rearAxleGroup": { "compliant": false, "percentage": "106.7" }
+        },
+        "combination": {
+          "gcm": { "compliant": false, "percentage": "108.3" }
+        },
+        "overall": { "compliant": false }
+      }
+    },
+    {
+      "name": "Edge Case - Maximum Load Scenario",
+      "vehicle": "Toyota LandCruiser 2020",
+      "caravan": "New Age Gecko 2019",
+      "weights": {
+        "frontAxle": 1900,
+        "rearAxle": 1900,
+        "totalVehicle": 3800,
+        "frontAxleGroup": 700,
+        "rearAxleGroup": 1300,
+        "totalCaravan": 2000,
+        "grossCombination": 5800,
+        "tbm": 350
+      },
+      "expectedCompliance": {
+        "vehicle": {
+          "gvm": { "compliant": false, "percentage": "108.6" },
+          "frontAxle": { "compliant": false, "percentage": "108.6" },
+          "rearAxle": { "compliant": false, "percentage": "108.6" },
+          "tbm": { "compliant": true, "percentage": "100.0" },
+          "btc": { "compliant": true, "percentage": "57.1" }
+        },
+        "caravan": {
+          "atm": { "compliant": false, "percentage": "133.3" },
+          "frontAxleGroup": { "compliant": true, "percentage": "50.0" },
+          "rearAxleGroup": { "compliant": true, "percentage": "92.9" }
+        },
+        "combination": {
+          "gcm": { "compliant": true, "percentage": "82.9" }
+        },
+        "overall": { "compliant": false }
+      }
+    },
+    {
+      "name": "Light Load Scenario - Mitsubishi Pajero + Cub Camel",
+      "vehicle": "Mitsubishi Pajero 2018",
+      "caravan": "Cub Camel 2020",
+      "weights": {
+        "frontAxle": 1200,
+        "rearAxle": 1300,
+        "totalVehicle": 2500,
+        "frontAxleGroup": 800,
+        "rearAxleGroup": 900,
+        "totalCaravan": 1700,
+        "grossCombination": 4200,
+        "tbm": 250
+      },
+      "expectedCompliance": {
+        "vehicle": {
+          "gvm": { "compliant": true, "percentage": "83.3" },
+          "frontAxle": { "compliant": true, "percentage": "80.0" },
+          "rearAxle": { "compliant": true, "percentage": "86.7" },
+          "tbm": { "compliant": true, "percentage": "83.3" },
+          "btc": { "compliant": true, "percentage": "56.7" }
+        },
+        "caravan": {
+          "atm": { "compliant": true, "percentage": "94.4" },
+          "frontAxleGroup": { "compliant": true, "percentage": "88.9" },
+          "rearAxleGroup": { "compliant": true, "percentage": "100.0" }
+        },
+        "combination": {
+          "gcm": { "compliant": true, "percentage": "76.4" }
+        },
+        "overall": { "compliant": true }
+      }
+    },
+    {
+      "name": "Heavy Load Scenario - Nissan Patrol + Winnebago LifeStyle",
+      "vehicle": "Nissan Patrol 2019",
+      "caravan": "Winnebago LifeStyle 2019",
+      "weights": {
+        "frontAxle": 1850,
+        "rearAxle": 1950,
+        "totalVehicle": 3800,
+        "frontAxleGroup": 1500,
+        "rearAxleGroup": 1700,
+        "totalCaravan": 3200,
+        "grossCombination": 7000,
+        "tbm": 350
+      },
+      "expectedCompliance": {
+        "vehicle": {
+          "gvm": { "compliant": true, "percentage": "100.0" },
+          "frontAxle": { "compliant": true, "percentage": "97.4" },
+          "rearAxle": { "compliant": true, "percentage": "102.6" },
+          "tbm": { "compliant": true, "percentage": "100.0" },
+          "btc": { "compliant": true, "percentage": "91.4" }
+        },
+        "caravan": {
+          "atm": { "compliant": true, "percentage": "100.0" },
+          "frontAxleGroup": { "compliant": true, "percentage": "93.8" },
+          "rearAxleGroup": { "compliant": false, "percentage": "106.3" }
+        },
+        "combination": {
+          "gcm": { "compliant": true, "percentage": "93.3" }
+        },
+        "overall": { "compliant": false }
+      }
+    }
+  ],
+  "complianceRules": {
+    "vehicle": {
+      "gvm": "Total vehicle weight must not exceed GVM (Gross Vehicle Mass)",
+      "frontAxle": "Front axle weight must not exceed front axle capacity",
+      "rearAxle": "Rear axle weight must not exceed rear axle capacity", 
+      "tbm": "Tow ball mass must not exceed TBM (Tow Ball Mass) limit",
+      "btc": "Caravan weight must not exceed BTC (Braked Towing Capacity)"
+    },
+    "caravan": {
+      "atm": "Total caravan weight must not exceed ATM (Aggregate Trailer Mass)",
+      "frontAxleGroup": "Front axle group weight must not exceed axle group loading",
+      "rearAxleGroup": "Rear axle group weight must not exceed axle group loading"
+    },
+    "combination": {
+      "gcm": "Gross combination weight must not exceed GCM (Gross Combination Mass)"
+    }
+  },
+  "testingInstructions": {
+    "vehicleTesting": [
+      "Test GVM compliance with weights at 90%, 100%, and 110% of limit",
+      "Test front axle compliance with weights at 90%, 100%, and 110% of limit",
+      "Test rear axle compliance with weights at 90%, 100%, and 110% of limit",
+      "Test TBM compliance with weights at 90%, 100%, and 110% of limit",
+      "Test BTC compliance with caravan weights at 90%, 100%, and 110% of limit"
+    ],
+    "caravanTesting": [
+      "Test ATM compliance with weights at 90%, 100%, and 110% of limit",
+      "Test front axle group compliance with weights at 90%, 100%, and 110% of limit",
+      "Test rear axle group compliance with weights at 90%, 100%, and 110% of limit"
+    ],
+    "combinationTesting": [
+      "Test GCM compliance with combination weights at 90%, 100%, and 110% of limit"
+    ]
+  },
+  "quickTestData": {
+    "vehicleTestCases": [
+      {
+        "name": "Toyota LandCruiser - Light Load",
+        "vehicle": "Toyota LandCruiser 2020",
+        "weights": {
+          "frontAxle": 1400,
+          "rearAxle": 1500,
+          "totalVehicle": 2900,
+          "tbm": 250
+        },
+        "expected": "COMPLIANT"
+      },
+      {
+        "name": "Toyota LandCruiser - Maximum Load",
+        "vehicle": "Toyota LandCruiser 2020",
+        "weights": {
+          "frontAxle": 1750,
+          "rearAxle": 1750,
+          "totalVehicle": 3500,
+          "tbm": 350
+        },
+        "expected": "COMPLIANT"
+      },
+      {
+        "name": "Toyota LandCruiser - Overloaded",
+        "vehicle": "Toyota LandCruiser 2020",
+        "weights": {
+          "frontAxle": 1900,
+          "rearAxle": 1900,
+          "totalVehicle": 3800,
+          "tbm": 400
+        },
+        "expected": "NON-COMPLIANT"
+      }
+    ],
+    "caravanTestCases": [
+      {
+        "name": "Jayco Starcraft - Light Load",
+        "caravan": "Jayco Starcraft 2020",
+        "weights": {
+          "totalCaravan": 2000,
+          "frontAxleGroup": 1000,
+          "rearAxleGroup": 1000
+        },
+        "expected": "COMPLIANT"
+      },
+      {
+        "name": "Jayco Starcraft - Maximum Load",
+        "caravan": "Jayco Starcraft 2020",
+        "weights": {
+          "totalCaravan": 2500,
+          "frontAxleGroup": 1250,
+          "rearAxleGroup": 1250
+        },
+        "expected": "COMPLIANT"
+      },
+      {
+        "name": "Jayco Starcraft - Overloaded",
+        "caravan": "Jayco Starcraft 2020",
+        "weights": {
+          "totalCaravan": 2750,
+          "frontAxleGroup": 1400,
+          "rearAxleGroup": 1350
+        },
+        "expected": "NON-COMPLIANT"
+      }
+    ]
+  }
+}

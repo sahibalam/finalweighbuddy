@@ -1,0 +1,164 @@
+import React, { useEffect, useState } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { StripeProvider } from './contexts/StripeContext';
+import PrivateRoute from './components/PrivateRoute';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import NewWeigh from './pages/NewWeigh';
+import DIYNewWeigh from './pages/DIYNewWeigh';
+import WeighHistory from './pages/WeighHistory';
+import WeighDetail from './pages/WeighDetail';
+import Profile from './pages/Profile';
+import AdminDashboard from './pages/AdminDashboard';
+import VehicleSearch from './pages/VehicleSearch';
+import CaravanSearch from './pages/CaravanSearch';
+import AboutUs from './pages/AboutUs';
+import ContactUs from './pages/ContactUs';
+import SubscriptionManagement from './pages/SubscriptionManagement';
+import PaymentHistory from './pages/PaymentHistory';
+
+function App() {
+
+  return (
+    <AuthProvider>
+      <StripeProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/contact" element={<ContactUs />} />
+          
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <PrivateRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/new-weigh" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYNewWeigh />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/professional-weigh" element={
+            <PrivateRoute>
+              <Layout>
+                <NewWeigh />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/weigh-history" element={
+            <PrivateRoute>
+              <Layout>
+                <WeighHistory />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/weigh/:id" element={
+            <PrivateRoute>
+              <Layout>
+                <WeighDetail />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/payment-history" element={
+            <PrivateRoute>
+              <Layout>
+                <PaymentHistory />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/profile" element={
+            <PrivateRoute>
+              <Layout>
+                <Profile />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/subscription" element={
+            <PrivateRoute>
+              <Layout>
+                <SubscriptionManagement />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/vehicle-search" element={
+            <PrivateRoute>
+              <Layout>
+                <VehicleSearch />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/caravan-search" element={
+            <PrivateRoute>
+              <Layout>
+                <CaravanSearch />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          {/* Admin routes */}
+          <Route path="/admin" element={
+            <PrivateRoute adminOnly>
+              <Layout>
+                <AdminDashboard />
+              </Layout>
+            </PrivateRoute>
+          }>
+            <Route index element={<AdminDashboard />} />
+            <Route path="overview" element={<AdminDashboard />} />
+            <Route path="users" element={<AdminDashboard />} />
+            <Route path="vehicles" element={<AdminDashboard />} />
+            <Route path="caravans" element={<AdminDashboard />} />
+            <Route path="weighs" element={<AdminDashboard />} />
+            <Route path="payments" element={<AdminDashboard />} />
+            <Route path="submissions" element={<AdminDashboard />} />
+          </Route>
+          
+          {/* Admin subroutes for reports and settings */}
+          <Route path="/admin/reports" element={
+            <PrivateRoute adminOnly>
+              <Layout>
+                <AdminDashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/admin/settings" element={
+            <PrivateRoute adminOnly>
+              <Layout>
+                <AdminDashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/admin/submissions" element={
+            <PrivateRoute adminOnly>
+              <Layout>
+                <AdminDashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+        </Routes>
+      </StripeProvider>
+    </AuthProvider>
+  );
+}
+
+export default App; 
