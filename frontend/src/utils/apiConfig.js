@@ -2,10 +2,10 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const API_BASE_URL = isDevelopment 
-  ? 'http://localhost:5000' 
+  ? 'http://localhost:5001' 
   : '/api';
 export const UPLOADS_BASE_URL = isDevelopment 
-  ? 'http://localhost:5000' 
+  ? 'http://localhost:5001' 
   : '';
 
 // Helper function to get uploads URL

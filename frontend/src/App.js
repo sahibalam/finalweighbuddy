@@ -10,6 +10,12 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import NewWeigh from './pages/NewWeigh';
 import DIYNewWeigh from './pages/DIYNewWeigh';
+import DIYWelcome from './pages/DIYWelcome';
+import DIYVehicleOnlyInfo from './pages/DIYVehicleOnlyInfo';
+import DIYVehicleOnlyWeighbridgeAxle from './pages/DIYVehicleOnlyWeighbridgeAxle';
+import DIYVehicleOnlyWeighbridgeRego from './pages/DIYVehicleOnlyWeighbridgeRego';
+import DIYVehicleOnlyWeighbridgeConfirm from './pages/DIYVehicleOnlyWeighbridgeConfirm';
+import DIYVehicleOnlyWeighbridgeResults from './pages/DIYVehicleOnlyWeighbridgeResults';
 import WeighHistory from './pages/WeighHistory';
 import WeighDetail from './pages/WeighDetail';
 import Profile from './pages/Profile';
@@ -44,6 +50,54 @@ function App() {
           } />
           
           <Route path="/new-weigh" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYWelcome />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-info" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyInfo />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-weighbridge-axle" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyWeighbridgeAxle />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-weighbridge-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyWeighbridgeRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-weighbridge-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyWeighbridgeConfirm />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-weighbridge-results" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyWeighbridgeResults />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/diy-weigh" element={
             <PrivateRoute>
               <Layout>
                 <DIYNewWeigh />

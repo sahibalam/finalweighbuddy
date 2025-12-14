@@ -158,6 +158,11 @@ router.get('/by-plate/:plate', async (req, res) => {
         if (!vehicle) return null;
         const d = vehicle.details || {};
         const wt = vehicle.weightsAndTowing || {};
+
+        // Attempt to map VIN from various possible fields. If Info-Agent
+        // does not provide VIN, this will simply be undefined.
+        const vin = d.vin || d.vinNumber || d.vinNo || d.vin_number || undefined;
+
         return {
           numberPlate: String(p || '').toUpperCase(),
           state: s ? String(s).toUpperCase() : undefined,
@@ -168,6 +173,7 @@ router.get('/by-plate/:plate', async (req, res) => {
           variant: d.variant || d.trim || d.series || '',
           engine: d.engine,
           transmission: d.transmission,
+          vin,
           tyreSize: undefined,
           hasSubTank: undefined,
           fawr: wt.maximumFrontAxleLoadKg,

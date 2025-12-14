@@ -9,7 +9,6 @@ import {
   StepLabel,
   Container,
   useTheme,
-  useMediaQuery,
   Alert,
   Grid,
   Card,
@@ -20,11 +19,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  useMediaQuery as useMuiMediaQuery,
   IconButton
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { ArrowBack, Close } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowBack } from '@mui/icons-material';
 import axios from 'axios';
 
 // Components
@@ -38,7 +36,8 @@ import CustomerResponsibilityDisclaimer from '../components/CustomerResponsibili
 const DIYNewWeigh = () => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMuiMediaQuery(theme.breakpoints.down('sm'));
+  const location = useLocation();
+  const startAtPayment = !!location.state?.startAtPayment;
 
   /* -------------------- STATE -------------------- */
   const [activeStep, setActiveStep] = useState(0);
@@ -111,53 +110,31 @@ const DIYNewWeigh = () => {
   });
 
   // Report and payment
-  const [reportPreview, setReportPreview] = useState(null);
+  const [reportPreview] = useState(null);
   const [createdWeighId, setCreatedWeighId] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('pending'); // 'pending', 'processing', 'completed', 'failed'
+  const [preWeigh, setPreWeigh] = useState(null);
+  const [axleWeigh, setAxleWeigh] = useState(null); // DIY Vehicle Only Weighbridge Axle screen values
+
+  useEffect(() => {
+    if (location.state) {
+      if (location.state.preWeigh) {
+        setPreWeigh(location.state.preWeigh);
+      }
+      if (location.state.axleWeigh) {
+        setAxleWeigh(location.state.axleWeigh);
+      }
+
+      // If coming from the Vehicle Only Weighbridge Axle screen with a request
+      // to start directly at the payment step, jump the stepper to the
+      // "Report & Payment" step (currently the last step in the flow).
+      if (location.state.startAtPayment) {
+        setActiveStep(5);
+      }
+    }
+  }, [location.state]);
 
   /* -------------------- HELPER FUNCTIONS -------------------- */
-  const validateWeights = () => {
-    // Check if weights data has been populated
-    if (!weightsData || Object.keys(weightsData).length === 0) {
-      return false;
-    }
-
-    const isPortable = weighingMethod?.method === 'portable';
-    const hasCaravan = !!caravanData?.hasCaravan;
-    
-    if (isPortable) {
-      // For portable scales, check individual wheel weights
-      const vehicleWeights = weightsData.vehicleOnly || {};
-      if (!vehicleWeights.lf || !vehicleWeights.rf || !vehicleWeights.lr || !vehicleWeights.rr) {
-        return false;
-      }
-      
-      // Check caravan weights if caravan is present
-      if (hasCaravan) {
-        const caravanWeights = weightsData.caravanOnly || {};
-        if (!caravanWeights.lf || !caravanWeights.rf || !caravanWeights.lr || !caravanWeights.rr) {
-          return false;
-        }
-      }
-    } else {
-      // For weighbridge, check axle weights
-      const vehicleAxles = weightsData.vehicleOnlyAxles || {};
-      if (!vehicleAxles.front || !vehicleAxles.rear) {
-        return false;
-      }
-      
-      // Check caravan axles if caravan is present
-      if (hasCaravan) {
-        const caravanAxles = weightsData.caravanOnlyAxles || {};
-        if (!caravanAxles.front || !caravanAxles.rear) {
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  };
-
   const isStepValid = (stepIndex) => {
     switch(stepIndex) {
       case 0: // Weighing Method
@@ -438,15 +415,25 @@ const DIYNewWeigh = () => {
       )
     },
     { 
-      label: 'Report & Payment',
-      description: 'Get your compliance report',
+      label: startAtPayment ? '' : 'Report & Payment',
+      // For standard DIY flow we show this description in the header, but when
+      // coming from the Vehicle Only Weighbridge Axle screen (startAtPayment),
+      // we don't want the extra header subtitle because it's not in the mockup.
+      description: startAtPayment ? '' : 'Get your compliance report',
       component: (
         <ReportPreviewAndPayment
-          vehicleData={vehicleData}
+          vehicleData={{
+            ...vehicleData,
+            // Persist DIY axle weigh values inside vehicleData so backend can store them
+            diyAxleWeigh: axleWeigh || vehicleData.diyAxleWeigh
+          }}
           caravanData={caravanData.hasCaravan ? caravanData : null}
           weightsData={weightsData}
+          preWeigh={preWeigh}
           customerData={null}
           onPaymentComplete={handlePaymentComplete}
+          paymentOnly={startAtPayment}
+          amount={startAtPayment ? 9.99 : 20}
         />
       )
     }
@@ -494,70 +481,72 @@ const DIYNewWeigh = () => {
   /* -------------------- UI -------------------- */
   return (
     <>
-      <Box sx={{ 
-        position: 'sticky',
-        top: 0,
-        zIndex: theme.zIndex.appBar,
-        bgcolor: 'background.paper',
-        borderBottom: `1px solid ${theme.palette.divider}`,
-        py: 2
-      }}>
-        <Container maxWidth="lg">
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <IconButton 
-              onClick={handleExit}
-              color="inherit"
-              sx={{ mr: 2 }}
-            >
-              <ArrowBack />
-            </IconButton>
-            <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>
-              {currentStep?.label || 'New Weigh'}
-            </Typography>
-            {currentStep?.description && (
-              <Typography variant="body2" color="text.secondary">
-                {currentStep.description}
-              </Typography>
-            )}
-          </Box>
-          
-          <Stepper 
-            activeStep={stepperActiveIndex}
-            alternativeLabel
-            sx={{ 
-              '& .MuiStepLabel-label': {
-                fontSize: '0.75rem',
-                [theme.breakpoints.up('sm')]: {
-                  fontSize: '0.875rem',
-                },
-              },
-            }}
-          >
-            {activeSteps.map((step) => {
-              const stepIndexInSteps = steps.findIndex(s => s === step);
-              const completed = isStepComplete(stepIndexInSteps);
-              return (
-              <Step 
-                key={step.label} 
-                completed={completed}
-                sx={{
-                  '& .MuiStepLabel-root': {
-                    cursor: 'pointer',
-                  },
-                }}
-                onClick={() => {
-                  // Allow navigation only to previous logical steps
-                  if (stepIndexInSteps < activeStep) {
-                    setActiveStep(stepIndexInSteps);
-                  }
-                }}
+      {!startAtPayment && (
+        <Box sx={{ 
+          position: 'sticky',
+          top: 0,
+          zIndex: theme.zIndex.appBar,
+          bgcolor: 'background.paper',
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          py: 2
+        }}>
+          <Container maxWidth="lg">
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <IconButton 
+                onClick={handleExit}
+                color="inherit"
+                sx={{ mr: 2 }}
               >
-                <StepLabel>{step.label}</StepLabel>
-              </Step>
-            );})}
-          </Stepper>
-        </Container>
-      </Box>
+                <ArrowBack />
+              </IconButton>
+              <Typography variant="h6" component="h1" sx={{ flexGrow: 1 }}>
+                {currentStep?.label || 'New Weigh'}
+              </Typography>
+              {currentStep?.description && (
+                <Typography variant="body2" color="text.secondary">
+                  {currentStep.description}
+                </Typography>
+              )}
+            </Box>
+            
+            <Stepper 
+              activeStep={stepperActiveIndex}
+              alternativeLabel
+              sx={{ 
+                '& .MuiStepLabel-label': {
+                  fontSize: '0.75rem',
+                  [theme.breakpoints.up('sm')]: {
+                    fontSize: '0.875rem',
+                  },
+                },
+              }}
+            >
+              {activeSteps.map((step) => {
+                const stepIndexInSteps = steps.findIndex(s => s === step);
+                const completed = isStepComplete(stepIndexInSteps);
+                return (
+                <Step 
+                  key={step.label} 
+                  completed={completed}
+                  sx={{
+                    '& .MuiStepLabel-root': {
+                      cursor: 'pointer',
+                    },
+                  }}
+                  onClick={() => {
+                    // Allow navigation only to previous logical steps
+                    if (stepIndexInSteps < activeStep) {
+                      setActiveStep(stepIndexInSteps);
+                    }
+                  }}
+                >
+                  <StepLabel>{step.label}</StepLabel>
+                </Step>
+              );})}
+            </Stepper>
+          </Container>
+        </Box>
+      )}
       
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {error && (
@@ -593,34 +582,36 @@ const DIYNewWeigh = () => {
             {isLastStep ? 'Finish' : 'Next'}
           </Button>
         </Box>
-
-        {/* Progress Summary */}
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Progress Summary
-          </Typography>
-          <Paper sx={{ p: 2 }}>
-            <Grid container spacing={2}>
-              {steps.map((step, index) => (
-                <Grid item xs={12} md={2} key={step.label}>
-                  <Card
-                    sx={{
-                      bgcolor: isStepComplete(index)
-                        ? 'success.light'
-                        : index === activeStep
-                        ? 'primary.light'
-                        : 'grey.100'
-                    }}
-                  >
-                    <CardContent sx={{ textAlign: 'center' }}>
-                      <Typography variant="caption">{step.label}</Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-        </Box>
+        
+        {/* Progress Summary - hide for Vehicle Only Weighbridge payment-only flow */}
+        {!startAtPayment && (
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Progress Summary
+            </Typography>
+            <Paper sx={{ p: 2 }}>
+              <Grid container spacing={2}>
+                {steps.map((step, index) => (
+                  <Grid item xs={12} md={2} key={step.label || index}>
+                    <Card
+                      sx={{
+                        bgcolor: isStepComplete(index)
+                          ? 'success.light'
+                          : index === activeStep
+                          ? 'primary.light'
+                          : 'grey.100'
+                      }}
+                    >
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="caption">{step.label}</Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Box>
+        )}
       </Container>
 
       {/* Loading Backdrop */}

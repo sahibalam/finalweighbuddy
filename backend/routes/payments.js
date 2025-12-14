@@ -73,41 +73,75 @@ router.post('/confirm-payment', protect, async (req, res) => {
       });
     }
 
-    // Save the report to database (you'll need to create this model)
+    // For certain flows we defer DB persistence until the user completes
+    // a later step (e.g. DIY Vehicle Only / Weighbridge Axle flow where
+    // the record should only be saved when the user clicks Finish on the
+    // Weigh Results screen).
+    const isVehicleOnlyAxle = reportData?.flowType === 'VEHICLE_ONLY_WEIGHBRIDGE_AXLE';
+
+    // For the special Vehicle Only / Weighbridge Axle DIY flow, do not
+    // create a Weigh record here. We only confirm the payment and let the
+    // frontend save the weigh on the final Weigh Results screen.
+    if (isVehicleOnlyAxle) {
+      return res.json({
+        success: true,
+        message: 'Payment confirmed (weigh will be saved on Finish)',
+        transactionId: paymentIntent.id
+      });
+    }
+
+    // Default behaviour for all other flows: create a Weigh record now.
     const Weigh = require('../models/Weigh');
-    
+
+    // Normalise incoming data so validation does not fail for DIY payment-only flows
+    const customerName = reportData.customerData?.name || req.user.name || 'DIY User';
+    const customerEmail = reportData.customerData?.email || req.user.email || 'unknown@example.com';
+    const customerPhone = reportData.customerData?.phone || req.user.phone || 'N/A';
+
+    const weightsData = reportData.weightsData || {};
+    const vehicleCaravanCombined = Number(weightsData.vehicleCaravanCombined) || 0;
+    const vehicleOnly = Number(weightsData.vehicleOnly) || 0;
+    const caravanOnly = Number(weightsData.caravanOnly) || 0;
+
+    let towBallWeight = 0;
+    if (typeof weightsData.towBallWeight === 'number' && !isNaN(weightsData.towBallWeight)) {
+      towBallWeight = weightsData.towBallWeight;
+    } else if (vehicleCaravanCombined && vehicleOnly) {
+      towBallWeight = vehicleCaravanCombined - vehicleOnly;
+    }
+
     const reportRecord = new Weigh({
       userId: req.user.id,
-      customerName: reportData.customerData?.name,
-      customerEmail: reportData.customerData?.email,
-      customerPhone: reportData.customerData?.phone,
-      
+      customerName,
+      customerEmail,
+      customerPhone,
+
       // Vehicle data
-      vehicleWeightHitched: reportData.weightsData?.vehicleCaravanCombined,
-      vehicleWeightUnhitched: reportData.weightsData?.vehicleOnly,
-      caravanWeight: reportData.weightsData?.caravanOnly,
-      towBallWeight: reportData.weightsData?.towBallWeight || 
-        (reportData.weightsData?.vehicleCaravanCombined - reportData.weightsData?.vehicleOnly),
-      
+      vehicleWeightHitched: vehicleCaravanCombined || vehicleOnly,
+      vehicleWeightUnhitched: vehicleOnly || undefined,
+      caravanWeight: caravanOnly,
+      towBallWeight,
+
       // Individual wheel weights (DIY users don't measure these, so we'll use placeholder values)
       vehicleFrontLeft: 0, // DIY users don't have individual wheel data
       vehicleFrontRight: 0,
       vehicleRearLeft: 0, 
       vehicleRearRight: 0,
-      
+
       // Vehicle specification data (for admin review if user-provided)
       vehicleData: reportData.vehicleData,
       caravanData: reportData.caravanData,
-      
+      preWeigh: reportData.preWeigh,
+
       // DATA GOVERNANCE: Flag user-provided data for admin review
       hasUserProvidedVehicleData: reportData.vehicleData?.dataSource === 'USER_PROVIDED',
       hasUserProvidedCaravanData: reportData.caravanData?.dataSource === 'USER_PROVIDED',
       requiresAdminReview: (reportData.vehicleData?.dataSource === 'USER_PROVIDED' || 
                            reportData.caravanData?.dataSource === 'USER_PROVIDED'),
-      
+
       // Compliance results
       complianceResults: reportData.complianceResults,
-      
+
       // Payment information
       payment: {
         method: 'stripe',
@@ -117,7 +151,7 @@ router.post('/confirm-payment', protect, async (req, res) => {
         status: 'completed',
         paidAt: new Date()
       },
-      
+
       status: 'completed'
     });
 

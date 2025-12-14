@@ -23,23 +23,32 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import StripePaymentForm from './StripePaymentForm';
+import { useNavigate } from 'react-router-dom';
 
 const ReportPreviewAndPayment = ({
   vehicleData,
   caravanData,
   weightsData,
   customerData,
-  onPaymentComplete
+  preWeigh,
+  onPaymentComplete,
+  paymentOnly = false,
+  amount = 20
 }) => {
+  const navigate = useNavigate();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [previewReport, setPreviewReport] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
-    // Generate preview report
-    generatePreviewReport();
-  }, [vehicleData, caravanData, weightsData]);
+    // For the standard flow, generate a compliance preview.
+    // For the "payment only" flow (Vehicle Only / Weighbridge Axle),
+    // we don't need a preview.
+    if (!paymentOnly) {
+      generatePreviewReport();
+    }
+  }, [vehicleData, caravanData, weightsData, paymentOnly]);
 
   const generatePreviewReport = () => {
     const results = {};
@@ -124,6 +133,18 @@ const ReportPreviewAndPayment = ({
     if (onPaymentComplete) {
       onPaymentComplete();
     }
+
+    // For the Vehicle Only Weighbridge payment-only flow, redirect
+    // to the next screen in the flow (Weighbridge - In Ground 3) and
+    // carry through preWeigh + DIY axle weigh values.
+    if (paymentOnly) {
+      navigate('/vehicle-only-weighbridge-rego', {
+        state: {
+          preWeigh,
+          axleWeigh: vehicleData?.diyAxleWeigh || null
+        }
+      });
+    }
   };
 
   const handlePaymentError = (error) => {
@@ -132,6 +153,41 @@ const ReportPreviewAndPayment = ({
   };
 
 
+  // PAYMENT-ONLY VIEW (Vehicle Only / Weighbridge - In Ground - Individual Axle Weights)
+  if (paymentOnly) {
+    return (
+      <Box sx={{ maxWidth: 600, mx: 'auto', py: 4 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Vehicle Only
+        </Typography>
+        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+          Weighbridge - In Ground - Individual Axle Weights
+        </Typography>
+        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4 }}>
+          Payment due ${amount}
+        </Typography>
+
+        <StripePaymentForm
+          amount={amount}
+          currency="aud"
+          reportData={{
+            customerData,
+            vehicleData,
+            caravanData,
+            weightsData,
+            complianceResults: previewReport,
+            preWeigh,
+            // Flag this as the special Vehicle Only / Weighbridge Axle DIY flow
+            flowType: 'VEHICLE_ONLY_WEIGHBRIDGE_AXLE'
+          }}
+          onSuccess={handlePaymentSuccess}
+          onError={handlePaymentError}
+        />
+      </Box>
+    );
+  }
+
+  // DEFAULT: Existing preview + payment flow
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
       <motion.div
@@ -264,7 +320,8 @@ const ReportPreviewAndPayment = ({
               vehicleData,
               caravanData,
               weightsData,
-              complianceResults: previewReport
+              complianceResults: previewReport,
+              preWeigh
             }}
             onSuccess={handlePaymentSuccess}
             onError={handlePaymentError}
@@ -281,6 +338,7 @@ const ReportPreviewAndPayment = ({
       </Dialog>
     </Box>
   );
-};
+}
+;
 
 export default ReportPreviewAndPayment;

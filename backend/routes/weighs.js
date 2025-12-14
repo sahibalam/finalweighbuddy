@@ -54,6 +54,7 @@ router.post('/', protect, checkSubscription, [
       vehicleNumberPlate,
       caravanNumberPlate,
       weights,
+      preWeigh,
       notes,
       payment: clientPayment
     } = req.body;
@@ -197,6 +198,7 @@ router.post('/', protect, checkSubscription, [
       },
       caravanData: caravan.toObject(),
       weights,
+      preWeigh,
       notes,
       complianceResults: {
         vehicle: vehicleCompliance,
@@ -254,11 +256,7 @@ router.post('/', protect, checkSubscription, [
 
     res.status(201).json({
       success: true,
-      weigh,
-      user: {
-        weighCount: user.weighCount,
-        freeWeighs: user.freeWeighs
-      }
+      weighId: weigh._id
     });
   } catch (error) {
     console.error(error);
@@ -268,6 +266,225 @@ router.post('/', protect, checkSubscription, [
     });
   }
 });
+
+// @desc    Create a simple DIY weigh entry for Vehicle Only / Weighbridge Axle flow
+// @route   POST /api/weighs/diy-vehicle-only
+// @access  Private (DIY user)
+router.post('/diy-vehicle-only', protect, async (req, res) => {
+  try {
+    const {
+      vehicleSummary = {},
+      preWeigh = {},
+      notes,
+      payment: clientPayment = {}
+    } = req.body || {};
+
+    const totalUnhitched = Number(vehicleSummary.gvmUnhitched) || 0;
+    const frontUnhitched = Number(vehicleSummary.frontUnhitched) || 0;
+    const rearUnhitched = Number(vehicleSummary.rearUnhitched) || 0;
+
+    // Basic customer details from the authenticated DIY user
+    const customerName = req.user.name || 'DIY User';
+    const customerEmail = req.user.email || 'unknown@example.com';
+    const customerPhone = req.user.phone || 'N/A';
+
+    const weigh = new Weigh({
+      userId: req.user.id,
+      customerName,
+      customerEmail,
+      customerPhone,
+
+      // Vehicle-only DIY flow: treat the unhitched total as both hitched
+      // and unhitched so required fields are satisfied. Caravan-related
+      // fields are zero as there is no caravan in this flow.
+      vehicleWeightHitched: totalUnhitched,
+      vehicleWeightUnhitched: totalUnhitched,
+      caravanWeight: 0,
+      towBallWeight: 0,
+
+      // Store a light vehicle summary (from Info-Agent / lookup + DIY axle calc)
+      vehicleData: {
+        description: vehicleSummary.description,
+        numberPlate: vehicleSummary.rego,
+        state: vehicleSummary.state,
+        vin: vehicleSummary.vin,
+        gvm: vehicleSummary.gvmUnhitched,
+        frontAxleUnhitched: frontUnhitched,
+        rearAxleUnhitched: rearUnhitched
+      },
+
+      preWeigh,
+      notes,
+
+      // Minimal complianceResults stub for DIY record
+      complianceResults: {
+        vehicle: {
+          gvm: {
+            actual: totalUnhitched,
+            limit: vehicleSummary.gvmUnhitched || 0,
+            compliant: true,
+            percentage: 0
+          }
+        },
+        overallCompliant: true
+      },
+
+      payment: {
+        method: 'stripe',
+        amount: typeof clientPayment.amount === 'number' ? clientPayment.amount : 20,
+        status: 'completed',
+        transactionId: clientPayment.transactionId
+      },
+
+      status: 'completed'
+    });
+
+    await weigh.save();
+
+    res.status(201).json({
+      success: true,
+      weighId: weigh._id
+    });
+  } catch (error) {
+    console.error('Error creating DIY vehicle-only weigh:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while saving DIY vehicle-only weigh'
+    });
+  }
+});
+
+// @desc    Generate PDF report for DIY Vehicle Only / Weighbridge Axle flow
+// @route   POST /api/weighs/diy-vehicle-only/report
+// @access  Private
+router.post('/diy-vehicle-only/report', protect, async (req, res) => {
+  try {
+    const { vehicleInfo = {}, measured = {}, capacities = {}, capacityDiff = {}, carInfo = {}, notes = '' } = req.body || {};
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=diy-vehicle-only-weigh.pdf');
+
+    doc.pipe(res);
+
+    // Vehicle image above the table
+    const vehicleImagePath = path.join(__dirname, '..', 'assets', 'vehicle.png');
+    try {
+      doc.image(vehicleImagePath, 220, 120, { width: 250 });
+    } catch (imgErr) {
+      console.error('Failed to render vehicle image for DIY report:', imgErr?.message || imgErr);
+    }
+
+    // Header
+    doc.fontSize(16).text('Weighbuddy DIY Vehicle-Only Weigh Report', { align: 'center' });
+    doc.moveDown(1);
+
+    // Vehicle summary
+    doc.fontSize(10);
+    doc.text(`Car Rego: ${vehicleInfo.rego || '-'}`, { continued: true }).text(`   State: ${vehicleInfo.state || '-'}`);
+    doc.text(`Make/Model: ${vehicleInfo.description || '-'}`);
+    doc.text(`VIN: ${vehicleInfo.vin || '-'}`);
+
+    doc.moveDown(1.2);
+
+    // Compliance table header - place just below the vehicle image.
+    // The image is drawn at y=120 with height ~250, so a tableTop of ~360 keeps
+    // it close but not overlapping.
+    const tableTop = Math.max(doc.y + 10, 360);
+    const colWidth = 120;
+    const startX = 150;
+
+    const columns = ['Rear Axle', 'GVM', 'Front Axle'];
+    const rows = ['Compliance', 'Weights Recorded', 'Capacity', 'Result'];
+
+    doc.fontSize(10);
+
+    // Column headers (with header row background + borders)
+    const headerHeight = 20;
+    const totalTableWidth = colWidth * columns.length;
+
+    // Draw header background and outer border for header row
+    doc.save();
+    doc.rect(startX - 80, tableTop, 80 + totalTableWidth, headerHeight).stroke('#bdbdbd');
+    doc.rect(startX - 80, tableTop, 80, headerHeight).fillAndStroke('#f5f5f5', '#bdbdbd');
+    columns.forEach((_, idx) => {
+      doc.rect(startX + idx * colWidth, tableTop, colWidth, headerHeight).fillAndStroke('#e8f4ff', '#bdbdbd');
+    });
+    doc.restore();
+
+    doc.fontSize(10);
+    doc.text('', startX - 80, tableTop + 4); // empty corner label
+    columns.forEach((col, idx) => {
+      doc.text(col, startX + idx * colWidth, tableTop + 4, { width: colWidth, align: 'center' });
+    });
+
+    const rowHeight = 18;
+    let y = tableTop + headerHeight;
+
+    const val = (v) => (v || v === 0 ? v : '-');
+
+    rows.forEach((rowLabel) => {
+      // Row background & borders
+      doc.rect(startX - 80, y, 80 + totalTableWidth, rowHeight).stroke('#bdbdbd');
+
+      // Row label cell
+      doc.text(rowLabel, startX - 80 + 4, y + 4, { width: 80 - 8, align: 'left' });
+
+      let rearVal, gvmVal, frontVal;
+
+      if (rowLabel === 'Compliance') {
+        rearVal = measured.rear;
+        gvmVal = measured.gvm;
+        frontVal = measured.front;
+      } else if (rowLabel === 'Weights Recorded') {
+        rearVal = capacities.rear;
+        gvmVal = capacities.gvm;
+        frontVal = capacities.front;
+      } else if (rowLabel === 'Capacity') {
+        rearVal = capacityDiff.rear;
+        gvmVal = capacityDiff.gvm;
+        frontVal = capacityDiff.front;
+      } else if (rowLabel === 'Result') {
+        const rearOk = typeof measured.rear === 'number' && typeof capacities.rear === 'number' ? measured.rear <= capacities.rear : true;
+        const gvmOk = typeof measured.gvm === 'number' && typeof capacities.gvm === 'number' ? measured.gvm <= capacities.gvm : true;
+        const frontOk = typeof measured.front === 'number' && typeof capacities.front === 'number' ? measured.front <= capacities.front : true;
+        rearVal = rearOk ? 'OK' : 'OVER';
+        gvmVal = gvmOk ? 'OK' : 'OVER';
+        frontVal = frontOk ? 'OK' : 'OVER';
+      }
+
+      [rearVal, gvmVal, frontVal].forEach((value, idx) => {
+        // Vertical cell borders
+        doc.rect(startX + idx * colWidth, y, colWidth, rowHeight).stroke('#bdbdbd');
+        doc.text(String(val(value)), startX + idx * colWidth, y + 4, { width: colWidth, align: 'center' });
+      });
+
+      y += rowHeight;
+    });
+
+    doc.moveDown(3);
+
+    // Car information and additional notes
+    const infoTop = y + 10;
+    doc.text('Car Information', 50, infoTop);
+    doc.text(`Fuel: ${carInfo.fuelLevel != null ? carInfo.fuelLevel + '%' : '-'}`, 50, infoTop + 14);
+    doc.text(`Passengers Front: ${carInfo.passengersFront ?? '-'}`, 50, infoTop + 28);
+    doc.text(`Passengers Rear: ${carInfo.passengersRear ?? '-'}`, 50, infoTop + 42);
+
+    doc.text('Additional Notes', 300, infoTop);
+    doc.text(notes || '-', 300, infoTop + 14, { width: 400 });
+
+    doc.end();
+  } catch (error) {
+    console.error('Error generating DIY vehicle-only report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating report'
+    });
+  }
+});
+ 
 
 // @desc    Get all weigh entries for user
 // @route   GET /api/weighs

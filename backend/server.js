@@ -20,7 +20,7 @@ const uploadRoutes = require('./routes/uploads');
 const submissionRoutes = require('./routes/submissions');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Security middleware
 app.use(helmet());

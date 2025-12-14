@@ -140,6 +140,29 @@ const weighSchema = new mongoose.Schema({
     default: 'Empty'
   },
   
+  // DIY pre-weigh information (Vehicle Only screen)
+  preWeigh: {
+    fuelLevel: {
+      type: Number,
+      min: [0, 'Fuel level must be non-negative'],
+      max: [100, 'Fuel level cannot exceed 100%']
+    },
+    passengersFront: {
+      type: Number,
+      min: [0, 'Passenger count must be non-negative'],
+      default: 0
+    },
+    passengersRear: {
+      type: Number,
+      min: [0, 'Passenger count must be non-negative'],
+      default: 0
+    },
+    notes: {
+      type: String,
+      trim: true
+    }
+  },
+  
   // Image uploads
   vehiclePlateImageUrl: {
     type: String,

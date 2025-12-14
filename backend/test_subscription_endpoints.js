@@ -7,7 +7,7 @@ async function testSubscriptionEndpoints() {
     // Test 1: Get subscription plans (public endpoint)
     console.log('1. Testing /api/subscriptions/plans');
     try {
-      const plansResponse = await axios.get('http://localhost:5000/api/subscriptions/plans');
+      const plansResponse = await axios.get('http://localhost:5001/api/subscriptions/plans');
       console.log('✅ Plans endpoint working');
       console.log('Available plans:', Object.keys(plansResponse.data.plans));
     } catch (error) {
@@ -17,7 +17,7 @@ async function testSubscriptionEndpoints() {
     // Test 2: Check if server is running
     console.log('\n2. Testing server health');
     try {
-      const healthResponse = await axios.get('http://localhost:5000/api/health');
+      const healthResponse = await axios.get('http://localhost:5001/api/health');
       console.log('✅ Server is running');
       console.log('Server status:', healthResponse.data.status);
     } catch (error) {
