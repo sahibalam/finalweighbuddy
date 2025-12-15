@@ -22,6 +22,14 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
   const [vin, setVin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const methodSelection = location.state?.methodSelection || '';
+  const weighingSelection = location.state?.weighingSelection || '';
+
+  const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
+  const headingLabel =
+    weighingSelection === 'tow_vehicle_and_caravan'
+      ? 'Tow Vehicle and Caravan/Trailer'
+      : 'Vehicle Only';
 
   const handleContinue = async () => {
     setError('');
@@ -66,13 +74,38 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
           vehicleFromLookup: lookupVehicle,
           lookupSource,
           preWeigh: location.state?.preWeigh || null,
-          axleWeigh: location.state?.axleWeigh || null
+          axleWeigh: location.state?.axleWeigh || null,
+          tyreWeigh: location.state?.tyreWeigh || null,
+          methodSelection,
+          weighingSelection
         }
       });
     } catch (err) {
       console.error('Error looking up vehicle by plate:', err);
-      const message = err.response?.data?.message || 'Failed to lookup vehicle. Please try again or enter details manually.';
-      setError(message);
+
+      // If the backend explicitly reports a 404 (vehicle not found), allow the
+      // user to proceed to the manual entry screen with a warning.
+      if (err.response?.status === 404) {
+        setError('Vehicle not found in database or Info-Agent. Please fill details manually on the next screen.');
+
+        navigate('/vehicle-only-weighbridge-confirm', {
+          state: {
+            rego,
+            state,
+            vin,
+            vehicleFromLookup: null,
+            lookupSource: null,
+            preWeigh: location.state?.preWeigh || null,
+            axleWeigh: location.state?.axleWeigh || null,
+            tyreWeigh: location.state?.tyreWeigh || null,
+            methodSelection,
+            weighingSelection
+          }
+        });
+      } else {
+        const message = err.response?.data?.message || 'Failed to lookup vehicle. Please try again or enter details manually.';
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -99,10 +132,10 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Vehicle Only
+            {headingLabel}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Weighbridge - In Ground - Individual Axle Weights
+            {methodLabel}
           </Typography>
 
           <Typography
@@ -155,16 +188,18 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
           <Box sx={{ flexGrow: 1 }} />
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              YYYY Weigh Buddy. All rights reserved ABN 29 669 902 345
-            </Typography>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary">
+                2026 Weigh Buddy. All rights reserved ABN 29 669 902 345
+              </Typography>
+            </Box>
             <Button
               variant="contained"
               color="primary"
               onClick={handleContinue}
               disabled={loading}
             >
-              {loading ? 'Looking up…' : 'Save and Continue'}
+              Save and Continue
             </Button>
           </Box>
         </Paper>

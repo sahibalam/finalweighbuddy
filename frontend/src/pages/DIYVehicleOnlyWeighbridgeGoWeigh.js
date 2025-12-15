@@ -9,19 +9,21 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const DIYVehicleOnlyWeighbridgeAxle = () => {
+const DIYVehicleOnlyWeighbridgeGoWeigh = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [frontAxle, setFrontAxle] = useState('');
+  const [rearAxle, setRearAxle] = useState('');
   const [gvm, setGvm] = useState('');
 
+  const methodSelection = location.state?.methodSelection || 'Weighbridge - goweigh';
+
   const handleContinue = () => {
-    // Pass through any existing state (preWeigh/method, etc.) and
-    // also include the axle weigh data so DIYNewWeigh can persist it
     const state = location.state || {};
 
     const axleWeigh = {
       frontAxle: frontAxle ? Number(frontAxle) : null,
+      rearAxle: rearAxle ? Number(rearAxle) : null,
       gvm: gvm ? Number(gvm) : null
     };
 
@@ -58,7 +60,7 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
             Vehicle Only
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Weighbridge - In Ground - Individual Axle Weights
+            {methodSelection}
           </Typography>
 
           <Typography
@@ -68,12 +70,16 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
             Weigh Vehicle
           </Typography>
 
+          <Typography variant="body2" sx={{ mb: 3 }}>
+            Follow the Go Weigh procedure and enter the values from the weighbridge ticket.
+          </Typography>
+
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <Typography
               variant="body1"
-              sx={{ minWidth: 260 }}
+              sx={{ minWidth: 180 }}
             >
-              Drive front axle of vehicle onto Weighbridge
+              Front Axle
             </Typography>
             <TextField
               value={frontAxle}
@@ -87,9 +93,25 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <Typography
               variant="body1"
-              sx={{ minWidth: 260 }}
+              sx={{ minWidth: 180 }}
             >
-              Drive whole vehicle onto Weighbridge
+              Rear Axle
+            </Typography>
+            <TextField
+              value={rearAxle}
+              onChange={(e) => setRearAxle(e.target.value)}
+              placeholder="Rear Axle"
+              sx={{ width: 200, mr: 1 }}
+            />
+            <Typography variant="body1">kg</Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+            <Typography
+              variant="body1"
+              sx={{ minWidth: 180 }}
+            >
+              Car Weight (GVM)
             </Typography>
             <TextField
               value={gvm}
@@ -129,4 +151,4 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
   );
 };
 
-export default DIYVehicleOnlyWeighbridgeAxle;
+export default DIYVehicleOnlyWeighbridgeGoWeigh;

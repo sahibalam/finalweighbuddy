@@ -33,7 +33,9 @@ const ReportPreviewAndPayment = ({
   preWeigh,
   onPaymentComplete,
   paymentOnly = false,
-  amount = 20
+  amount = 20,
+  vehicleOnlyMethodLabel = '',
+  weighingSelection = ''
 }) => {
   const navigate = useNavigate();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -141,7 +143,10 @@ const ReportPreviewAndPayment = ({
       navigate('/vehicle-only-weighbridge-rego', {
         state: {
           preWeigh,
-          axleWeigh: vehicleData?.diyAxleWeigh || null
+          axleWeigh: vehicleData?.diyAxleWeigh || null,
+          tyreWeigh: vehicleData?.diyTyreWeigh || null,
+          methodSelection: vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights',
+          weighingSelection
         }
       });
     }
@@ -153,15 +158,20 @@ const ReportPreviewAndPayment = ({
   };
 
 
-  // PAYMENT-ONLY VIEW (Vehicle Only / Weighbridge - In Ground - Individual Axle Weights)
+  // PAYMENT-ONLY VIEW (Vehicle Only / Tow Vehicle and Caravan/Trailer, Weighbridge - In Ground - Individual Axle Weights)
   if (paymentOnly) {
+    const methodText = vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights';
+    const headingText =
+      weighingSelection === 'tow_vehicle_and_caravan'
+        ? 'Tow Vehicle and Caravan/Trailer'
+        : 'Vehicle Only';
     return (
       <Box sx={{ maxWidth: 600, mx: 'auto', py: 4 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>
-          Vehicle Only
+          {headingText}
         </Typography>
         <Typography variant="subtitle1" sx={{ mb: 2 }}>
-          Weighbridge - In Ground - Individual Axle Weights
+          {methodText}
         </Typography>
         <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 4 }}>
           Payment due ${amount}

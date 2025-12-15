@@ -172,6 +172,12 @@ const weighSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  modifiedVehicleComplianceImages: [
+    {
+      type: String,
+      trim: true
+    }
+  ],
   
   // Compliance results
   complianceResults: {

@@ -9,42 +9,49 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const DIYVehicleOnlyInfo = () => {
+const DIYTowCaravanInfo = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [fuelLevel, setFuelLevel] = useState('');
   const [frontPassengers, setFrontPassengers] = useState('');
   const [rearPassengers, setRearPassengers] = useState('');
+  const [waterTankCount, setWaterTankCount] = useState('');
+  const [waterTankFullCount, setWaterTankFullCount] = useState('');
+  const [waterTotalLitres, setWaterTotalLitres] = useState('');
   const [notes, setNotes] = useState('');
 
   const handleContinue = () => {
     const fuelValue = parseFloat(fuelLevel) || 0;
     const baseState = location.state || {};
-    const { weighingSelection, methodSelection } = baseState;
+    const { methodSelection } = baseState;
+
+    const preWeigh = {
+      fuelLevel: fuelValue,
+      passengersFront: frontPassengers ? 2 : 0,
+      passengersRear: rearPassengers ? 3 : 0,
+      waterTankCount: waterTankCount || null,
+      waterTankFullCount: waterTankFullCount || null,
+      waterTotalLitres: waterTotalLitres || null,
+      notes
+    };
 
     let nextPath = '/diy-weigh';
 
-    if (weighingSelection === 'vehicle_only') {
-      if (methodSelection === 'Weighbridge - In Ground - Individual Axle Weights') {
-        nextPath = '/vehicle-only-weighbridge-axle';
-      } else if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
-        nextPath = '/vehicle-only-portable-tyres';
-      } else if (methodSelection === 'Weighbridge - goweigh') {
-        nextPath = '/vehicle-only-weighbridge-goweigh';
-      } else if (methodSelection === 'Weighbridge - Above Ground') {
-        nextPath = '/vehicle-only-weighbridge-above-ground';
-      }
+    if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
+      nextPath = '/tow-caravan-portable-tyres';
+    } else if (methodSelection === 'Weighbridge - In Ground - Tow Vehicle and Trailer are level and Individual Axle Weights can be recorded') {
+      nextPath = '/tow-caravan-weighbridge-in-ground';
+    } else if (methodSelection === 'Weighbridge - goweigh') {
+      nextPath = '/tow-caravan-weighbridge-goweigh';
+    } else if (methodSelection === 'Weighbridge - Above Ground - Single Cell - Tow Vehicle and Trailer are no level limiting the ability to record individual axle weights.') {
+      nextPath = '/tow-caravan-weighbridge-above-ground';
     }
 
     navigate(nextPath, {
       state: {
         ...baseState,
-        preWeigh: {
-          fuelLevel: fuelValue,
-          passengersFront: frontPassengers ? 2 : 0,
-          passengersRear: rearPassengers ? 3 : 0,
-          notes
-        }
+        preWeigh
       }
     });
   };
@@ -69,12 +76,9 @@ const DIYVehicleOnlyInfo = () => {
             flexDirection: 'column'
           }}
         >
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Vehicle only
-          </Typography>
           <Typography
             variant="h5"
-            sx={{ fontWeight: 'bold', mb: 4 }}
+            sx={{ fontWeight: 'bold', mb: 4, textAlign: 'center' }}
           >
             Important information to start the weighing process
           </Typography>
@@ -116,6 +120,34 @@ const DIYVehicleOnlyInfo = () => {
             >
               Rear 1 to 3
             </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+            <Typography
+              variant="body1"
+              sx={{ minWidth: 150 }}
+            >
+              Water in Caravan/Trailer
+            </Typography>
+            <TextField
+              value={waterTankCount}
+              onChange={(e) => setWaterTankCount(e.target.value)}
+              placeholder="Number of Tanks 1-5"
+              sx={{ width: 180, mr: 2 }}
+            />
+            <TextField
+              value={waterTankFullCount}
+              onChange={(e) => setWaterTankFullCount(e.target.value)}
+              placeholder="Number full"
+              sx={{ width: 140, mr: 2 }}
+            />
+            <TextField
+              value={waterTotalLitres}
+              onChange={(e) => setWaterTotalLitres(e.target.value)}
+              placeholder="Total Ltrs"
+              sx={{ width: 140, mr: 1 }}
+            />
+            <Typography variant="body1">Ltrs</Typography>
           </Box>
 
           <Typography
@@ -163,4 +195,4 @@ const DIYVehicleOnlyInfo = () => {
   );
 };
 
-export default DIYVehicleOnlyInfo;
+export default DIYTowCaravanInfo;

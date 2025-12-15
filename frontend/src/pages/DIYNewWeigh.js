@@ -38,6 +38,8 @@ const DIYNewWeigh = () => {
   const theme = useTheme();
   const location = useLocation();
   const startAtPayment = !!location.state?.startAtPayment;
+  const vehicleOnlyMethodLabel = location.state?.methodSelection || '';
+  const weighingSelection = location.state?.weighingSelection || '';
 
   /* -------------------- STATE -------------------- */
   const [activeStep, setActiveStep] = useState(0);
@@ -115,6 +117,7 @@ const DIYNewWeigh = () => {
   const [paymentStatus, setPaymentStatus] = useState('pending'); // 'pending', 'processing', 'completed', 'failed'
   const [preWeigh, setPreWeigh] = useState(null);
   const [axleWeigh, setAxleWeigh] = useState(null); // DIY Vehicle Only Weighbridge Axle screen values
+  const [tyreWeigh, setTyreWeigh] = useState(null); // DIY Vehicle Only Portable Scales 4-tyre values
 
   useEffect(() => {
     if (location.state) {
@@ -123,6 +126,9 @@ const DIYNewWeigh = () => {
       }
       if (location.state.axleWeigh) {
         setAxleWeigh(location.state.axleWeigh);
+      }
+      if (location.state.tyreWeigh) {
+        setTyreWeigh(location.state.tyreWeigh);
       }
 
       // If coming from the Vehicle Only Weighbridge Axle screen with a request
@@ -424,8 +430,9 @@ const DIYNewWeigh = () => {
         <ReportPreviewAndPayment
           vehicleData={{
             ...vehicleData,
-            // Persist DIY axle weigh values inside vehicleData so backend can store them
-            diyAxleWeigh: axleWeigh || vehicleData.diyAxleWeigh
+            // Persist DIY axle weigh / portable tyre values inside vehicleData so backend can store them
+            diyAxleWeigh: axleWeigh || vehicleData.diyAxleWeigh,
+            diyTyreWeigh: tyreWeigh || vehicleData.diyTyreWeigh
           }}
           caravanData={caravanData.hasCaravan ? caravanData : null}
           weightsData={weightsData}
@@ -434,6 +441,8 @@ const DIYNewWeigh = () => {
           onPaymentComplete={handlePaymentComplete}
           paymentOnly={startAtPayment}
           amount={startAtPayment ? 9.99 : 20}
+          vehicleOnlyMethodLabel={vehicleOnlyMethodLabel}
+          weighingSelection={weighingSelection}
         />
       )
     }

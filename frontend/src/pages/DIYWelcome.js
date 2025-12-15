@@ -63,9 +63,13 @@ const DIYWelcome = () => {
       return;
     }
 
-    const targetPath = weighingSelection === 'vehicle_only'
-      ? '/vehicle-only-info'
-      : '/diy-weigh';
+    let targetPath = '/diy-weigh';
+
+    if (weighingSelection === 'vehicle_only') {
+      targetPath = '/vehicle-only-info';
+    } else if (weighingSelection === 'tow_vehicle_and_caravan') {
+      targetPath = '/tow-caravan-info';
+    }
 
     navigate(targetPath, {
       state: {
@@ -167,7 +171,7 @@ const DIYWelcome = () => {
 
           {renderIntroText()}
 
-          {weighingSelection && weighingSelection !== 'vehicle_only' && (
+          {weighingSelection && weighingSelection !== 'vehicle_only' && weighingSelection !== 'tow_vehicle_and_caravan' && (
             <Box sx={{ mt: 6 }}>
               <Typography
                 variant="body1"
@@ -204,9 +208,11 @@ const DIYWelcome = () => {
           <Divider sx={{ my: 3 }} />
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              YYYY Weigh Buddy. All rights reserved ABN 29 669 902 345
-            </Typography>
+            <Box sx={{ mt: 4, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary">
+                2026 Weigh Buddy. All rights reserved ABN 29 669 902 345
+              </Typography>
+            </Box>
             <Button
               variant="contained"
               color="primary"

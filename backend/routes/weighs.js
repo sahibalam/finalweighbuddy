@@ -276,7 +276,8 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
       vehicleSummary = {},
       preWeigh = {},
       notes,
-      payment: clientPayment = {}
+      payment: clientPayment = {},
+      modifiedVehicleImages = []
     } = req.body || {};
 
     const totalUnhitched = Number(vehicleSummary.gvmUnhitched) || 0;
@@ -312,6 +313,11 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
         frontAxleUnhitched: frontUnhitched,
         rearAxleUnhitched: rearUnhitched
       },
+
+      // Store any uploaded modified compliance plate images (up to 3 URLs)
+      modifiedVehicleComplianceImages: Array.isArray(modifiedVehicleImages)
+        ? modifiedVehicleImages.slice(0, 3)
+        : [],
 
       preWeigh,
       notes,
@@ -359,7 +365,7 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
 // @access  Private
 router.post('/diy-vehicle-only/report', protect, async (req, res) => {
   try {
-    const { vehicleInfo = {}, measured = {}, capacities = {}, capacityDiff = {}, carInfo = {}, notes = '' } = req.body || {};
+    const { vehicleInfo = {}, measured = {}, capacities = {}, capacityDiff = {}, carInfo = {}, notes = '', methodSelection = '' } = req.body || {};
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36 });
 
@@ -403,6 +409,20 @@ router.post('/diy-vehicle-only/report', protect, async (req, res) => {
     // Column headers (with header row background + borders)
     const headerHeight = 20;
     const totalTableWidth = colWidth * columns.length;
+
+    // Portable scales visual: individual tyre layout image to the right of the table
+    if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
+      const tyreImagePath = path.join(__dirname, '..', 'assets', 'individual-tyre.png');
+      try {
+        // Position the image starting just to the right of the table, higher above the table top
+        const imageX = startX + totalTableWidth + 40;
+        const imageY = tableTop - 120;
+        // Make the image larger to better use the available right-hand space
+        doc.image(tyreImagePath, imageX, imageY, { width: 260 });
+      } catch (imgErr) {
+        console.error('Failed to render individual tyre image for DIY report:', imgErr?.message || imgErr);
+      }
+    }
 
     // Draw header background and outer border for header row
     doc.save();

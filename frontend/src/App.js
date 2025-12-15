@@ -11,8 +11,19 @@ import Dashboard from './pages/Dashboard';
 import NewWeigh from './pages/NewWeigh';
 import DIYNewWeigh from './pages/DIYNewWeigh';
 import DIYWelcome from './pages/DIYWelcome';
+import DIYTowCaravanInfo from './pages/DIYTowCaravanInfo';
+import DIYTowCaravanPortableTyres from './pages/DIYTowCaravanPortableTyres';
+import DIYTowCaravanWeighbridgeInGround from './pages/DIYTowCaravanWeighbridgeInGround';
+import DIYTowCaravanWeighbridgeGoWeigh from './pages/DIYTowCaravanWeighbridgeGoWeigh';
+import DIYTowCaravanWeighbridgeAboveGround from './pages/DIYTowCaravanWeighbridgeAboveGround';
+import DIYTowCaravanWeighbridgeCaravanRego from './pages/DIYTowCaravanWeighbridgeCaravanRego';
+import DIYTowCaravanWeighbridgeCaravanConfirm from './pages/DIYTowCaravanWeighbridgeCaravanConfirm';
+import DIYTowCaravanUnhitchedWeighbridgeAxle from './pages/DIYTowCaravanUnhitchedWeighbridgeAxle';
 import DIYVehicleOnlyInfo from './pages/DIYVehicleOnlyInfo';
 import DIYVehicleOnlyWeighbridgeAxle from './pages/DIYVehicleOnlyWeighbridgeAxle';
+import DIYVehicleOnlyWeighbridgeGoWeigh from './pages/DIYVehicleOnlyWeighbridgeGoWeigh';
+import DIYVehicleOnlyWeighbridgeAboveGround from './pages/DIYVehicleOnlyWeighbridgeAboveGround';
+import DIYVehicleOnlyPortableTyres from './pages/DIYVehicleOnlyPortableTyres';
 import DIYVehicleOnlyWeighbridgeRego from './pages/DIYVehicleOnlyWeighbridgeRego';
 import DIYVehicleOnlyWeighbridgeConfirm from './pages/DIYVehicleOnlyWeighbridgeConfirm';
 import DIYVehicleOnlyWeighbridgeResults from './pages/DIYVehicleOnlyWeighbridgeResults';
@@ -65,10 +76,98 @@ function App() {
             </PrivateRoute>
           } />
 
+          <Route path="/tow-caravan-info" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanInfo />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-portable-tyres" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanPortableTyres />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-weighbridge-in-ground" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanWeighbridgeInGround />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-weighbridge-goweigh" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanWeighbridgeGoWeigh />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-weighbridge-above-ground" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanWeighbridgeAboveGround />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-weighbridge-caravan-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanWeighbridgeCaravanRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-weighbridge-caravan-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanWeighbridgeCaravanConfirm />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-unhitched-weighbridge-axle" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanUnhitchedWeighbridgeAxle />
+              </Layout>
+            </PrivateRoute>
+          } />
+
           <Route path="/vehicle-only-weighbridge-axle" element={
             <PrivateRoute>
               <Layout>
                 <DIYVehicleOnlyWeighbridgeAxle />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-weighbridge-goweigh" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyWeighbridgeGoWeigh />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-weighbridge-above-ground" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyWeighbridgeAboveGround />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/vehicle-only-portable-tyres" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYVehicleOnlyPortableTyres />
               </Layout>
             </PrivateRoute>
           } />

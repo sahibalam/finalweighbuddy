@@ -9,15 +9,13 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const DIYVehicleOnlyWeighbridgeAxle = () => {
+const DIYTowCaravanUnhitchedWeighbridgeAxle = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [frontAxle, setFrontAxle] = useState('');
   const [gvm, setGvm] = useState('');
 
   const handleContinue = () => {
-    // Pass through any existing state (preWeigh/method, etc.) and
-    // also include the axle weigh data so DIYNewWeigh can persist it
     const state = location.state || {};
 
     const axleWeigh = {
@@ -55,7 +53,7 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Vehicle Only
+            Tow Vehicle and Caravan/Trailer
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Weighbridge - In Ground - Individual Axle Weights
@@ -63,9 +61,13 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
 
           <Typography
             variant="h5"
-            sx={{ fontWeight: 'bold', mb: 4 }}
+            sx={{ fontWeight: 'bold', mb: 2 }}
           >
-            Weigh Vehicle
+            Weigh Unhitched Tow Vehicle (Car Only)
+          </Typography>
+
+          <Typography variant="body2" sx={{ mb: 4 }}>
+            Ensure Caravan/Trailer is disconnected/unhitched.
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
@@ -73,7 +75,7 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
               variant="body1"
               sx={{ minWidth: 260 }}
             >
-              Drive front axle of vehicle onto Weighbridge
+              Drive front axle of unhitched vehicle onto Weighbridge
             </Typography>
             <TextField
               value={frontAxle}
@@ -89,23 +91,16 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
               variant="body1"
               sx={{ minWidth: 260 }}
             >
-              Drive whole vehicle onto Weighbridge
+              Drive whole vehicle unhitched onto Weighbridge
             </Typography>
             <TextField
               value={gvm}
               onChange={(e) => setGvm(e.target.value)}
-              placeholder="GVM"
+              placeholder="Unhitched GVM"
               sx={{ width: 200, mr: 1 }}
             />
             <Typography variant="body1">kg</Typography>
           </Box>
-
-          <Typography
-            variant="caption"
-            sx={{ mb: 4 }}
-          >
-            Note: If your vehicle has a dual rear axle, combine the individual rear-axle tyre loads and enter the total value.
-          </Typography>
 
           <Box sx={{ flexGrow: 1 }} />
 
@@ -129,4 +124,4 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
   );
 };
 
-export default DIYVehicleOnlyWeighbridgeAxle;
+export default DIYTowCaravanUnhitchedWeighbridgeAxle;
