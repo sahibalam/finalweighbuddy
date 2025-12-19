@@ -69,6 +69,8 @@ const DIYWelcome = () => {
       targetPath = '/vehicle-only-info';
     } else if (weighingSelection === 'tow_vehicle_and_caravan') {
       targetPath = '/tow-caravan-info';
+    } else if (weighingSelection === 'caravan_only_registered') {
+      targetPath = '/caravan-only-info';
     }
 
     navigate(targetPath, {
@@ -171,7 +173,10 @@ const DIYWelcome = () => {
 
           {renderIntroText()}
 
-          {weighingSelection && weighingSelection !== 'vehicle_only' && weighingSelection !== 'tow_vehicle_and_caravan' && (
+          {weighingSelection &&
+            weighingSelection !== 'vehicle_only' &&
+            weighingSelection !== 'tow_vehicle_and_caravan' &&
+            weighingSelection !== 'caravan_only_registered' && (
             <Box sx={{ mt: 6 }}>
               <Typography
                 variant="body1"

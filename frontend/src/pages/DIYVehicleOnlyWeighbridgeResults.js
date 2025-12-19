@@ -35,14 +35,44 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
     modifiedImages = [],
     methodSelection = '',
     weighingSelection = '',
-    caravan = {}
+    caravan = {},
+    tyreWeigh = null,
+    preWeigh = null,
+    axleWeigh = null
   } = location.state || {};
 
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
+  const isCaravanGoweighMethod =
+    methodSelection === 'Weighbridge - goweigh' || methodSelection === 'GoWeigh Weighbridge';
+  const isCaravanAboveGroundMethod =
+    methodSelection === 'Weighbridge - Above Ground' || methodSelection === 'Above Ground Weighbridge';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
       ? 'Tow Vehicle and Caravan/Trailer'
-      : 'Vehicle Only';
+      : weighingSelection === 'caravan_only_registered'
+        ? 'Caravan / Trailer Only (registered)'
+        : 'Vehicle Only';
+
+  // Display fields differ for Caravan Only vs Vehicle flows
+  const displayRego =
+    weighingSelection === 'caravan_only_registered'
+      ? caravan.rego || 'Not Available'
+      : rego || 'Not Available';
+
+  const displayState =
+    weighingSelection === 'caravan_only_registered'
+      ? caravan.state || 'Not Available'
+      : state || 'Not Available';
+
+  const displayVin =
+    weighingSelection === 'caravan_only_registered'
+      ? caravan.vin || 'Not Available'
+      : vin || 'Not Available';
+
+  const displayDescription =
+    weighingSelection === 'caravan_only_registered'
+      ? (caravan.make || caravan.model ? `${caravan.make || ''} ${caravan.model || ''}`.trim() : 'Not Available')
+      : description || 'Not Available';
 
   // Measured (Compliance row) values
   let frontMeasured = 0;
@@ -80,10 +110,73 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   const caravanAtmCapacityNum = caravan.atm ? Number(caravan.atm) || 0 : 0;
   const caravanGtmCapacityNum = caravan.gtm ? Number(caravan.gtm) || 0 : 0;
 
+  // Measured caravan metrics for Caravan Only flows
+  let caravanMeasuredGtm = 0;
+  let caravanMeasuredAtm = 0;
+  let caravanMeasuredTbm = 0;
+  let caravanMeasuredTbmPercent = null;
+
+  if (weighingSelection === 'caravan_only_registered') {
+    // Portable Scales - derive GTM from individual tyre loads
+    if (methodSelection === 'Portable Scales - Individual Tyre Weights' && tyreWeigh) {
+      const safeNum = (v) => (v != null ? Number(v) || 0 : 0);
+
+      if (tyreWeigh.axleConfig === 'Single Axle') {
+        caravanMeasuredGtm = safeNum(tyreWeigh.single?.left) + safeNum(tyreWeigh.single?.right);
+      } else if (tyreWeigh.axleConfig === 'Dual Axle') {
+        caravanMeasuredGtm =
+          safeNum(tyreWeigh.dual?.frontLeft) +
+          safeNum(tyreWeigh.dual?.frontRight) +
+          safeNum(tyreWeigh.dual?.rearLeft) +
+          safeNum(tyreWeigh.dual?.rearRight);
+      } else if (tyreWeigh.axleConfig === 'Triple Axle') {
+        caravanMeasuredGtm =
+          safeNum(tyreWeigh.triple?.frontLeft) +
+          safeNum(tyreWeigh.triple?.frontRight) +
+          safeNum(tyreWeigh.triple?.middleLeft) +
+          safeNum(tyreWeigh.triple?.middleRight) +
+          safeNum(tyreWeigh.triple?.rearLeft) +
+          safeNum(tyreWeigh.triple?.rearRight);
+      }
+    }
+
+    // Weighbridge - In Ground: GTM & ATM supplied from DIYCaravanOnlyWeighbridgeInGround
+    if (methodSelection === 'Weighbridge - In Ground -' && axleWeigh) {
+      caravanMeasuredGtm = axleWeigh.caravanHitchedGtm != null ? Number(axleWeigh.caravanHitchedGtm) || 0 : 0;
+      caravanMeasuredAtm = axleWeigh.caravanUnhitchedAtm != null ? Number(axleWeigh.caravanUnhitchedAtm) || 0 : 0;
+    }
+
+    // Weighbridge - Above Ground: ATM supplied, GTM/TBM treated as not applicable
+    if (isCaravanAboveGroundMethod && axleWeigh) {
+      caravanMeasuredAtm = axleWeigh.caravanAtm != null ? Number(axleWeigh.caravanAtm) || 0 : 0;
+      caravanMeasuredGtm = 0;
+      caravanMeasuredTbm = 0;
+    }
+
+    // Weighbridge - goweigh: GTM, ATM, TBM all supplied from DIYCaravanOnlyWeighbridgeGoWeigh
+    if (isCaravanGoweighMethod && axleWeigh) {
+      caravanMeasuredGtm = axleWeigh.caravanHitchedGtm != null ? Number(axleWeigh.caravanHitchedGtm) || 0 : 0;
+      caravanMeasuredAtm = axleWeigh.caravanUnhitchedAtm != null ? Number(axleWeigh.caravanUnhitchedAtm) || 0 : 0;
+      caravanMeasuredTbm = axleWeigh.towballMass != null ? Number(axleWeigh.towballMass) || 0 : 0;
+    }
+
+    // Derive TBM and TowBall Mass % where possible
+    if (caravanMeasuredAtm > 0 || caravanMeasuredGtm > 0) {
+      if (!(isCaravanGoweighMethod && axleWeigh && axleWeigh.towballMass != null)) {
+        // For non-goweigh methods, derive TBM as ATM - GTM
+        caravanMeasuredTbm = caravanMeasuredAtm - caravanMeasuredGtm;
+      }
+      caravanMeasuredTbmPercent = caravanMeasuredAtm > 0
+        ? (caravanMeasuredTbm / caravanMeasuredAtm) * 100
+        : null;
+    }
+  }
+
   // Capacity row: difference (capacity - measured)
   const frontCapacityDiff = frontCapacity - frontMeasured;
   const rearCapacityDiff = rearCapacity - rearMeasured;
   const gvmCapacityDiff = gvmCapacityNum - gvmMeasured;
+  const caravanGtmCapacityDiff = caravanGtmCapacityNum - caravanMeasuredGtm;
 
   const handleDownloadReport = async () => {
     try {
@@ -198,26 +291,68 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
           {/* Simple summary card approximating report layout */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>
-              Vehicle
+              {weighingSelection === 'caravan_only_registered' ? 'Caravan' : 'Vehicle'}
             </Typography>
 
             <Grid container spacing={1} sx={{ mb: 3 }}>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2">Make/Model: {description || 'Not Available'}</Typography>
-                <Typography variant="body2">Rego Number: {rego || 'Not Available'}</Typography>
-                <Typography variant="body2">State: {state || 'Not Available'}</Typography>
+                <Typography variant="body2">Make/Model: {displayDescription}</Typography>
+                <Typography variant="body2">Rego Number: {displayRego}</Typography>
+                <Typography variant="body2">State: {displayState}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2">VIN: {vin || 'Not Available'}</Typography>
-                <Typography variant="body2">GVM (Unhitched): {gvmCapacityNum} kg</Typography>
-                <Typography variant="body2">
-                  GCM Capacity: {gcmCapacityNum != null ? `${gcmCapacityNum} kg` : 'Not Available'}
-                </Typography>
-                <Typography variant="body2">
-                  BTC Capacity: {btcCapacityNum != null ? `${btcCapacityNum} kg` : 'Not Available'}
-                </Typography>
-                <Typography variant="body2">Front Axle (Unhitched): {frontCapacity} kg</Typography>
-                <Typography variant="body2">Rear Axle (Unhitched): {rearCapacity} kg</Typography>
+                <Typography variant="body2">VIN: {displayVin}</Typography>
+                {weighingSelection !== 'caravan_only_registered' && (
+                  <>
+                    <Typography variant="body2">GVM (Unhitched): {gvmCapacityNum} kg</Typography>
+                    <Typography variant="body2">
+                      GCM Capacity: {gcmCapacityNum != null ? `${gcmCapacityNum} kg` : 'Not Available'}
+                    </Typography>
+                  </>
+                )}
+                {weighingSelection === 'caravan_only_registered' && isCaravanAboveGroundMethod && (
+                  <>
+                    <Typography variant="body2">TowBall Mass - Na</Typography>
+                    <Typography variant="body2">Towball Mass % - Na</Typography>
+                  </>
+                )}
+                {weighingSelection === 'caravan_only_registered' && methodSelection === 'Weighbridge - In Ground -' && (
+                  <>
+                    <Typography variant="body2">
+                      TowBall Mass (TBM): {caravanMeasuredTbm} kg
+                    </Typography>
+                    <Typography variant="body2">
+                      TowBall Mass %:{' '}
+                      {caravanMeasuredTbmPercent != null
+                        ? `${caravanMeasuredTbmPercent.toFixed(1)} %`
+                        : 'N/A'}
+                    </Typography>
+                  </>
+                )}
+
+                {weighingSelection === 'caravan_only_registered' && isCaravanGoweighMethod && (
+                  <>
+                    <Typography variant="body2">
+                      TowBall Mass (TBM): {caravanMeasuredTbm} kg
+                    </Typography>
+                    <Typography variant="body2">
+                      TowBall Mass %:{' '}
+                      {caravanMeasuredTbmPercent != null
+                        ? `${caravanMeasuredTbmPercent.toFixed(1)} %`
+                        : 'N/A'}
+                    </Typography>
+                  </>
+                )}
+
+                {weighingSelection !== 'caravan_only_registered' && (
+                  <>
+                    <Typography variant="body2">
+                      BTC Capacity: {btcCapacityNum != null ? `${btcCapacityNum} kg` : 'Not Available'}
+                    </Typography>
+                    <Typography variant="body2">Front Axle (Unhitched): {frontCapacity} kg</Typography>
+                    <Typography variant="body2">Rear Axle (Unhitched): {rearCapacity} kg</Typography>
+                  </>
+                )}
               </Grid>
             </Grid>
 
@@ -247,10 +382,10 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
             {/* Compliance rows differ for Vehicle Only vs Tow Vehicle and Caravan/Trailer */}
             {weighingSelection === 'tow_vehicle_and_caravan' ? (
               <>
-                {/* Vehicle Load (GVM Unhitched) */}
+                {/* Gross Vehicle Mass (GVM Unhitched) */}
                 <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                   <Grid item xs={4}>
-                    <Typography variant="body2">Vehicle Load (GVM Unhitched)</Typography>
+                    <Typography variant="body2">Gross Vehicle Mass (GVM Unhitched)</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">{gvmMeasured} kg</Typography>
@@ -268,10 +403,10 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                   </Grid>
                 </Grid>
 
-                {/* Tow Ball Load (TBM) - placeholder values for now */}
+                {/* Tow Ball Mass (TBM) - placeholder values for now */}
                 <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                   <Grid item xs={4}>
-                    <Typography variant="body2">Tow Ball Load (TBM)</Typography>
+                    <Typography variant="body2">Tow Ball Mass (TBM)</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">0 kg</Typography>
@@ -287,10 +422,10 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                   </Grid>
                 </Grid>
 
-                {/* Caravan Load (ATM) */}
+                {/* Aggregated Trailor Mass (ATM) */}
                 <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                   <Grid item xs={4}>
-                    <Typography variant="body2">Caravan Load (ATM)</Typography>
+                    <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">0 kg</Typography>
@@ -306,10 +441,10 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                   </Grid>
                 </Grid>
 
-                {/* Combined Load (GCM) */}
+                {/* Gross Combination Mass (GCM) */}
                 <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                   <Grid item xs={4}>
-                    <Typography variant="body2">Combined Load (GCM)</Typography>
+                    <Typography variant="body2">Gross Combination Mass (GCM)</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">0 kg</Typography>
@@ -329,10 +464,10 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                   </Grid>
                 </Grid>
 
-                {/* Caravan Axle Load (GTM) */}
+                {/* Gross Trailor Mass (GTM) */}
                 <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                   <Grid item xs={4}>
-                    <Typography variant="body2">Caravan Axle Load (GTM)</Typography>
+                    <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">0 kg</Typography>
@@ -349,33 +484,362 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                 </Grid>
               </>
             ) : (
-              <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
-                <Grid item xs={4}>
-                  <Typography variant="body2">Vehicle Load (GVM Unhitched)</Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="body2">{gvmMeasured} kg</Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="body2">{gvmCapacityNum} kg</Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="body2">{gvmCapacityDiff} kg</Typography>
-                </Grid>
-                <Grid item xs={2}>
-                  <Typography variant="body2" color={gvmMeasured <= gvmCapacityNum ? 'success.main' : 'error'}>
-                    {gvmMeasured <= gvmCapacityNum ? 'OK' : 'OVER'}
-                  </Typography>
-                </Grid>
-              </Grid>
+              <>
+                {weighingSelection !== 'caravan_only_registered' && (
+                  <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                    <Grid item xs={4}>
+                      <Typography variant="body2">Gross Vehicle Mass (GVM Unhitched)</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography variant="body2">{gvmMeasured} kg</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography variant="body2">{gvmCapacityNum} kg</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography variant="body2">{gvmCapacityDiff} kg</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography variant="body2" color={gvmMeasured <= gvmCapacityNum ? 'success.main' : 'error'}>
+                        {gvmMeasured <= gvmCapacityNum ? 'OK' : 'OVER'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* Caravan Only: specific rows for different methods */}
+                {weighingSelection === 'caravan_only_registered' && (
+                  <>
+                    {methodSelection === 'Portable Scales - Individual Tyre Weights' && (
+                      <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                        <Grid item xs={4}>
+                          <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                        </Grid>
+                        <Grid item xs={2}>
+                          <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
+                        </Grid>
+                        <Grid item xs={2}>
+                          <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                        </Grid>
+                        <Grid item xs={2}>
+                          <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
+                        </Grid>
+                        <Grid item xs={2}>
+                          <Typography
+                            variant="body2"
+                            color={
+                              caravanMeasuredGtm <= caravanGtmCapacityNum || caravanGtmCapacityNum === 0
+                                ? 'success.main'
+                                : 'error'
+                            }
+                          >
+                            {caravanGtmCapacityNum === 0
+                              ? 'N/A'
+                              : caravanMeasuredGtm <= caravanGtmCapacityNum
+                                ? 'OK'
+                                : 'OVER'}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    )}
+
+                    {methodSelection === 'Weighbridge - In Ground -' && (
+                      <>
+                        {/* ATM */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredAtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanAtmCapacityNum} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {caravanAtmCapacityNum - caravanMeasuredAtm} kg
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanMeasuredAtm <= caravanAtmCapacityNum || caravanAtmCapacityNum === 0
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanAtmCapacityNum === 0
+                                ? 'N/A'
+                                : caravanMeasuredAtm <= caravanAtmCapacityNum
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* GTM */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanMeasuredGtm <= caravanGtmCapacityNum || caravanGtmCapacityNum === 0
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanGtmCapacityNum === 0
+                                ? 'N/A'
+                                : caravanMeasuredGtm <= caravanGtmCapacityNum
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* TBM values are summarised in the header card for this method */}
+                      </>
+                    )}
+
+                    {isCaravanAboveGroundMethod && (
+                      <>
+                        {/* Axle Group Loading - Na */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Axle Group Loading</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* ATM - Supplied */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredAtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanAtmCapacityNum} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {caravanAtmCapacityNum - caravanMeasuredAtm} kg
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanMeasuredAtm <= caravanAtmCapacityNum || caravanAtmCapacityNum === 0
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanAtmCapacityNum === 0
+                                ? 'N/A'
+                                : caravanMeasuredAtm <= caravanAtmCapacityNum
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* GTM - Na */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">Na</Typography>
+                          </Grid>
+                        </Grid>
+                      </>
+                    )}
+
+                    {isCaravanGoweighMethod && (
+                      <>
+                        {/* Axle Group Loading (using measured GTM) */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Axle Group Loading (GTM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanMeasuredGtm <= caravanGtmCapacityNum || caravanGtmCapacityNum === 0
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanGtmCapacityNum === 0
+                                ? 'N/A'
+                                : caravanMeasuredGtm <= caravanGtmCapacityNum
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* ATM */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredAtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanAtmCapacityNum} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {caravanAtmCapacityNum - caravanMeasuredAtm} kg
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanMeasuredAtm <= caravanAtmCapacityNum || caravanAtmCapacityNum === 0
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanAtmCapacityNum === 0
+                                ? 'N/A'
+                                : caravanMeasuredAtm <= caravanAtmCapacityNum
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* GTM */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanMeasuredGtm <= caravanGtmCapacityNum || caravanGtmCapacityNum === 0
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanGtmCapacityNum === 0
+                                ? 'N/A'
+                                : caravanMeasuredGtm <= caravanGtmCapacityNum
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* TBM and TBM% are summarised in the header card for this method */}
+                      </>
+                    )}
+                  </>
+                )}
+              </>
             )}
 
             <Box sx={{ mt: 3 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                Additional Information : Front Axle {frontMeasured} kg , Rear Axle {rearMeasured} kg
-              </Typography>
-              <Typography variant="body2">
-                Additional Information : Fuel {fuelLevel !== '' ? `${fuelLevel}%` : 'N/A'}, Passengers Front {passengersFront || 0}, Passengers Rear {passengersRear || 0}, Additional Notes from Page on
+              {weighingSelection === 'caravan_only_registered' ? (
+                <>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Additional Information : Water in Caravan/Trailer
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Number of Tanks: {preWeigh?.waterTankCount || 'N/A'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Number Full: {preWeigh?.waterTankFullCount || 'N/A'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Total Water: {preWeigh?.waterTotalLitres || 'N/A'} Ltrs
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Additional Notes from Page on: {preWeigh?.notes || 'N/A'}
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Additional Information : Front Axle {frontMeasured} kg , Rear Axle {rearMeasured} kg
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Additional Information : Fuel {fuelLevel !== '' ? `${fuelLevel}%` : 'N/A'}, Passengers Front {passengersFront || 0}, Passengers Rear {passengersRear || 0}, Additional Notes from Page on
+                  </Typography>
+                </>
+              )}
+
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                If this report shows there are areas that are not compliant, WeighBuddy recommends contacting a
+                professional weighing operator in your area.{' '}
+                <a
+                  href="https://weighbuddy.ai/faqs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#1976d2', textDecoration: 'underline' }}
+                >
+                  Click here for more details
+                </a>
               </Typography>
             </Box>
           </Paper>

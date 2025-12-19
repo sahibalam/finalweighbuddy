@@ -136,19 +136,29 @@ const ReportPreviewAndPayment = ({
       onPaymentComplete();
     }
 
-    // For the Vehicle Only Weighbridge payment-only flow, redirect
-    // to the next screen in the flow (Weighbridge - In Ground 3) and
-    // carry through preWeigh + DIY axle weigh values.
+    // For payment-only flows, redirect to the appropriate next screen.
     if (paymentOnly) {
-      navigate('/vehicle-only-weighbridge-rego', {
-        state: {
-          preWeigh,
-          axleWeigh: vehicleData?.diyAxleWeigh || null,
-          tyreWeigh: vehicleData?.diyTyreWeigh || null,
-          methodSelection: vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights',
-          weighingSelection
-        }
-      });
+      if (weighingSelection === 'caravan_only_registered') {
+        navigate('/caravan-only-rego', {
+          state: {
+            preWeigh,
+            axleWeigh: vehicleData?.diyAxleWeigh || null,
+            tyreWeigh: vehicleData?.diyTyreWeigh || null,
+            methodSelection: vehicleOnlyMethodLabel,
+            weighingSelection
+          }
+        });
+      } else {
+        navigate('/vehicle-only-weighbridge-rego', {
+          state: {
+            preWeigh,
+            axleWeigh: vehicleData?.diyAxleWeigh || null,
+            tyreWeigh: vehicleData?.diyTyreWeigh || null,
+            methodSelection: vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights',
+            weighingSelection
+          }
+        });
+      }
     }
   };
 
@@ -164,7 +174,9 @@ const ReportPreviewAndPayment = ({
     const headingText =
       weighingSelection === 'tow_vehicle_and_caravan'
         ? 'Tow Vehicle and Caravan/Trailer'
-        : 'Vehicle Only';
+        : weighingSelection === 'caravan_only_registered'
+          ? 'Caravan / Trailer Only (registered)'
+          : 'Vehicle Only';
     return (
       <Box sx={{ maxWidth: 600, mx: 'auto', py: 4 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>

@@ -19,6 +19,13 @@ import DIYTowCaravanWeighbridgeAboveGround from './pages/DIYTowCaravanWeighbridg
 import DIYTowCaravanWeighbridgeCaravanRego from './pages/DIYTowCaravanWeighbridgeCaravanRego';
 import DIYTowCaravanWeighbridgeCaravanConfirm from './pages/DIYTowCaravanWeighbridgeCaravanConfirm';
 import DIYTowCaravanUnhitchedWeighbridgeAxle from './pages/DIYTowCaravanUnhitchedWeighbridgeAxle';
+import DIYCaravanOnlyInfo from './pages/DIYCaravanOnlyInfo';
+import DIYCaravanOnlyPortableTyres from './pages/DIYCaravanOnlyPortableTyres';
+import DIYCaravanOnlyWeighbridgeInGround from './pages/DIYCaravanOnlyWeighbridgeInGround';
+import DIYCaravanOnlyWeighbridgeGoWeigh from './pages/DIYCaravanOnlyWeighbridgeGoWeigh';
+import DIYCaravanOnlyWeighbridgeAboveGround from './pages/DIYCaravanOnlyWeighbridgeAboveGround';
+import DIYCaravanOnlyRego from './pages/DIYCaravanOnlyRego';
+import DIYCaravanOnlyConfirm from './pages/DIYCaravanOnlyConfirm';
 import DIYVehicleOnlyInfo from './pages/DIYVehicleOnlyInfo';
 import DIYVehicleOnlyWeighbridgeAxle from './pages/DIYVehicleOnlyWeighbridgeAxle';
 import DIYVehicleOnlyWeighbridgeGoWeigh from './pages/DIYVehicleOnlyWeighbridgeGoWeigh';
@@ -56,6 +63,62 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-info" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyInfo />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-portable-tyres" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyPortableTyres />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-weighbridge-in-ground" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyWeighbridgeInGround />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-weighbridge-goweigh" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyWeighbridgeGoWeigh />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-weighbridge-above-ground" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyWeighbridgeAboveGround />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/caravan-only-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYCaravanOnlyConfirm />
               </Layout>
             </PrivateRoute>
           } />

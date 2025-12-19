@@ -34,11 +34,10 @@ const DIYTowCaravanWeighbridgeInGround = () => {
       trailerGtm: trailerGtm ? Number(trailerGtm) : null
     };
 
-    navigate('/diy-weigh', {
+    navigate('/tow-caravan-unhitched-weighbridge-axle', {
       state: {
         ...state,
-        axleWeigh,
-        startAtPayment: true
+        axleWeigh
       }
     });
   };
@@ -89,7 +88,13 @@ const DIYTowCaravanWeighbridgeInGround = () => {
                 labelId="wdh-label"
                 value={wdhUsed}
                 label="WDH"
-                onChange={(e) => setWdhUsed(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setWdhUsed(value);
+                  if (value !== 'Yes') {
+                    setGvmHitchedWdhRelease('');
+                  }
+                }}
               >
                 <MenuItem value="Yes">Yes</MenuItem>
                 <MenuItem value="No">No</MenuItem>
@@ -101,15 +106,17 @@ const DIYTowCaravanWeighbridgeInGround = () => {
             If YES: Release the tension on the WDH and re-weigh tow vehicle hitched to caravan/trailer.
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <Typography sx={{ minWidth: 200 }}>GVM Hitched WDH Release</Typography>
-            <TextField
-              value={gvmHitchedWdhRelease}
-              onChange={(e) => setGvmHitchedWdhRelease(e.target.value)}
-              sx={{ width: 160, mr: 1 }}
-            />
-            <Typography>kg</Typography>
-          </Box>
+          {wdhUsed === 'Yes' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Typography sx={{ minWidth: 200 }}>GVM Hitched WDH Release</Typography>
+              <TextField
+                value={gvmHitchedWdhRelease}
+                onChange={(e) => setGvmHitchedWdhRelease(e.target.value)}
+                sx={{ width: 160, mr: 1 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+          )}
 
           <Typography variant="h6" sx={{ mb: 2 }}>
             Tow Caravan/Trailer onto Weighbridge
