@@ -137,6 +137,8 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
 
     const axleWeigh = location.state?.axleWeigh || null;
     const tyreWeigh = location.state?.tyreWeigh || null;
+    const vci01 = location.state?.vci01 || null;
+    const vci02 = location.state?.vci02 || null;
 
     let measuredFrontAxle = '';
     let measuredRearAxle = '';
@@ -167,6 +169,7 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
       gvmCapacity: gvm,
       gcmCapacity: gcm,
       btcCapacity: btc,
+      tbmCapacity: tbm,
       // Measured values
       measuredFrontAxle,
       measuredRearAxle,
@@ -176,7 +179,9 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
       passengersRear,
       modifiedImages,
       methodSelection,
-      weighingSelection
+      weighingSelection,
+      vci01,
+      vci02
     };
 
     if (weighingSelection === 'tow_vehicle_and_caravan') {

@@ -3101,8 +3101,8 @@ const AdminDashboard = () => {
                     <TableRow>
                       <TableCell>Metric</TableCell>
                       <TableCell>Measured</TableCell>
-                      <TableCell>Limit</TableCell>
-                      <TableCell>Difference</TableCell>
+                      <TableCell>Compliance</TableCell>
+                      <TableCell>Result</TableCell>
                       <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
@@ -3144,8 +3144,8 @@ const AdminDashboard = () => {
                       return (
                         <TableRow key={row.name}>
                           <TableCell>{row.name}</TableCell>
-                          <TableCell>{row.actual.toFixed ? row.actual.toFixed(0) : row.actual} kg</TableCell>
                           <TableCell>{row.limit.toFixed ? row.limit.toFixed(0) : row.limit} kg</TableCell>
+                          <TableCell>{row.actual.toFixed ? row.actual.toFixed(0) : row.actual} kg</TableCell>
                           <TableCell>{diff >= 0 ? '+' : ''}{diff} kg</TableCell>
                           <TableCell>
                             <Chip

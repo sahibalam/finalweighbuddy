@@ -60,11 +60,10 @@ const DIYTowCaravanPortableTyres = () => {
       }
     };
 
-    navigate('/tow-caravan-unhitched-weighbridge-axle', {
+    navigate('/tow-caravan-portable-tyres-vci01', {
       state: {
         ...state,
-        tyreWeigh,
-        startAtPayment: true
+        tyreWeigh
       }
     });
   };

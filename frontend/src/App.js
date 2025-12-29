@@ -13,6 +13,8 @@ import DIYNewWeigh from './pages/DIYNewWeigh';
 import DIYWelcome from './pages/DIYWelcome';
 import DIYTowCaravanInfo from './pages/DIYTowCaravanInfo';
 import DIYTowCaravanPortableTyres from './pages/DIYTowCaravanPortableTyres';
+import DIYTowCaravanPortableTyresVCI01 from './pages/DIYTowCaravanPortableTyresVCI01';
+import DIYTowCaravanPortableTyresVCI02 from './pages/DIYTowCaravanPortableTyresVCI02';
 import DIYTowCaravanWeighbridgeInGround from './pages/DIYTowCaravanWeighbridgeInGround';
 import DIYTowCaravanWeighbridgeGoWeigh from './pages/DIYTowCaravanWeighbridgeGoWeigh';
 import DIYTowCaravanWeighbridgeAboveGround from './pages/DIYTowCaravanWeighbridgeAboveGround';
@@ -151,6 +153,22 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <DIYTowCaravanPortableTyres />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-portable-tyres-vci01" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanPortableTyresVCI01 />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/tow-caravan-portable-tyres-vci02" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanPortableTyresVCI02 />
               </Layout>
             </PrivateRoute>
           } />

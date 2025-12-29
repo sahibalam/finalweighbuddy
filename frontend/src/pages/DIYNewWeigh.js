@@ -118,6 +118,8 @@ const DIYNewWeigh = () => {
   const [preWeigh, setPreWeigh] = useState(null);
   const [axleWeigh, setAxleWeigh] = useState(null); // DIY Vehicle Only Weighbridge Axle screen values
   const [tyreWeigh, setTyreWeigh] = useState(null); // DIY Vehicle Only Portable Scales 4-tyre values
+  const [vci01, setVci01] = useState(null); // Tow Vehicle + Caravan VCI01 data
+  const [vci02, setVci02] = useState(null); // Tow Vehicle + Caravan VCI02 data
 
   useEffect(() => {
     if (location.state) {
@@ -129,6 +131,12 @@ const DIYNewWeigh = () => {
       }
       if (location.state.tyreWeigh) {
         setTyreWeigh(location.state.tyreWeigh);
+      }
+      if (location.state.vci01) {
+        setVci01(location.state.vci01);
+      }
+      if (location.state.vci02) {
+        setVci02(location.state.vci02);
       }
 
       // If coming from the Vehicle Only Weighbridge Axle screen with a request
@@ -224,38 +232,6 @@ const DIYNewWeigh = () => {
     // Compliance preview is handled inside ReportPreviewAndPayment.
     // Here we just ensure the latest compliance data is available.
     calculateCompliance();
-  };
-
-  const handleDownloadReport = async () => {
-    try {
-      setLoading(true);
-      
-      if (!createdWeighId) {
-        setError('No completed report found. Please finish payment first.');
-        return;
-      }
-
-      // Download the real PDF report from backend
-      const response = await axios.get(`/api/weighs/${createdWeighId}/report`, {
-        responseType: 'blob'
-      });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `weighbuddy-report-${createdWeighId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-    } catch (err) {
-      console.error('Error downloading report:', err);
-      setError('Failed to download report. Please try again.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handlePaymentComplete = (result) => {
@@ -443,6 +419,8 @@ const DIYNewWeigh = () => {
           amount={startAtPayment ? 9.99 : 20}
           vehicleOnlyMethodLabel={vehicleOnlyMethodLabel}
           weighingSelection={weighingSelection}
+          vci01={vci01}
+          vci02={vci02}
         />
       )
     }

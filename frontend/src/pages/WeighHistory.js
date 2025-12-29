@@ -42,13 +42,11 @@ import {
   Home as CaravanIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 
 const WeighHistory = () => {
-  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,11 +109,6 @@ const WeighHistory = () => {
   const handleViewDetail = (weigh) => {
     setSelectedWeigh(weigh);
     setDetailDialogOpen(true);
-  };
-
-  // Navigate to weigh detail page
-  const handleViewFullDetail = (weighId) => {
-    navigate(`/weigh/${weighId}`);
   };
 
   // Handle download PDF
@@ -517,8 +510,8 @@ const WeighHistory = () => {
                     <TableRow>
                       <TableCell>Metric</TableCell>
                       <TableCell>Measured</TableCell>
-                      <TableCell>Limit</TableCell>
-                      <TableCell>Difference</TableCell>
+                      <TableCell>Compliance</TableCell>
+                      <TableCell>Result</TableCell>
                       <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
@@ -559,8 +552,8 @@ const WeighHistory = () => {
                       return (
                         <TableRow key={row.name}>
                           <TableCell>{row.name}</TableCell>
-                          <TableCell>{row.actual.toFixed ? row.actual.toFixed(0) : row.actual} kg</TableCell>
                           <TableCell>{row.limit.toFixed ? row.limit.toFixed(0) : row.limit} kg</TableCell>
+                          <TableCell>{row.actual.toFixed ? row.actual.toFixed(0) : row.actual} kg</TableCell>
                           <TableCell>{diff >= 0 ? '+' : ''}{diff} kg</TableCell>
                           <TableCell>
                             <Chip

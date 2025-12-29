@@ -19,6 +19,8 @@ const DIYVehicleOnlyInfo = () => {
 
   const handleContinue = () => {
     const fuelValue = parseFloat(fuelLevel) || 0;
+    const passengersFrontValue = parseInt(frontPassengers, 10) || 0;
+    const passengersRearValue = parseInt(rearPassengers, 10) || 0;
     const baseState = location.state || {};
     const { weighingSelection, methodSelection } = baseState;
 
@@ -41,8 +43,8 @@ const DIYVehicleOnlyInfo = () => {
         ...baseState,
         preWeigh: {
           fuelLevel: fuelValue,
-          passengersFront: frontPassengers ? 2 : 0,
-          passengersRear: rearPassengers ? 3 : 0,
+          passengersFront: passengersFrontValue,
+          passengersRear: passengersRearValue,
           notes
         }
       }
@@ -102,20 +104,32 @@ const DIYVehicleOnlyInfo = () => {
             >
               Passengers
             </Typography>
-            <Button
-              variant={frontPassengers ? 'contained' : 'outlined'}
-              sx={{ mr: 2, minWidth: 160 }}
-              onClick={() => setFrontPassengers(frontPassengers ? '' : 'Front 1 or 2')}
-            >
-              Front 1 or 2
-            </Button>
-            <Button
-              variant={rearPassengers ? 'contained' : 'outlined'}
-              sx={{ minWidth: 160 }}
-              onClick={() => setRearPassengers(rearPassengers ? '' : 'Rear 1 to 3')}
-            >
-              Rear 1 to 3
-            </Button>
+            <TextField
+              value={frontPassengers}
+              onChange={(e) => setFrontPassengers(e.target.value)}
+              placeholder="Front passengers (1 or 2)"
+              sx={{ mr: 2, width: 200 }}
+              InputProps={{
+                sx: {
+                  '& input': {
+                    fontSize: '0.85rem'
+                  }
+                }
+              }}
+            />
+            <TextField
+              value={rearPassengers}
+              onChange={(e) => setRearPassengers(e.target.value)}
+              placeholder="Rear passengers (1 to 3)"
+              sx={{ width: 200 }}
+              InputProps={{
+                sx: {
+                  '& input': {
+                    fontSize: '0.85rem'
+                  }
+                }
+              }}
+            />
           </Box>
 
           <Typography

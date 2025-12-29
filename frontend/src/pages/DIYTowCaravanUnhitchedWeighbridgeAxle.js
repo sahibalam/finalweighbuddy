@@ -18,9 +18,14 @@ const DIYTowCaravanUnhitchedWeighbridgeAxle = () => {
   const handleContinue = () => {
     const state = location.state || {};
 
+    // Preserve any axleWeigh data captured on the previous in-ground screen
+    const priorAxleWeigh = state.axleWeigh || {};
+
     const axleWeigh = {
-      frontAxle: frontAxle ? Number(frontAxle) : null,
-      gvm: gvm ? Number(gvm) : null
+      ...priorAxleWeigh,
+      // Unhitched tow vehicle axle and GVM
+      unhitchedFrontAxle: frontAxle ? Number(frontAxle) : null,
+      gvmUnhitched: gvm ? Number(gvm) : null
     };
 
     const nextState = {

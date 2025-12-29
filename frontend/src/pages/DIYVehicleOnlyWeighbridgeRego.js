@@ -76,6 +76,8 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
           preWeigh: location.state?.preWeigh || null,
           axleWeigh: location.state?.axleWeigh || null,
           tyreWeigh: location.state?.tyreWeigh || null,
+          vci01: location.state?.vci01 || null,
+          vci02: location.state?.vci02 || null,
           methodSelection,
           weighingSelection
         }
@@ -98,6 +100,8 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
             preWeigh: location.state?.preWeigh || null,
             axleWeigh: location.state?.axleWeigh || null,
             tyreWeigh: location.state?.tyreWeigh || null,
+            vci01: location.state?.vci01 || null,
+            vci02: location.state?.vci02 || null,
             methodSelection,
             weighingSelection
           }
