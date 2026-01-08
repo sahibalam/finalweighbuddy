@@ -144,7 +144,7 @@ const Navbar = () => {
                 fullWidth
                 variant="contained"
                 startIcon={<RocketLaunch />}
-                onClick={() => handleNavClick('/register')}
+                onClick={() => handleNavClick('/signup')}
                 sx={{
                   borderRadius: 3,
                   py: 1.5,
@@ -377,7 +377,7 @@ const Navbar = () => {
                       >
                         <Button
                           variant="contained"
-                          onClick={() => navigate('/register')}
+                          onClick={() => navigate('/signup')}
                           startIcon={<RocketLaunch />}
                           sx={{
                             fontWeight: 700,

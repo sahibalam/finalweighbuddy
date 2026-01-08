@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AccountTypeSelection from './pages/AccountTypeSelection';
 import Dashboard from './pages/Dashboard';
 import NewWeigh from './pages/NewWeigh';
 import DIYNewWeigh from './pages/DIYNewWeigh';
@@ -56,6 +57,7 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<AccountTypeSelection />} />
           <Route path="/register" element={<Register />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/contact" element={<ContactUs />} />
