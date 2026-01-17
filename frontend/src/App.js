@@ -10,6 +10,27 @@ import Register from './pages/Register';
 import AccountTypeSelection from './pages/AccountTypeSelection';
 import Dashboard from './pages/Dashboard';
 import NewWeigh from './pages/NewWeigh';
+import ProfessionalWeighStart from './pages/ProfessionalWeighStart';
+import ProfessionalClientStart from './pages/ProfessionalClientStart';
+import ProfessionalVehicleOnlyStart from './pages/ProfessionalVehicleOnlyStart';
+import ProfessionalVehicleOnlyInfo from './pages/ProfessionalVehicleOnlyInfo';
+import ProfessionalVehicleOnlyWeighbridgeInGround from './pages/ProfessionalVehicleOnlyWeighbridgeInGround';
+import ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched from './pages/ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched';
+import ProfessionalVehicleOnlyWeighbridgeInGroundPayment from './pages/ProfessionalVehicleOnlyWeighbridgeInGroundPayment';
+import ProfessionalVehicleOnlyWeighbridgeInGroundRego from './pages/ProfessionalVehicleOnlyWeighbridgeInGroundRego';
+import ProfessionalVehicleOnlyWeighbridgeInGroundConfirm from './pages/ProfessionalVehicleOnlyWeighbridgeInGroundConfirm';
+import ProfessionalVehicleOnlyWeighbridgeGoWeigh from './pages/ProfessionalVehicleOnlyWeighbridgeGoWeigh';
+import ProfessionalVehicleOnlyWeighbridgeGoWeighPayment from './pages/ProfessionalVehicleOnlyWeighbridgeGoWeighPayment';
+import ProfessionalVehicleOnlyWeighbridgeGoWeighRego from './pages/ProfessionalVehicleOnlyWeighbridgeGoWeighRego';
+import ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm from './pages/ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm';
+import ProfessionalVehicleOnlyPortableTyres from './pages/ProfessionalVehicleOnlyPortableTyres';
+import ProfessionalTowPortableTyresVCI01 from './pages/ProfessionalTowPortableTyresVCI01';
+import ProfessionalTowPortableTyresVCI02 from './pages/ProfessionalTowPortableTyresVCI02';
+import ProfessionalTowPortableTyresCaravanRego from './pages/ProfessionalTowPortableTyresCaravanRego';
+import ProfessionalTowPortableTyresCaravanConfirm from './pages/ProfessionalTowPortableTyresCaravanConfirm';
+import ProfessionalVehicleOnlyPortableTyresPayment from './pages/ProfessionalVehicleOnlyPortableTyresPayment';
+import ProfessionalVehicleOnlyPortableTyresRego from './pages/ProfessionalVehicleOnlyPortableTyresRego';
+import ProfessionalVehicleOnlyPortableTyresConfirm from './pages/ProfessionalVehicleOnlyPortableTyresConfirm';
 import DIYNewWeigh from './pages/DIYNewWeigh';
 import DIYWelcome from './pages/DIYWelcome';
 import DIYTowCaravanInfo from './pages/DIYTowCaravanInfo';
@@ -286,11 +307,167 @@ function App() {
               </Layout>
             </PrivateRoute>
           } />
+
+          <Route path="/professional-clients" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalClientStart />
+              </Layout>
+            </PrivateRoute>
+          } />
           
+          <Route path="/professional-weigh-start" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalWeighStart />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-weigh-vehicle-only" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyStart />
+              </Layout>
+            </PrivateRoute>
+          } />
+
           <Route path="/professional-weigh" element={
             <PrivateRoute>
               <Layout>
-                <NewWeigh />
+                <ProfessionalWeighStart />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-vehicle-only-weighbridge-in-ground" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeInGround />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-in-ground-unhitched" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-in-ground-payment" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeInGroundPayment />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-in-ground-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeInGroundRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-in-ground-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeInGroundConfirm />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-vehicle-only-weighbridge-goweigh" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeGoWeigh />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-goweigh-payment" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeGoWeighPayment />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-goweigh-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeGoWeighRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-weighbridge-goweigh-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-vehicle-only-portable-tyres" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyPortableTyres />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-portable-tyres-payment" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyPortableTyresPayment />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-portable-tyres-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyPortableTyresRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-vehicle-only-portable-tyres-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyPortableTyresConfirm />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-tow-portable-tyres-vci01" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalTowPortableTyresVCI01 />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-tow-portable-tyres-vci02" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalTowPortableTyresVCI02 />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-tow-portable-tyres-caravan-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalTowPortableTyresCaravanRego />
+              </Layout>
+            </PrivateRoute>
+          } />
+          <Route path="/professional-tow-portable-tyres-caravan-confirm" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalTowPortableTyresCaravanConfirm />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-vehicle-only-info" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalVehicleOnlyInfo />
               </Layout>
             </PrivateRoute>
           } />

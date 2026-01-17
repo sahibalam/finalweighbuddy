@@ -35,9 +35,7 @@ const ReportPreviewAndPayment = ({
   paymentOnly = false,
   amount = 20,
   vehicleOnlyMethodLabel = '',
-  weighingSelection = '',
-  vci01 = null,
-  vci02 = null
+  weighingSelection = ''
 }) => {
   const navigate = useNavigate();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -147,9 +145,7 @@ const ReportPreviewAndPayment = ({
             axleWeigh: vehicleData?.diyAxleWeigh || null,
             tyreWeigh: vehicleData?.diyTyreWeigh || null,
             methodSelection: vehicleOnlyMethodLabel,
-            weighingSelection,
-            vci01,
-            vci02
+            weighingSelection
           }
         });
       } else {
@@ -159,9 +155,7 @@ const ReportPreviewAndPayment = ({
             axleWeigh: vehicleData?.diyAxleWeigh || null,
             tyreWeigh: vehicleData?.diyTyreWeigh || null,
             methodSelection: vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights',
-            weighingSelection,
-            vci01,
-            vci02
+            weighingSelection
           }
         });
       }

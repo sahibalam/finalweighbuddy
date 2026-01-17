@@ -15,7 +15,9 @@ import {
   Menu,
   MenuItem,
   Divider,
-  Badge
+  Badge,
+  Button,
+  Stack
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -148,21 +150,62 @@ const Layout = ({ children }) => {
         </Typography>
       </Toolbar>
       <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem
-            button
-            key={item.text}
-            onClick={() => {
-              navigate(item.path);
-              setMobileOpen(false);
-            }}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
-      </List>
+
+      {user?.userType === 'professional' ? (
+        <Box sx={{ p: 2 }}>
+          <Stack spacing={1.5}>
+            <Button
+              variant="contained"
+              fullWidth
+              size="small"
+              onClick={() => {
+                navigate('/professional-clients');
+                setMobileOpen(false);
+              }}
+            >
+              New Weigh
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="small"
+              onClick={() => {
+                navigate('/weigh-history');
+                setMobileOpen(false);
+              }}
+            >
+              Weigh History
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="small"
+              onClick={() => {
+                navigate('/dashboard');
+                setMobileOpen(false);
+              }}
+            >
+              My WeighBuddy
+            </Button>
+          </Stack>
+        </Box>
+      ) : (
+        <List>
+          {menuItems.map((item) => (
+            <ListItem
+              button
+              key={item.text}
+              onClick={() => {
+                navigate(item.path);
+                setMobileOpen(false);
+              }}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
+        </List>
+      )}
     </div>
   );
 

@@ -37,7 +37,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -53,9 +53,15 @@ const Login = () => {
     setError('');
 
     const result = await login(formData);
-    
+
     if (result.success) {
-      navigate('/dashboard');
+      const loggedInUser = result.user || user;
+
+      if (loggedInUser?.userType === 'professional') {
+        navigate('/professional-clients');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setError(result.error);
     }

@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }) => {
         payload: res.data
       });
       setAuthToken(res.data.token);
-      return { success: true };
+      return { success: true, user: res.data.user };
     } catch (error) {
       dispatch({
         type: 'LOGIN_FAIL',

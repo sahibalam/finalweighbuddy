@@ -40,9 +40,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
     tyreWeigh = null,
     preWeigh = null,
     axleWeigh = null,
-    // Detailed DIY tow+caravan portable scales data (VCI01/VCI02)
-    vci01 = null,
-    vci02 = null
+    goweighData = null
   } = location.state || {};
 
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
@@ -53,6 +51,13 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   const isTowCaravanInGroundMethod =
     weighingSelection === 'tow_vehicle_and_caravan' &&
     methodSelection === 'Weighbridge - In Ground - Tow Vehicle and Trailer are level and Individual Axle Weights can be recorded';
+
+  const isProfessionalTowCaravanInGroundMethod =
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    methodSelection === 'Weighbridge - In Ground - Individual Axle Weights';
+  const isTowCaravanGoWeighMethod =
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    methodSelection === 'Weighbridge - goweigh';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
       ? 'Tow Vehicle and Caravan/Trailer'
@@ -155,11 +160,6 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
     }
   }
 
-  // Tow Vehicle + Caravan methods
-  const isTowCaravanPortableTyres =
-    weighingSelection === 'tow_vehicle_and_caravan' &&
-    methodSelection === 'Portable Scales - Individual Tyre Weights';
-
   const safeNum = (v) => (v != null ? Number(v) || 0 : 0);
 
   let gvmHitched = 0;
@@ -170,44 +170,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   let atmMeasured = caravanAtmCapacityNum; // default ATM uses caravan ATM rating
   let gcmMeasured = 0;
 
-  if (isTowCaravanPortableTyres && vci01 && vci02) {
-    const hitchFront2 = safeNum(vci01.hitchWeigh?.frontLeft) + safeNum(vci01.hitchWeigh?.frontRight);
-    const hitchRear2 = safeNum(vci01.hitchWeigh?.rearLeft) + safeNum(vci01.hitchWeigh?.rearRight);
-    gvmHitched = hitchFront2 + hitchRear2;
-
-    const hasWdh = !!vci01.hasWdh;
-    if (hasWdh && vci01.hitchWdhOffWeigh) {
-      const hitchOffFront2 =
-        safeNum(vci01.hitchWdhOffWeigh.frontLeft) + safeNum(vci01.hitchWdhOffWeigh.frontRight);
-      const hitchOffRear2 =
-        safeNum(vci01.hitchWdhOffWeigh.rearLeft) + safeNum(vci01.hitchWdhOffWeigh.rearRight);
-      gvmHitchWdhOff = hitchOffFront2 + hitchOffRear2;
-    }
-
-    const unhitchedFront2 = safeNum(vci02.unhitchedWeigh?.frontLeft) + safeNum(vci02.unhitchedWeigh?.frontRight);
-    const unhitchedRear2 = safeNum(vci02.unhitchedWeigh?.rearLeft) + safeNum(vci02.unhitchedWeigh?.rearRight);
-    gvmUnhitched = unhitchedFront2 + unhitchedRear2;
-
-    // TBM
-    if (gvmUnhitched > 0) {
-      if (gvmHitchWdhOff > 0) {
-        // With WDH - GVM Hitch WDH off - GVM Unhitched
-        tbm = gvmHitchWdhOff - gvmUnhitched;
-      } else {
-        // Without WDH - GVM Hitched - GVM Unhitched
-        tbm = gvmHitched - gvmUnhitched;
-      }
-    }
-
-    // GTM + TBM = ATM, ATM = BTC
-    gtmMeasured = atmMeasured - tbm;
-    if (gtmMeasured < 0) {
-      gtmMeasured = 0;
-    }
-
-    // GCM = GTM + GVM Hitched
-    gcmMeasured = gtmMeasured + gvmHitched;
-  } else if (isTowCaravanInGroundMethod && axleWeigh) {
+  if (isTowCaravanInGroundMethod && axleWeigh) {
     // Weighbridge - In Ground tow+caravan flow using DIYTowCaravanWeighbridgeInGround +
     // DIYTowCaravanUnhitchedWeighbridgeAxle
     const hitchedFront = safeNum(axleWeigh.frontAxle);
@@ -245,9 +208,129 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
 
     // GCM = GTM + GVM Hitched
     gcmMeasured = gtmMeasured + gvmHitched;
+  } else if (isProfessionalTowCaravanInGroundMethod && axleWeigh) {
+    // Professional Weighbridge - In Ground tow+caravan flow using
+    // ProfessionalVehicleOnlyWeighbridgeInGround (hitched) +
+    // ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched.
+    const hitchedFront = safeNum(axleWeigh.frontAxleHitched);
+    const hitchedGvm = safeNum(axleWeigh.gvmHitched);
+    const hitchedRear = hitchedGvm - hitchedFront;
+
+    const unhitchedFront = safeNum(axleWeigh.frontAxleUnhitched);
+    const unhitchedGvm = safeNum(axleWeigh.gvmUnhitched);
+    const unhitchedRear = unhitchedGvm - unhitchedFront;
+
+    // Front + Rear (hitched) = GVM Hitched
+    gvmHitched = hitchedFront + hitchedRear;
+    // Front + Rear (unhitched) = GVM Unhitched
+    gvmUnhitched = unhitchedFront + unhitchedRear;
+
+    // TBM from optional WDH release reading when provided
+    const gvmHitchWdhRelease = safeNum(axleWeigh.gvmHitchedWdhRelease);
+
+    if (gvmUnhitched > 0) {
+      if (gvmHitchWdhRelease > 0) {
+        // With WDH: GVM Hitch WDH off - GVM Unhitched = TBM
+        tbm = gvmHitchWdhRelease - gvmUnhitched;
+      } else {
+        // Without WDH: GVM Hitched - GVM Unhitched = TBM
+        tbm = gvmHitched - gvmUnhitched;
+      }
+    }
+
+    // GTM from trailer GTM input on the hitched screen
+    gtmMeasured = safeNum(axleWeigh.trailerGtm);
+
+    // GTM + TBM = ATM
+    atmMeasured = gtmMeasured + tbm;
+
+    // GCM = GTM + GVM Hitched
+    gcmMeasured = gtmMeasured + gvmHitched;
+  } else if (isTowCaravanGoWeighMethod && goweighData) {
+    // Tow Vehicle + Caravan GoWeigh method using dedicated GoWeigh screen inputs.
+    const first = goweighData.firstWeigh || {};
+    const second = goweighData.secondWeigh || {};
+    const summary = goweighData.summary || {};
+
+    const frontUnhitched = safeNum(first.frontUnhitched);
+    const rearUnhitched = safeNum(first.rearUnhitched);
+    const caravanAtmSupplied = safeNum(first.trailerAtm); // ATM supplied
+
+    const frontHitched = safeNum(second.frontHitched);
+    const rearHitched = safeNum(second.rearHitched);
+    const caravanGtmSupplied = safeNum(second.trailerGtm); // GTM supplied
+
+    const gcmSupplied = safeNum(summary.gcm); // GCM supplied
+    const tbmSupplied = safeNum(summary.tbm); // TBM supplied
+
+    // Detailed Report Equations
+    // Front Axle Hitched + Rear Axle Hitched = GVM Hitched
+    gvmHitched = frontHitched + rearHitched;
+    // Front Axle Unhitched + Rear Axle Unhitched = GVM Unhitched
+    gvmUnhitched = frontUnhitched + rearUnhitched;
+
+    // Supplied caravan / towing metrics
+    atmMeasured = caravanAtmSupplied;
+    gtmMeasured = caravanGtmSupplied;
+    gcmMeasured = gcmSupplied;
+    tbm = tbmSupplied;
+  } else if (
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
+    axleWeigh
+  ) {
+    // Professional Tow Vehicle + Caravan portable scales flow.
+    // 1) Always use GVM Unhitched derived from individual tyre loads on the VCI02 screen.
+    gvmUnhitched = safeNum(axleWeigh.gvmUnhitched);
+
+    // 2) TBM: prefer explicit towBallMass override if provided.
+    if (location.state && location.state.towBallMass != null) {
+      tbm = safeNum(location.state.towBallMass);
+    } else {
+      // 3) Otherwise, derive TBM from GVM Hitched vs GVM Unhitched using VCI01 hitch weights.
+      const vci01 = location.state?.vci01 || null;
+      const hitchWeigh = vci01?.hitchWeigh || null;
+      const hitchWdhOffWeigh = vci01?.hitchWdhOffWeigh || null;
+      const hasWdh = vci01?.hasWdh;
+
+      if (hitchWeigh) {
+        const hitchedFront = safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight);
+        const hitchedRear = safeNum(hitchWeigh.rearLeft) + safeNum(hitchWeigh.rearRight);
+        const gvmHitchedPortable = hitchedFront + hitchedRear;
+
+        // Use the caravan GTM from the Professional GTM/ATM screen as measured GTM.
+        gtmMeasured = safeNum(axleWeigh.trailerGtm);
+
+        if (hasWdh && hitchWdhOffWeigh) {
+          // With WDH: use the GVM with WDH released.
+          const wdhOffFront = safeNum(hitchWdhOffWeigh.frontLeft) + safeNum(hitchWdhOffWeigh.frontRight);
+          const wdhOffRear = safeNum(hitchWdhOffWeigh.rearLeft) + safeNum(hitchWdhOffWeigh.rearRight);
+          const gvmHitchWdhReleasePortable = wdhOffFront + wdhOffRear;
+          tbm = gvmHitchWdhReleasePortable - gvmUnhitched;
+        } else {
+          // Without WDH: GVM Hitched - GVM Unhitched = TBM.
+          tbm = gvmHitchedPortable - gvmUnhitched;
+        }
+
+        if (gtmMeasured > 0) {
+          // GTM + TBM = ATM
+          atmMeasured = gtmMeasured + tbm;
+          // GCM = GTM + GVM Hitched
+          gcmMeasured = gtmMeasured + gvmHitchedPortable;
+        }
+      }
+    }
+  } else if (location.state && location.state.towBallMass != null) {
+    // For non in-ground flows that provide an explicit towBallMass (e.g. professional portable scales),
+    // use that value directly as measured TBM.
+    tbm = safeNum(location.state.towBallMass);
   }
 
-  const isTowCaravanAdvisoryMethod = isTowCaravanPortableTyres || isTowCaravanInGroundMethod;
+  const isTowCaravanAdvisoryMethod = isTowCaravanInGroundMethod || isTowCaravanGoWeighMethod;
+
+  // For tow vehicle + caravan methods, the GVM row is labelled "GVM Unhitched",
+  // so the measured value should always be the unhitched GVM when available.
+  const effectiveGvmForCapacity = weighingSelection === 'tow_vehicle_and_caravan' ? gvmUnhitched : gvmMeasured;
 
   // Advisory-only percentages for Tow Vehicle + Caravan methods
   const vanToCarRatioPct =
@@ -260,7 +343,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   // Capacity row: difference (capacity - measured)
   const frontCapacityDiff = frontCapacity - frontMeasured;
   const rearCapacityDiff = rearCapacity - rearMeasured;
-  const gvmCapacityDiff = gvmCapacityNum - (isTowCaravanAdvisoryMethod ? gvmUnhitched : gvmMeasured);
+  const gvmCapacityDiff = gvmCapacityNum - effectiveGvmForCapacity;
   const caravanGtmCapacityDiff = caravanGtmCapacityNum -
     (weighingSelection === 'caravan_only_registered' ? caravanMeasuredGtm : gtmMeasured);
 
@@ -466,7 +549,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
             </Grid>
 
             {/* Row 1: Compliance (measured values) */}
-            {/* Tow Vehicle + Caravan/Trailer (portable tyres) */}
+            {/* Tow Vehicle + Caravan/Trailer */}
             {weighingSelection === 'tow_vehicle_and_caravan' && (
               <>
                 {/* Gross Vehicle Mass (GVM Unhitched) */}
@@ -478,7 +561,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                     <Typography variant="body2">{gvmCapacityNum} kg</Typography>
                   </Grid>
                   <Grid item xs={2}>
-                    <Typography variant="body2">{isTowCaravanPortableTyres ? gvmUnhitched : gvmMeasured} kg</Typography>
+                    <Typography variant="body2">{effectiveGvmForCapacity} kg</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">{gvmCapacityDiff} kg</Typography>
@@ -486,13 +569,9 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                   <Grid item xs={2}>
                     <Typography
                       variant="body2"
-                      color={
-                        (isTowCaravanPortableTyres ? gvmUnhitched : gvmMeasured) <= gvmCapacityNum
-                          ? 'success.main'
-                          : 'error'
-                      }
+                      color={effectiveGvmForCapacity <= gvmCapacityNum ? 'success.main' : 'error'}
                     >
-                      {(isTowCaravanPortableTyres ? gvmUnhitched : gvmMeasured) <= gvmCapacityNum ? 'OK' : 'OVER'}
+                      {effectiveGvmForCapacity <= gvmCapacityNum ? 'OK' : 'OVER'}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -946,26 +1025,6 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                   </>
                 )}
               </>
-            )}
-
-            {isTowCaravanPortableTyres && (
-              <Box sx={{ mt: 3, p: 2, borderTop: '1px solid #ddd' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Advisory Only
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  Van to Car Ratio &lt;85% = GTM divided by GVM Hitched ={' '}
-                  {vanToCarRatioPct != null ? `${vanToCarRatioPct.toFixed(0)}%` : 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  Tow Ball Percentage = TBM divided by ATM ={' '}
-                  {towBallPct != null ? `${towBallPct.toFixed(0)}%` : 'N/A'}
-                </Typography>
-                <Typography variant="body2">
-                  BTC &lt;80% = ATM divided by BTC ={' '}
-                  {btcPct != null ? `${btcPct.toFixed(0)}%` : 'N/A'}
-                </Typography>
-              </Box>
             )}
 
             <Box sx={{ mt: 3 }}>

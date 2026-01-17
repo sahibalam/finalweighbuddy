@@ -118,8 +118,6 @@ const DIYNewWeigh = () => {
   const [preWeigh, setPreWeigh] = useState(null);
   const [axleWeigh, setAxleWeigh] = useState(null); // DIY Vehicle Only Weighbridge Axle screen values
   const [tyreWeigh, setTyreWeigh] = useState(null); // DIY Vehicle Only Portable Scales 4-tyre values
-  const [vci01, setVci01] = useState(null); // Tow Vehicle + Caravan VCI01 data
-  const [vci02, setVci02] = useState(null); // Tow Vehicle + Caravan VCI02 data
 
   useEffect(() => {
     if (location.state) {
@@ -131,12 +129,6 @@ const DIYNewWeigh = () => {
       }
       if (location.state.tyreWeigh) {
         setTyreWeigh(location.state.tyreWeigh);
-      }
-      if (location.state.vci01) {
-        setVci01(location.state.vci01);
-      }
-      if (location.state.vci02) {
-        setVci02(location.state.vci02);
       }
 
       // If coming from the Vehicle Only Weighbridge Axle screen with a request
@@ -419,8 +411,6 @@ const DIYNewWeigh = () => {
           amount={startAtPayment ? 9.99 : 20}
           vehicleOnlyMethodLabel={vehicleOnlyMethodLabel}
           weighingSelection={weighingSelection}
-          vci01={vci01}
-          vci02={vci02}
         />
       )
     }
