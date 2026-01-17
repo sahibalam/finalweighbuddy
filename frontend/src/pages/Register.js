@@ -197,9 +197,14 @@ const Register = () => {
     }
 
     const result = await register(payload);
-    
+
     if (result.success) {
-      navigate('/dashboard');
+      // Mirror Login.js behavior: professionals go to professional-clients, others to dashboard
+      if (formData.userType === 'professional') {
+        navigate('/professional-clients');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setError(result.error);
     }
