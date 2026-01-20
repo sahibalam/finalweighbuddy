@@ -15,11 +15,19 @@ router.post('/register', [
   body('email', 'Please include a valid email').isEmail(),
   body('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
   body('phone', 'Phone number is required').not().isEmpty(),
-  body('postcode', 'Postcode is required').not().isEmpty(),
-  body('userType', 'User type must be professional or diy').isIn(['professional', 'diy']),
+  // Postcode is required for professional and fleet users, but not for diy
+  body('postcode').custom((value, { req }) => {
+    if ((req.body.userType === 'professional' || req.body.userType === 'fleet') && !value) {
+      throw new Error('Postcode is required for professional and fleet users');
+    }
+    return true;
+  }),
+  // Allow three user types: diy, professional, fleet
+  body('userType', 'User type must be diy, professional or fleet').isIn(['professional', 'diy', 'fleet']),
+  // Business name is required for professional and fleet users
   body('businessName').custom((value, { req }) => {
-    if (req.body.userType === 'professional' && !value) {
-      throw new Error('Business name is required for professional users');
+    if ((req.body.userType === 'professional' || req.body.userType === 'fleet') && !value) {
+      throw new Error('Business name is required for professional and fleet users');
     }
     return true;
   })
@@ -52,7 +60,7 @@ router.post('/register', [
       phone,
       postcode,
       userType,
-      businessName: userType === 'professional' ? businessName : undefined
+      businessName: (userType === 'professional' || userType === 'fleet') ? businessName : undefined
     });
 
     await user.save();

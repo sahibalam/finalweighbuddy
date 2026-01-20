@@ -90,7 +90,7 @@ app.use('/uploads', (req, res, next) => {
 app.use('/api/admin', adminRoutes);
 
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, '../frontend')));
+// app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -111,9 +111,9 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler - serve React app for client-side routing
-app.use('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
+// app.use('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, '../frontend/index.html'));
+// });
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
