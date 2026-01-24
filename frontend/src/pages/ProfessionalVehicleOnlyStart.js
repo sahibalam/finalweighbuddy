@@ -8,10 +8,13 @@ const ProfessionalVehicleOnlyStart = () => {
   const location = useLocation();
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
 
-  const headingLabel =
-    weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan / Trailer'
-      : 'Vehicle Only';
+let headingLabel = 'Vehicle Only';
+
+if (weighingSelection === 'tow_vehicle_and_caravan') {
+  headingLabel = 'Tow Vehicle and Caravan / Trailer';
+} else if (weighingSelection === 'caravan_only_registered') {
+  headingLabel = 'Caravan/Trailer Only (Registered)';
+}
 
   const handleSaveAndContinue = () => {
     if (!method) return;

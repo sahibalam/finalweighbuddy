@@ -59,10 +59,9 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
   const handleConfirm = () => {
     const enhancedState = {
       ...baseState,
-      // Attach measured caravan GTM so results can treat it as GTM (measured)
+      // Keep existing axleWeigh (which already contains measured trailerGtm from the caravan tyre screen)
       axleWeigh: {
         ...(baseState.axleWeigh || {}),
-        trailerGtm: gtm ? Number(gtm) || 0 : 0,
       },
       caravan: {
         rego,

@@ -12,6 +12,7 @@ const ProfessionalVehicleOnlyPortableTyresPayment = () => {
   const axleWeigh = location.state?.axleWeigh || null;
   const towBallMass = location.state?.towBallMass ?? null;
   const vci01 = location.state?.vci01 || null;
+  const preWeigh = location.state?.preWeigh || null;
 
   const isTowFlow = weighingSelection === 'tow_vehicle_and_caravan';
 
@@ -72,6 +73,7 @@ const ProfessionalVehicleOnlyPortableTyresPayment = () => {
                     axleWeigh,
                     towBallMass,
                     vci01,
+                    preWeigh,
                   },
                 });
               }}

@@ -7,6 +7,7 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
   const navigate = useNavigate();
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const preWeigh = location.state?.preWeigh || null;
 
   const [weights, setWeights] = useState({
     frontLeft: '',
@@ -19,6 +20,7 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
 
   // For tow + caravan layout, allow selecting axle configuration
   const [axleConfig, setAxleConfig] = useState('single');
+  const [towBallMass, setTowBallMass] = useState('');
 
   const handleChange = (field) => (e) => {
     setWeights({ ...weights, [field]: e.target.value });
@@ -27,42 +29,87 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
   const safeNum = (value) => (value !== '' && value != null ? Number(value) || 0 : 0);
 
   const handleSaveAndContinue = () => {
-    const frontAxleUnhitched = safeNum(weights.frontLeft) + safeNum(weights.frontRight);
-    const rearAxleUnhitched =
-      safeNum(weights.rearLeft) +
-      safeNum(weights.rearRight) +
-      safeNum(weights.middleLeft) +
-      safeNum(weights.middleRight);
-
-    const axleWeigh = {
-      frontAxleUnhitched,
-      rearAxleUnhitched,
-    };
-
-    // Vehicle only: go straight to payment as before
+    // Vehicle only: use these tyre loads as the unhitched front/rear axle totals
     if (weighingSelection === 'vehicle_only') {
+      const frontAxleUnhitched = safeNum(weights.frontLeft) + safeNum(weights.frontRight);
+      const rearAxleUnhitched =
+        safeNum(weights.rearLeft) +
+        safeNum(weights.rearRight) +
+        safeNum(weights.middleLeft) +
+        safeNum(weights.middleRight);
+
+      const axleWeigh = {
+        frontAxleUnhitched,
+        rearAxleUnhitched,
+      };
+
       navigate('/professional-vehicle-only-portable-tyres-payment', {
         state: {
           weighingSelection,
           axleWeigh,
+          preWeigh,
         },
       });
       return;
     }
 
-    // Tow vehicle + caravan: go to additional tow-specific WDH screen
+    // Tow vehicle + caravan OR caravan-only: treat this screen as the caravan/trailer tyre weighing screen.
+    // Compute caravan GTM from the individual tyre loads based on axle configuration
+    let caravanGtm = 0;
+    if (axleConfig === 'single') {
+      caravanGtm = safeNum(weights.frontLeft) + safeNum(weights.frontRight);
+    } else if (axleConfig === 'dual') {
+      caravanGtm =
+        safeNum(weights.frontLeft) +
+        safeNum(weights.frontRight) +
+        safeNum(weights.rearLeft) +
+        safeNum(weights.rearRight);
+    } else if (axleConfig === 'triple') {
+      caravanGtm =
+        safeNum(weights.frontLeft) +
+        safeNum(weights.frontRight) +
+        safeNum(weights.middleLeft) +
+        safeNum(weights.middleRight) +
+        safeNum(weights.rearLeft) +
+        safeNum(weights.rearRight);
+    }
+
+    const axleWeigh = {
+      trailerGtm: caravanGtm,
+    };
+
+    const towBallMassNum = safeNum(towBallMass);
+
+    // Caravan-only (registered): go straight to caravan-only payment screen
+    if (weighingSelection === 'caravan_only_registered') {
+      navigate('/professional-vehicle-only-portable-tyres-payment', {
+        state: {
+          weighingSelection,
+          axleWeigh,
+          towBallMass: towBallMassNum || null,
+          preWeigh,
+        },
+      });
+      return;
+    }
+
+    // Tow vehicle + caravan: go to additional tow-specific WDH + tow-vehicle screens
     navigate('/professional-tow-portable-tyres-vci01', {
       state: {
         weighingSelection,
         axleWeigh,
+        preWeigh,
       },
     });
   };
 
-  const headingLabel =
-    weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan / Trailer'
-      : 'Vehicle Only';
+  let headingLabel = 'Vehicle Only';
+
+  if (weighingSelection === 'tow_vehicle_and_caravan') {
+    headingLabel = 'Tow Vehicle and Caravan / Trailer';
+  } else if (weighingSelection === 'caravan_only_registered') {
+    headingLabel = 'Caravan / Trailer Only (registered)';
+  }
 
   const renderVehicleOnlyLayout = () => (
     <>
@@ -164,6 +211,9 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         WeighBuddy Compliance Check
       </Typography>
       <Typography variant="h6" sx={{ mb: 1 }}>
+        {headingLabel}
+      </Typography>
+      <Typography variant="h6" sx={{ mb: 3 }}>
         Portable Scales - Individual Tyre Weights
       </Typography>
 
@@ -343,6 +393,19 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
           </Grid>
         </Box>
       )}
+
+      {/* Right Tow Ball Weight field as per caravan-only portable scales wireframe */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <TextField
+            label="Right Tow Ball Weight"
+            value={towBallMass}
+            onChange={(e) => setTowBallMass(e.target.value)}
+            sx={{ width: 180 }}
+          />
+          <Typography>kg</Typography>
+        </Box>
+      </Box>
     </>
   );
 
@@ -364,7 +427,8 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 900 }}>
-          {weighingSelection === 'tow_vehicle_and_caravan'
+          {(weighingSelection === 'tow_vehicle_and_caravan' ||
+            weighingSelection === 'caravan_only_registered')
             ? renderTowLayout()
             : renderVehicleOnlyLayout()}
 

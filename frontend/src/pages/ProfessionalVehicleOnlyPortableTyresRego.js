@@ -27,6 +27,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
   const axleWeigh = location.state?.axleWeigh || null;
   const towBallMass = location.state?.towBallMass ?? null;
   const vci01 = location.state?.vci01 || null;
+  const preWeigh = location.state?.preWeigh || null;
 
   const handleContinue = async () => {
     setError('');
@@ -68,6 +69,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
           weighingSelection,
           towBallMass,
           vci01,
+          preWeigh,
         }
       });
     } catch (err) {
@@ -86,6 +88,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
             weighingSelection,
             towBallMass,
             vci01,
+            preWeigh,
           }
         });
       } else {
@@ -120,7 +123,9 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
           <Typography variant="h6" sx={{ mb: 1 }}>
             {weighingSelection === 'tow_vehicle_and_caravan'
               ? 'Tow Vehicle and Caravan / Trailer'
-              : 'Vehicle Only'}
+              : weighingSelection === 'caravan_only_registered'
+                ? 'Caravan Trailer Only (registered)'
+                : 'Vehicle Only'}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Portable Scales - Individual Tyre Weights
@@ -130,7 +135,9 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 4 }}
           >
-            Enter Vehicle Registration
+            {weighingSelection === 'caravan_only_registered'
+              ? 'Enter Caravan Trailer Registration'
+              : 'Enter Vehicle Registration'}
           </Typography>
 
           {error && (

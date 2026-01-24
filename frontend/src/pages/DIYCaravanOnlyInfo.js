@@ -10,6 +10,9 @@ const DIYCaravanOnlyInfo = () => {
   const [waterTankFullCount, setWaterTankFullCount] = useState('');
   const [waterTotalLitres, setWaterTotalLitres] = useState('');
   const [notes, setNotes] = useState('');
+  const [vin, setVin] = useState('');
+
+  const isCustomBuildTrailerTare = location.state?.customBuildTrailerTare || false;
 
   const handleContinue = () => {
     const baseState = location.state || {};
@@ -19,7 +22,8 @@ const DIYCaravanOnlyInfo = () => {
       waterTankCount: waterTankCount || null,
       waterTankFullCount: waterTankFullCount || null,
       waterTotalLitres: waterTotalLitres || null,
-      notes
+      notes,
+      vin: vin || null,
     };
 
     let nextPath = '';
@@ -57,7 +61,7 @@ const DIYCaravanOnlyInfo = () => {
             WeighBuddy Compliance Check
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Caravan / Trailer Only (registered)
+            {isCustomBuildTrailerTare ? 'Caravan / Trailer Tare Report' : 'Caravan / Trailer Only (registered)'}
           </Typography>
 
           <Typography
@@ -67,32 +71,36 @@ const DIYCaravanOnlyInfo = () => {
             Important information to start the weighing process
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-            <Typography variant="body1" sx={{ minWidth: 200 }}>
-              Water in Caravan/Trailer
-            </Typography>
-            <TextField
-              value={waterTankCount}
-              onChange={(e) => setWaterTankCount(e.target.value)}
-              placeholder="Number of Tanks 1-5"
-              sx={{ width: 180, mr: 2 }}
-            />
-            <TextField
-              value={waterTankFullCount}
-              onChange={(e) => setWaterTankFullCount(e.target.value)}
-              placeholder="Number full"
-              sx={{ width: 140, mr: 2 }}
-            />
-            <TextField
-              value={waterTotalLitres}
-              onChange={(e) => setWaterTotalLitres(e.target.value)}
-              placeholder="Total Ltrs"
-              sx={{ width: 140, mr: 1 }}
-            />
-            <Typography variant="body1">Ltrs</Typography>
-          </Box>
+          {/* Standard caravan-only flow: show water tank fields */}
+          {!isCustomBuildTrailerTare && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+              <Typography variant="body1" sx={{ minWidth: 200 }}>
+                Water in Caravan/Trailer
+              </Typography>
+              <TextField
+                value={waterTankCount}
+                onChange={(e) => setWaterTankCount(e.target.value)}
+                placeholder="Number of Tanks 1-5"
+                sx={{ width: 180, mr: 2 }}
+              />
+              <TextField
+                value={waterTankFullCount}
+                onChange={(e) => setWaterTankFullCount(e.target.value)}
+                placeholder="Number full"
+                sx={{ width: 140, mr: 2 }}
+              />
+              <TextField
+                value={waterTotalLitres}
+                onChange={(e) => setWaterTotalLitres(e.target.value)}
+                placeholder="Total Ltrs"
+                sx={{ width: 140, mr: 1 }}
+              />
+              <Typography variant="body1">Ltrs</Typography>
+            </Box>
+          )}
 
-          <Box sx={{ mb: 4 }}>
+          {/* Shared Additional Information/Notes area */}
+          <Box sx={{ mb: 3 }}>
             <Typography variant="body1" sx={{ mb: 1 }}>
               Additional Information/Notes
             </Typography>
@@ -105,6 +113,18 @@ const DIYCaravanOnlyInfo = () => {
               placeholder="For example: Trailer is fully loaded"
             />
           </Box>
+
+          {/* Custom-build tare report: VIN field under notes */}
+          {isCustomBuildTrailerTare && (
+            <Box sx={{ mb: 4 }}>
+              <TextField
+                fullWidth
+                label="Enter VIN Number - Optional"
+                value={vin}
+                onChange={(e) => setVin(e.target.value)}
+              />
+            </Box>
+          )}
 
           <Typography variant="body2" sx={{ mb: 4 }}>
             <span style={{ color: '#ff9800', fontWeight: 600 }}>Warning:</span>{' '}

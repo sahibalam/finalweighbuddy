@@ -36,6 +36,8 @@ const DIYCaravanOnlyPortableTyres = () => {
   const [tripleRearLeft, setTripleRearLeft] = useState('');
   const [tripleRearRight, setTripleRearRight] = useState('');
 
+  const [rightTowBallWeight, setRightTowBallWeight] = useState('');
+
   const handleContinue = () => {
     const baseState = location.state || {};
 
@@ -58,7 +60,8 @@ const DIYCaravanOnlyPortableTyres = () => {
         middleRight: tripleMiddleRight ? Number(tripleMiddleRight) : null,
         rearLeft: tripleRearLeft ? Number(tripleRearLeft) : null,
         rearRight: tripleRearRight ? Number(tripleRearRight) : null
-      }
+      },
+      rightTowBallWeight: rightTowBallWeight ? Number(rightTowBallWeight) : null
     };
 
     navigate('/diy-weigh', {
@@ -251,6 +254,20 @@ const DIYCaravanOnlyPortableTyres = () => {
               </Box>
             </Box>
           )}
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>
+              Right Tow Ball Weight
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <TextField
+                value={rightTowBallWeight}
+                onChange={(e) => setRightTowBallWeight(e.target.value)}
+                sx={{ width: 140, mr: 1 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+          </Box>
 
           <Box sx={{ flexGrow: 1 }} />
 

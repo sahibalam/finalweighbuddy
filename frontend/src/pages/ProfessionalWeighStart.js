@@ -22,10 +22,16 @@ const ProfessionalWeighStart = () => {
         });
         break;
       case 'caravan-only':
-        navigate('/professional-weigh-caravan-only');
-        break;
+  navigate('/professional-weigh-vehicle-only', {
+    state: { weighingSelection: 'caravan_only_registered' },
+  });
+  break;
       case 'custom-build':
-        navigate('/professional-weigh-trailer-tare');
+        // Trailer tare report for Rover/Custom Build flows through the DIY method
+        // selection screen (How am I weighing my setup?).
+        navigate('/new-weigh', {
+          state: { customBuildTrailerTare: true },
+        });
         break;
       default:
         break;

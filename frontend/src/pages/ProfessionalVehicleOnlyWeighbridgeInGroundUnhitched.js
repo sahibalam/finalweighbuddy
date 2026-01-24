@@ -8,6 +8,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched = () => {
 
   const weighingSelection = location.state?.weighingSelection || 'tow_vehicle_and_caravan';
   const previousAxleWeigh = location.state?.axleWeigh || null;
+  const preWeigh = location.state?.preWeigh || null;
 
   const [frontAxle, setFrontAxle] = useState('');
   const [gvmUnhitched, setGvmUnhitched] = useState('');
@@ -27,6 +28,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched = () => {
     navigate('/professional-vehicle-only-weighbridge-in-ground-payment', {
       state: {
         weighingSelection,
+        preWeigh,
         axleWeigh,
       },
     });

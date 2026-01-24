@@ -7,6 +7,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
   const navigate = useNavigate();
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const preWeigh = location.state?.preWeigh || null;
   const [frontAxle, setFrontAxle] = useState('');
   const [gvm, setGvm] = useState('');
 
@@ -14,6 +15,10 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
   const [wdhUsed, setWdhUsed] = useState('no');
   const [gvmHitchedRelease, setGvmHitchedRelease] = useState('');
   const [caravanGtm, setCaravanGtm] = useState('');
+
+  // Caravan-only (registered) specific fields
+  const [caravanHitchedGtm, setCaravanHitchedGtm] = useState('');
+  const [caravanUnhitchedAtm, setCaravanUnhitchedAtm] = useState('');
 
   const safeNum = (value) => (value !== '' && value != null ? Number(value) || 0 : 0);
 
@@ -27,11 +32,30 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
       navigate('/professional-vehicle-only-weighbridge-in-ground-unhitched', {
         state: {
           weighingSelection,
+          preWeigh,
           axleWeigh: {
             frontAxleHitched: frontAxleValue,
             gvmHitched: gvmValue,
             gvmHitchedWdhRelease: safeNum(gvmHitchedRelease),
             trailerGtm: safeNum(caravanGtm),
+          },
+        },
+      });
+      return;
+    }
+
+    // Caravan-only (registered) flow: capture GTM, ATM, and TBM for the caravan/trailer only.
+    if (weighingSelection === 'caravan_only_registered') {
+      const trailerGtm = safeNum(caravanHitchedGtm);
+      const trailerAtm = safeNum(caravanUnhitchedAtm);
+
+      navigate('/professional-vehicle-only-weighbridge-in-ground-payment', {
+        state: {
+          weighingSelection,
+          preWeigh,
+          axleWeigh: {
+            trailerGtm,
+            trailerAtm,
           },
         },
       });
@@ -45,6 +69,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
     navigate('/professional-vehicle-only-weighbridge-in-ground-payment', {
       state: {
         weighingSelection,
+        preWeigh,
         axleWeigh: {
           frontAxleUnhitched,
           gvmUnhitched,
@@ -53,10 +78,13 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
     });
   };
 
-  const headingLabel =
-    weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan / Trailer'
-      : 'Vehicle Only';
+  let headingLabel = 'Vehicle Only';
+
+  if (weighingSelection === 'tow_vehicle_and_caravan') {
+    headingLabel = 'Tow Vehicle and Caravan / Trailer';
+  } else if (weighingSelection === 'caravan_only_registered') {
+    headingLabel = 'Caravan / Trailer Only (registered)';
+  }
 
   const renderVehicleOnlyLayout = () => (
     <>
@@ -213,6 +241,61 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
     </>
   );
 
+  const renderCaravanOnlyLayout = () => (
+    <>
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        WeighBuddy Compliance Check
+      </Typography>
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        {headingLabel}
+      </Typography>
+      <Typography variant="h6" sx={{ mb: 3 }}>
+        Weighbridge - In Ground - Individual Axle Weights
+      </Typography>
+
+      <Typography
+        variant="h5"
+        sx={{ mb: 3, fontWeight: 'bold' }}
+      >
+        Weigh Caravan/Trailer Hitched to Tow Vehicle
+      </Typography>
+
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="body2" sx={{ mb: 1 }}>
+          Drive caravan / trailer onto weighbridge  make sure tow vehicle is off weighbridge.
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Typography sx={{ minWidth: 220 }}>Caravan / Trailer Hitched</Typography>
+          <TextField
+            label="GTM"
+            value={caravanHitchedGtm}
+            onChange={(e) => setCaravanHitchedGtm(e.target.value)}
+            sx={{ width: 200 }}
+          />
+          <Typography>kg</Typography>
+        </Box>
+
+        <Typography variant="body2" sx={{ mb: 1 }}>
+          Unhitch caravan / trailer from tow vehicle. Make sure jockey wheel is on weighbridge.
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography sx={{ minWidth: 220 }}>Caravan / Trailer Unhitched</Typography>
+          <TextField
+            label="ATM"
+            value={caravanUnhitchedAtm}
+            onChange={(e) => setCaravanUnhitchedAtm(e.target.value)}
+            sx={{ width: 200 }}
+          />
+          <Typography>kg</Typography>
+        </Box>
+      </Box>
+
+      <Typography variant="body2" sx={{ mt: 2 }}>
+        PRO Tip: Make sure no one is standing on the weighbridge.
+      </Typography>
+    </>
+  );
+
   return (
     <Box
       sx={{
@@ -233,10 +316,22 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
         <Box sx={{ width: '100%', maxWidth: 900 }}>
           {weighingSelection === 'tow_vehicle_and_caravan'
             ? renderTowLayout()
-            : renderVehicleOnlyLayout()}
+            : weighingSelection === 'caravan_only_registered'
+              ? renderCaravanOnlyLayout()
+              : renderVehicleOnlyLayout()}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-            <Button variant="contained" onClick={handleSaveAndContinue} disabled={!frontAxle || !gvm}>
+            <Button
+              variant="contained"
+              onClick={handleSaveAndContinue}
+              disabled={
+                weighingSelection === 'tow_vehicle_and_caravan'
+                  ? !frontAxle || !gvm
+                  : weighingSelection === 'caravan_only_registered'
+                    ? !caravanHitchedGtm || !caravanUnhitchedAtm
+                    : !frontAxle || !gvm
+              }
+            >
               Save and Continue
             </Button>
           </Box>

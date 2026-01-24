@@ -101,6 +101,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   // Caravan capacity values (if provided via caravan confirm screen)
   const caravanAtmCapacityNum = caravan.atm ? Number(caravan.atm) || 0 : 0;
   const caravanGtmCapacityNum = caravan.gtm ? Number(caravan.gtm) || 0 : 0;
+  const caravanAxleCapacityNum = caravan.axleGroups ? Number(caravan.axleGroups) || 0 : 0;
 
   // Measured caravan metrics for Caravan Only flows
   let caravanMeasuredGtm = 0;
@@ -109,32 +110,59 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
 
   if (weighingSelection === 'caravan_only_registered') {
     // Portable Scales - derive GTM from individual tyre loads
-    if (methodSelection === 'Portable Scales - Individual Tyre Weights' && tyreWeigh) {
-      const safeNum = (v) => (v != null ? Number(v) || 0 : 0);
+    if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
+      const safeNumLocal = (v) => (v != null ? Number(v) || 0 : 0);
 
-      if (tyreWeigh.axleConfig === 'Single Axle') {
-        caravanMeasuredGtm = safeNum(tyreWeigh.single?.left) + safeNum(tyreWeigh.single?.right);
-      } else if (tyreWeigh.axleConfig === 'Dual Axle') {
-        caravanMeasuredGtm =
-          safeNum(tyreWeigh.dual?.frontLeft) +
-          safeNum(tyreWeigh.dual?.frontRight) +
-          safeNum(tyreWeigh.dual?.rearLeft) +
-          safeNum(tyreWeigh.dual?.rearRight);
-      } else if (tyreWeigh.axleConfig === 'Triple Axle') {
-        caravanMeasuredGtm =
-          safeNum(tyreWeigh.triple?.frontLeft) +
-          safeNum(tyreWeigh.triple?.frontRight) +
-          safeNum(tyreWeigh.triple?.middleLeft) +
-          safeNum(tyreWeigh.triple?.middleRight) +
-          safeNum(tyreWeigh.triple?.rearLeft) +
-          safeNum(tyreWeigh.triple?.rearRight);
+      if (tyreWeigh) {
+        // DIY caravan-only portable flow uses detailed tyreWeigh structure.
+        if (tyreWeigh.axleConfig === 'Single Axle') {
+          caravanMeasuredGtm = safeNumLocal(tyreWeigh.single?.left) + safeNumLocal(tyreWeigh.single?.right);
+        } else if (tyreWeigh.axleConfig === 'Dual Axle') {
+          caravanMeasuredGtm =
+            safeNumLocal(tyreWeigh.dual?.frontLeft) +
+            safeNumLocal(tyreWeigh.dual?.frontRight) +
+            safeNumLocal(tyreWeigh.dual?.rearLeft) +
+            safeNumLocal(tyreWeigh.dual?.rearRight);
+        } else if (tyreWeigh.axleConfig === 'Triple Axle') {
+          caravanMeasuredGtm =
+            safeNumLocal(tyreWeigh.triple?.frontLeft) +
+            safeNumLocal(tyreWeigh.triple?.frontRight) +
+            safeNumLocal(tyreWeigh.triple?.middleLeft) +
+            safeNumLocal(tyreWeigh.triple?.middleRight) +
+            safeNumLocal(tyreWeigh.triple?.rearLeft) +
+            safeNumLocal(tyreWeigh.triple?.rearRight);
+        }
+      } else if (axleWeigh && axleWeigh.trailerGtm != null) {
+        // Professional caravan-only portable scales flow sends GTM in axleWeigh.trailerGtm.
+        caravanMeasuredGtm = safeNumLocal(axleWeigh.trailerGtm);
+      }
+
+      // For professional caravan-only portable scales, TBM is taken directly
+      // from the Right Tow Ball Weight field on the caravan tyre screen.
+      if (location.state && location.state.towBallMass != null) {
+        caravanMeasuredTbm = safeNumLocal(location.state.towBallMass);
       }
     }
 
-    // Weighbridge - In Ground: GTM & ATM supplied from DIYCaravanOnlyWeighbridgeInGround
-    if (methodSelection === 'Weighbridge - In Ground -' && axleWeigh) {
-      caravanMeasuredGtm = axleWeigh.caravanHitchedGtm != null ? Number(axleWeigh.caravanHitchedGtm) || 0 : 0;
-      caravanMeasuredAtm = axleWeigh.caravanUnhitchedAtm != null ? Number(axleWeigh.caravanUnhitchedAtm) || 0 : 0;
+    // Weighbridge - In Ground: GTM & ATM supplied
+    // DIY caravan-only in-ground uses caravanHitchedGtm / caravanUnhitchedAtm.
+    // Professional caravan-only in-ground uses trailerGtm / trailerAtm / tbm.
+    if ((methodSelection === 'Weighbridge - In Ground -' ||
+      methodSelection === 'Weighbridge - In Ground - Individual Axle Weights') &&
+      axleWeigh) {
+      const gtmSource =
+        axleWeigh.caravanHitchedGtm != null ? axleWeigh.caravanHitchedGtm : axleWeigh.trailerGtm;
+      const atmSource =
+        axleWeigh.caravanUnhitchedAtm != null ? axleWeigh.caravanUnhitchedAtm : axleWeigh.trailerAtm;
+
+      caravanMeasuredGtm = gtmSource != null ? Number(gtmSource) || 0 : 0;
+      caravanMeasuredAtm = atmSource != null ? Number(atmSource) || 0 : 0;
+
+      // Prefer explicit TBM when provided (professional flow), otherwise
+      // it will be derived below as ATM - GTM.
+      if (axleWeigh.tbm != null) {
+        caravanMeasuredTbm = Number(axleWeigh.tbm) || 0;
+      }
     }
 
     // Weighbridge - Above Ground: ATM supplied, GTM/TBM treated as not applicable
@@ -144,17 +172,32 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
       caravanMeasuredTbm = 0;
     }
 
-    // Weighbridge - goweigh: GTM, ATM, TBM all supplied from DIYCaravanOnlyWeighbridgeGoWeigh
+    // Weighbridge - goweigh: GTM, ATM, TBM all supplied.
+    // DIY caravan-only GoWeigh uses caravanHitchedGtm / caravanUnhitchedAtm / towballMass.
+    // Professional caravan-only GoWeigh uses trailerGtm / trailerAtm / tbm.
     if (isCaravanGoweighMethod && axleWeigh) {
-      caravanMeasuredGtm = axleWeigh.caravanHitchedGtm != null ? Number(axleWeigh.caravanHitchedGtm) || 0 : 0;
-      caravanMeasuredAtm = axleWeigh.caravanUnhitchedAtm != null ? Number(axleWeigh.caravanUnhitchedAtm) || 0 : 0;
-      caravanMeasuredTbm = axleWeigh.towballMass != null ? Number(axleWeigh.towballMass) || 0 : 0;
+      const gtmSource =
+        axleWeigh.caravanHitchedGtm != null ? axleWeigh.caravanHitchedGtm : axleWeigh.trailerGtm;
+      const atmSource =
+        axleWeigh.caravanUnhitchedAtm != null ? axleWeigh.caravanUnhitchedAtm : axleWeigh.trailerAtm;
+      const tbmSource =
+        axleWeigh.towballMass != null ? axleWeigh.towballMass : axleWeigh.tbm;
+
+      caravanMeasuredGtm = gtmSource != null ? Number(gtmSource) || 0 : 0;
+      caravanMeasuredAtm = atmSource != null ? Number(atmSource) || 0 : 0;
+      caravanMeasuredTbm = tbmSource != null ? Number(tbmSource) || 0 : 0;
     }
 
     // Derive TBM where possible
     if (caravanMeasuredAtm > 0 || caravanMeasuredGtm > 0) {
-      if (!(isCaravanGoweighMethod && axleWeigh && axleWeigh.towballMass != null)) {
-        // For non-goweigh methods, derive TBM as ATM - GTM
+      const hasExplicitGoweighTbm = isCaravanGoweighMethod && axleWeigh && axleWeigh.towballMass != null;
+      const hasExplicitPortableTbm =
+        methodSelection === 'Portable Scales - Individual Tyre Weights' &&
+        location.state &&
+        location.state.towBallMass != null;
+
+      if (!hasExplicitGoweighTbm && !hasExplicitPortableTbm) {
+        // For methods without an explicit TBM input, derive TBM as ATM - GTM
         caravanMeasuredTbm = caravanMeasuredAtm - caravanMeasuredGtm;
       }
     }
@@ -347,8 +390,11 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   const caravanGtmCapacityDiff = caravanGtmCapacityNum -
     (weighingSelection === 'caravan_only_registered' ? caravanMeasuredGtm : gtmMeasured);
 
-  const hasVehicleDetails = weighingSelection !== 'caravan_only_registered';
-  const hasCaravanDetails = weighingSelection !== 'vehicle_only';
+  // For caravan-only flows, hide the vehicle details block entirely so no
+  // "Vehicle ... N/A" rows are shown. For vehicle-only flows, hide caravan
+  // rows. Tow vehicle + caravan shows both sections.
+  const hasVehicleDetails = weighingSelection === 'vehicle_only' || weighingSelection === 'tow_vehicle_and_caravan';
+  const hasCaravanDetails = weighingSelection === 'caravan_only_registered' || weighingSelection === 'tow_vehicle_and_caravan';
 
   const vehicleMakeModel = hasVehicleDetails
     ? (description || 'N/A')
@@ -497,32 +543,36 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
             </Typography>
 
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Vehicle
-                </Typography>
-                <Typography variant="body2">Make/Model: {vehicleMakeModel}</Typography>
-                <Typography variant="body2">Rego Number: {vehicleRego}</Typography>
-                <Typography variant="body2">State: {vehicleState}</Typography>
-                <Typography variant="body2">Front Axle: {vehicleFrontAxle}</Typography>
-                <Typography variant="body2">Rear Axle: {vehicleRearAxle}</Typography>
-                <Typography variant="body2">GVM: {vehicleGvm}</Typography>
-                <Typography variant="body2">GCM: {vehicleGcm}</Typography>
-                <Typography variant="body2">BTC: {vehicleBtc}</Typography>
-                <Typography variant="body2">TBM: {vehicleTbm}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Caravan / Trailer
-                </Typography>
-                <Typography variant="body2">Make/Model: {caravanMakeModel}</Typography>
-                <Typography variant="body2">Rego Number: {caravanRego}</Typography>
-                <Typography variant="body2">State: {caravanState}</Typography>
-                <Typography variant="body2">ATM: {caravan.atm ? `${caravan.atm} kg` : 'N/A'}</Typography>
-                <Typography variant="body2">GTM: {caravan.gtm ? `${caravan.gtm} kg` : 'N/A'}</Typography>
-                <Typography variant="body2">Tare: {caravan.tare ? `${caravan.tare} kg` : 'N/A'}</Typography>
-                <Typography variant="body2">Axle Group Loading: {caravan.axleGroups ? `${caravan.axleGroups} kg` : 'N/A'}</Typography>
-              </Grid>
+              {hasVehicleDetails && (
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Vehicle
+                  </Typography>
+                  <Typography variant="body2">Make/Model: {vehicleMakeModel}</Typography>
+                  <Typography variant="body2">Rego Number: {vehicleRego}</Typography>
+                  <Typography variant="body2">State: {vehicleState}</Typography>
+                  <Typography variant="body2">Front Axle: {vehicleFrontAxle}</Typography>
+                  <Typography variant="body2">Rear Axle: {vehicleRearAxle}</Typography>
+                  <Typography variant="body2">GVM: {vehicleGvm}</Typography>
+                  <Typography variant="body2">GCM: {vehicleGcm}</Typography>
+                  <Typography variant="body2">BTC: {vehicleBtc}</Typography>
+                  <Typography variant="body2">TBM: {vehicleTbm}</Typography>
+                </Grid>
+              )}
+              {hasCaravanDetails && (
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Caravan / Trailer
+                  </Typography>
+                  <Typography variant="body2">Make/Model: {caravanMakeModel}</Typography>
+                  <Typography variant="body2">Rego Number: {caravanRego}</Typography>
+                  <Typography variant="body2">State: {caravanState}</Typography>
+                  <Typography variant="body2">ATM: {caravan.atm ? `${caravan.atm} kg` : 'N/A'}</Typography>
+                  <Typography variant="body2">GTM: {caravan.gtm ? `${caravan.gtm} kg` : 'N/A'}</Typography>
+                  <Typography variant="body2">Tare: {caravan.tare ? `${caravan.tare} kg` : 'N/A'}</Typography>
+                  <Typography variant="body2">Axle Group Loading: {caravan.axleGroups ? `${caravan.axleGroups} kg` : 'N/A'}</Typography>
+                </Grid>
+              )}
             </Grid>
 
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -775,8 +825,30 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                       </Grid>
                     )}
 
-                    {methodSelection === 'Weighbridge - In Ground -' && (
+                    {methodSelection === 'Weighbridge - In Ground -' ||
+                    methodSelection === 'Weighbridge - In Ground - Individual Axle Weights' ? (
                       <>
+                        {/* Axle Group Loading */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Axle Group Loading</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {caravanAxleCapacityNum ? `${caravanAxleCapacityNum} kg` : 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                        </Grid>
+
                         {/* ATM */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
@@ -843,7 +915,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                           </Grid>
                         </Grid>
                       </>
-                    )}
+                    ) : null}
 
                     {isCaravanAboveGroundMethod && (
                       <>
@@ -923,16 +995,18 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
 
                     {isCaravanGoweighMethod && (
                       <>
-                        {/* Axle Group Loading (using measured GTM) */}
+                        {/* Axle Group Loading (GTM) */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
                             <Typography variant="body2">Axle Group Loading (GTM)</Typography>
                           </Grid>
-                          <Grid item xs={2}>
-                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
-                          </Grid>
+                          {/* Compliance = capacity */}
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                          </Grid>
+                          {/* Measured = actual GTM */}
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
@@ -960,11 +1034,13 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                           <Grid item xs={4}>
                             <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
                           </Grid>
-                          <Grid item xs={2}>
-                            <Typography variant="body2">{caravanMeasuredAtm} kg</Typography>
-                          </Grid>
+                          {/* Compliance = capacity */}
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanAtmCapacityNum} kg</Typography>
+                          </Grid>
+                          {/* Measured = actual ATM */}
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredAtm} kg</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">
@@ -994,11 +1070,13 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                           <Grid item xs={4}>
                             <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
                           </Grid>
-                          <Grid item xs={2}>
-                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
-                          </Grid>
+                          {/* Compliance = capacity */}
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                          </Grid>
+                          {/* Measured = actual GTM */}
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
@@ -1022,6 +1100,44 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                         </Grid>
                       </>
                     )}
+
+                    {/* TBM row for Caravan Only flows (all methods) */}
+                    <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                      <Grid item xs={4}>
+                        <Typography variant="body2">Tow Ball Mass (TBM)</Typography>
+                      </Grid>
+                      {/* Compliance: use TBM capacity when available, otherwise N/A */}
+                      <Grid item xs={2}>
+                        <Typography variant="body2">
+                          {tbmCapacityNum != null ? `${tbmCapacityNum} kg` : 'N/A'}
+                        </Typography>
+                      </Grid>
+                      {/* Measured: caravan TBM derived per method */}
+                      <Grid item xs={2}>
+                        <Typography variant="body2">{caravanMeasuredTbm} kg</Typography>
+                      </Grid>
+                      <Grid item xs={2}>
+                        <Typography variant="body2">
+                          {tbmCapacityNum != null ? `${tbmCapacityNum - caravanMeasuredTbm} kg` : 'N/A'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={2}>
+                        <Typography
+                          variant="body2"
+                          color={
+                            tbmCapacityNum == null || caravanMeasuredTbm <= tbmCapacityNum
+                              ? 'success.main'
+                              : 'error'
+                          }
+                        >
+                          {tbmCapacityNum == null
+                            ? 'N/A'
+                            : caravanMeasuredTbm <= tbmCapacityNum
+                              ? 'OK'
+                              : 'OVER'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
                   </>
                 )}
               </>

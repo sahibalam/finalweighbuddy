@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -11,7 +11,7 @@ import {
   Button,
   Divider
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const WEIGHING_OPTIONS = [
@@ -27,6 +27,9 @@ const WEIGHING_OPTIONS = [
     value: 'caravan_only_registered',
     label: 'Caravan/Trailer Only (Registered)'
   }
+  // Note: custom-build trailer tare uses a dedicated flow and does not appear
+  // in this primary DIY weighing options list. It is injected via navigation
+  // state from the professional "What am I weighing?" screen.
 ];
 
 const METHOD_OPTIONS = {
@@ -47,16 +50,32 @@ const METHOD_OPTIONS = {
     'Weighbridge - In Ground -',
     'GoWeigh Weighbridge',
     'Above Ground Weighbridge'
+  ],
+  // Trailer tare report for Rover/Custom Build (professional flow)
+  custom_build_trailer_tare: [
+    'Portable Scales - Individual Tyre Weights',
+    'GoWeigh Weighbridge'
   ]
 };
 
 const DIYWelcome = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCustomBuildTrailerTare = location.state?.customBuildTrailerTare || false;
+
   const [weighingSelection, setWeighingSelection] = useState('');
   const [methodSelection, setMethodSelection] = useState('');
 
   const currentMethods = weighingSelection ? METHOD_OPTIONS[weighingSelection] || [] : [];
+
+  useEffect(() => {
+    if (isCustomBuildTrailerTare) {
+      // For custom-build trailer tare, we fix the weighing selection so that
+      // only the method dropdown is shown, matching the wireframe.
+      setWeighingSelection('custom_build_trailer_tare');
+    }
+  }, [isCustomBuildTrailerTare]);
 
   const handleStart = () => {
     if (!weighingSelection || !methodSelection) {
@@ -71,27 +90,38 @@ const DIYWelcome = () => {
       targetPath = '/tow-caravan-info';
     } else if (weighingSelection === 'caravan_only_registered') {
       targetPath = '/caravan-only-info';
+    } else if (weighingSelection === 'custom_build_trailer_tare') {
+      // Custom-build trailer tare uses the caravan-only info screen (tare report
+      // variant) before branching to the specific method screen.
+      targetPath = '/caravan-only-info';
     }
 
     navigate(targetPath, {
       state: {
         weighingSelection,
-        methodSelection
+        methodSelection,
+        // Preserve the custom-build trailer tare flag so the caravan-only
+        // info screen can render the 9.png layout.
+        customBuildTrailerTare: isCustomBuildTrailerTare,
       }
     });
   };
 
   const renderHeading = () => {
-    if (!weighingSelection) {
+    if (!weighingSelection && !isCustomBuildTrailerTare) {
       return 'Welcome to WeighBuddy';
     }
 
-    const option = WEIGHING_OPTIONS.find(opt => opt.value === weighingSelection);
+    if (isCustomBuildTrailerTare) {
+      return 'WeighBuddy Compliance Check';
+    }
+
+    const option = WEIGHING_OPTIONS.find((opt) => opt.value === weighingSelection);
     return option ? option.label : 'Welcome to WeighBuddy';
   };
 
   const renderIntroText = () => {
-    if (!weighingSelection) {
+    if (!weighingSelection && !isCustomBuildTrailerTare) {
       return (
         <Typography
           variant="body1"
@@ -131,7 +161,7 @@ const DIYWelcome = () => {
               {renderHeading()}
             </Typography>
 
-            {!weighingSelection && (
+            {!weighingSelection && !isCustomBuildTrailerTare && (
               <FormControl sx={{ minWidth: 280 }} size="medium">
                 <InputLabel id="what-weighing-label">What am I weighing?</InputLabel>
                 <Select
@@ -152,7 +182,7 @@ const DIYWelcome = () => {
               </FormControl>
             )}
 
-            {weighingSelection && (
+            {(weighingSelection || isCustomBuildTrailerTare) && (
               <FormControl sx={{ minWidth: 320 }} size="medium">
                 <InputLabel id="how-weighing-label">How am I weighing my setup?</InputLabel>
                 <Select
@@ -173,7 +203,8 @@ const DIYWelcome = () => {
 
           {renderIntroText()}
 
-          {weighingSelection &&
+          {(weighingSelection || isCustomBuildTrailerTare) &&
+            !isCustomBuildTrailerTare &&
             weighingSelection !== 'vehicle_only' &&
             weighingSelection !== 'tow_vehicle_and_caravan' &&
             weighingSelection !== 'caravan_only_registered' && (

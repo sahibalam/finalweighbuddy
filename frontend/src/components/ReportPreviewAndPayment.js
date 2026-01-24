@@ -138,7 +138,7 @@ const ReportPreviewAndPayment = ({
 
     // For payment-only flows, redirect to the appropriate next screen.
     if (paymentOnly) {
-      if (weighingSelection === 'caravan_only_registered') {
+      if (weighingSelection === 'caravan_only_registered' || weighingSelection === 'custom_build_trailer_tare') {
         navigate('/caravan-only-rego', {
           state: {
             preWeigh,
@@ -171,12 +171,18 @@ const ReportPreviewAndPayment = ({
   // PAYMENT-ONLY VIEW (Vehicle Only / Tow Vehicle and Caravan/Trailer, Weighbridge - In Ground - Individual Axle Weights)
   if (paymentOnly) {
     const methodText = vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights';
-    const headingText =
-      weighingSelection === 'tow_vehicle_and_caravan'
-        ? 'Tow Vehicle and Caravan/Trailer'
-        : weighingSelection === 'caravan_only_registered'
-          ? 'Caravan / Trailer Only (registered)'
-          : 'Vehicle Only';
+
+    let headingText;
+    if (weighingSelection === 'tow_vehicle_and_caravan') {
+      headingText = 'Tow Vehicle and Caravan/Trailer';
+    } else if (weighingSelection === 'caravan_only_registered') {
+      headingText = 'Caravan / Trailer Only (registered)';
+    } else if (weighingSelection === 'custom_build_trailer_tare') {
+      // Custom-build caravan / trailer tare report flow
+      headingText = 'Caravan / Trailer Only (Tare Report)';
+    } else {
+      headingText = 'Vehicle Only';
+    }
     return (
       <Box sx={{ maxWidth: 600, mx: 'auto', py: 4 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>

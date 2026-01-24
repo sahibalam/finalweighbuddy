@@ -114,7 +114,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundRego = () => {
           <Typography variant="h6" sx={{ mb: 1 }}>
             {weighingSelection === 'tow_vehicle_and_caravan'
               ? 'Tow Vehicle and Caravan / Trailer'
-              : 'Vehicle Only'}
+              : weighingSelection === 'caravan_only_registered'
+                ? 'Caravan Trailer Only (registered)'
+                : 'Vehicle Only'}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Weighbridge - In Ground - Individual Axle Weights
@@ -124,7 +126,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundRego = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 4 }}
           >
-            Enter Vehicle Registration
+            {weighingSelection === 'caravan_only_registered'
+              ? 'Enter Caravan Trailer Registration'
+              : 'Enter Vehicle Registration'}
           </Typography>
 
           {error && (

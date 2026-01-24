@@ -408,7 +408,16 @@ const DIYNewWeigh = () => {
           customerData={null}
           onPaymentComplete={handlePaymentComplete}
           paymentOnly={startAtPayment}
-          amount={startAtPayment ? 9.99 : 20}
+          amount={startAtPayment
+            ? // Payment-only flows:
+              // - Vehicle Only Weighbridge Axle DIY (existing): $9.99
+              // - Caravan / Trailer Tare Report (custom_build_trailer_tare):
+              //     * Portable Scales - Individual Tyre Weights: $4.99
+              //     * GoWeigh Weighbridge: $5.99
+              (weighingSelection === 'custom_build_trailer_tare'
+                ? (vehicleOnlyMethodLabel === 'Portable Scales - Individual Tyre Weights' ? 4.99 : 5.99)
+                : 9.99)
+            : 20}
           vehicleOnlyMethodLabel={vehicleOnlyMethodLabel}
           weighingSelection={weighingSelection}
         />

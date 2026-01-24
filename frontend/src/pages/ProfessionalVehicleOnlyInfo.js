@@ -45,10 +45,13 @@ const ProfessionalVehicleOnlyInfo = () => {
     }
   }, []);
 
-  const headingLabel =
-    weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan / Trailer'
-      : 'Vehicle Only';
+  let headingLabel = 'Vehicle Only';
+
+if (weighingSelection === 'tow_vehicle_and_caravan') {
+  headingLabel = 'Tow Vehicle and Caravan / Trailer';
+} else if (weighingSelection === 'caravan_only_registered') {
+  headingLabel = 'Caravan/Trailer Only (Registered)';
+}
 
   const handleContinue = () => {
     if (!method) {
@@ -56,23 +59,44 @@ const ProfessionalVehicleOnlyInfo = () => {
       return;
     }
 
+    // Normalise pre-weigh data so it can be shown on the results screen
+    const fuelValue = parseFloat(fuelPercent) || 0;
+    const passengersFrontValue = parseInt(frontPassengers, 10) || 0;
+    const passengersRearValue = parseInt(rearPassengers, 10) || 0;
+
+    const preWeigh = {
+      fuelLevel: fuelValue,
+      passengersFront: passengersFrontValue,
+      passengersRear: passengersRearValue,
+      notes,
+      // Tow-vehicle + caravan extra context if available
+      waterTankCount: waterTankCount || null,
+      waterTankFullCount: waterTanksFull || null,
+      waterTotalLitres: waterTotalLitres || null,
+      towballHeightMm: towballHeightMm || null,
+      airbagPressurePsi: airbagPressurePsi || null,
+    };
+
     // Decide which professional measurement screen to go to
     if (method === 'portable-tyres') {
       navigate('/professional-vehicle-only-portable-tyres', {
         state: {
           weighingSelection,
+          preWeigh,
         },
       });
     } else if (method === 'weighbridge-in-ground') {
       navigate('/professional-vehicle-only-weighbridge-in-ground', {
         state: {
           weighingSelection,
+          preWeigh,
         },
       });
     } else if (method === 'weighbridge-goweigh') {
       navigate('/professional-vehicle-only-weighbridge-goweigh', {
         state: {
           weighingSelection,
+          preWeigh,
         },
       });
     } else {
@@ -108,61 +132,66 @@ const ProfessionalVehicleOnlyInfo = () => {
           Important information to start the weighing process
         </Typography>
 
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="subtitle1" sx={{ minWidth: 140 }}>
-                Fuel in Vehicle
-              </Typography>
-              <TextField
-                label="Fuel level"
-                value={fuelPercent}
-                onChange={(e) => setFuelPercent(e.target.value)}
-                sx={{ width: 140 }}
-              />
-              <Typography variant="subtitle1">%</Typography>
-            </Box>
-          </Grid>
-        </Grid>
+     {weighingSelection !== 'caravan_only_registered' && (
+  <>
+    <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid item xs={12} md={6}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle1" sx={{ minWidth: 140 }}>
+            Fuel in Vehicle
+          </Typography>
+          <TextField
+            label="Fuel level"
+            value={fuelPercent}
+            onChange={(e) => setFuelPercent(e.target.value)}
+            sx={{ width: 140 }}
+          />
+          <Typography variant="subtitle1">%</Typography>
+        </Box>
+      </Grid>
+    </Grid>
 
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          Passengers
-        </Typography>
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="front-passengers-label">Front</InputLabel>
-              <Select
-                labelId="front-passengers-label"
-                label="Front"
-                value={frontPassengers}
-                onChange={(e) => setFrontPassengers(e.target.value)}
-              >
-                <MenuItem value="1">1</MenuItem>
-                <MenuItem value="2">2</MenuItem>
-                <MenuItem value="3">3</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="rear-passengers-label">Rear</InputLabel>
-              <Select
-                labelId="rear-passengers-label"
-                label="Rear"
-                value={rearPassengers}
-                onChange={(e) => setRearPassengers(e.target.value)}
-              >
-                <MenuItem value="0">0</MenuItem>
-                <MenuItem value="1">1</MenuItem>
-                <MenuItem value="2">2</MenuItem>
-                <MenuItem value="3">3</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
+    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+      Passengers
+    </Typography>
+    <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth>
+          <InputLabel id="front-passengers-label">Front</InputLabel>
+          <Select
+            labelId="front-passengers-label"
+            label="Front"
+            value={frontPassengers}
+            onChange={(e) => setFrontPassengers(e.target.value)}
+          >
+            <MenuItem value="1">1</MenuItem>
+            <MenuItem value="2">2</MenuItem>
+            <MenuItem value="3">3</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth>
+          <InputLabel id="rear-passengers-label">Rear</InputLabel>
+          <Select
+            labelId="rear-passengers-label"
+            label="Rear"
+            value={rearPassengers}
+            onChange={(e) => setRearPassengers(e.target.value)}
+          >
+            <MenuItem value="0">0</MenuItem>
+            <MenuItem value="1">1</MenuItem>
+            <MenuItem value="2">2</MenuItem>
+            <MenuItem value="3">3</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+    </Grid>
+  </>
+)}
 
-        {weighingSelection === 'tow_vehicle_and_caravan' && (
+        {(weighingSelection === 'tow_vehicle_and_caravan' ||
+  weighingSelection === 'caravan_only_registered') && (
           <>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>
               Water in Caravan/Trailer
@@ -197,36 +226,39 @@ const ProfessionalVehicleOnlyInfo = () => {
               </Grid>
             </Grid>
 
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="subtitle1" sx={{ minWidth: 140 }}>
-                    Towball Height
-                  </Typography>
-                  <TextField
-                    label="Towball Height"
-                    value={towballHeightMm}
-                    onChange={(e) => setTowballHeightMm(e.target.value)}
-                    sx={{ width: 160 }}
-                  />
-                  <Typography variant="subtitle1">mm</Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="subtitle1" sx={{ minWidth: 140 }}>
-                    Airbag Pressure
-                  </Typography>
-                  <TextField
-                    label="Airbag Pressure"
-                    value={airbagPressurePsi}
-                    onChange={(e) => setAirbagPressurePsi(e.target.value)}
-                    sx={{ width: 160 }}
-                  />
-                  <Typography variant="subtitle1">psi</Typography>
-                </Box>
-              </Grid>
-            </Grid>
+         <Grid container spacing={3} sx={{ mb: 4 }}>
+  <Grid item xs={12} md={6}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Typography variant="subtitle1" sx={{ minWidth: 140 }}>
+        Towball Height
+      </Typography>
+      <TextField
+        label="Towball Height"
+        value={towballHeightMm}
+        onChange={(e) => setTowballHeightMm(e.target.value)}
+        sx={{ width: 160 }}
+      />
+      <Typography variant="subtitle1">mm</Typography>
+    </Box>
+  </Grid>
+
+  {weighingSelection === 'tow_vehicle_and_caravan' && (
+    <Grid item xs={12} md={6}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Typography variant="subtitle1" sx={{ minWidth: 140 }}>
+          Airbag Pressure
+        </Typography>
+        <TextField
+          label="Airbag Pressure"
+          value={airbagPressurePsi}
+          onChange={(e) => setAirbagPressurePsi(e.target.value)}
+          sx={{ width: 160 }}
+        />
+        <Typography variant="subtitle1">psi</Typography>
+      </Box>
+    </Grid>
+  )}
+</Grid>
           </>
         )}
 
