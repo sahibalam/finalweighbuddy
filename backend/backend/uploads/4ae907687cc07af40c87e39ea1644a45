@@ -1,0 +1,3 @@
+make,model,year,numberPlate,gvm,gcm,btc,tbm,frontAxleCapacity,rearAxleCapacity,bodyType,axleCount
+Toyota,LandCruiser,2020,ABC123,3500,7000,350,350,1750,1750,SUV,2
+Ford,Ranger,2021,DEF456,3200,6000,350,350,1600,1600,Ute,2
