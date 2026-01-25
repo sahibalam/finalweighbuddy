@@ -1,6 +1,0 @@
-make,model,variant,year,gvm,gcm,btc,tbm,frontAxleCapacity,rearAxleCapacity,bodyType,axleCount,registrationState
-Toyota,LandCruiser,LandCruiser,2020,3500,7000,3500,350,1750,1750,suv,2,QLD
-Ford,Ranger,Ranger,2021,3200,6000,3500,350,1600,1600,ute,2,QLD
-Toyota,LandCruiser,XLV,2023,2980,6000,3500,350,1490,1490,suv,2,QLD
-Toyota,LandCruiser,300,2023,3280,6500,3500,350,1640,1640,suv,2,QLD
-
