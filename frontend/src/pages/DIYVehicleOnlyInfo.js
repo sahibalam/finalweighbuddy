@@ -5,7 +5,11 @@ import {
   Typography,
   Container,
   TextField,
-  Button
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -104,32 +108,32 @@ const DIYVehicleOnlyInfo = () => {
             >
               Passengers
             </Typography>
-            <TextField
-              value={frontPassengers}
-              onChange={(e) => setFrontPassengers(e.target.value)}
-              placeholder="Front passengers (1 or 2)"
-              sx={{ mr: 2, width: 200 }}
-              InputProps={{
-                sx: {
-                  '& input': {
-                    fontSize: '0.85rem'
-                  }
-                }
-              }}
-            />
-            <TextField
-              value={rearPassengers}
-              onChange={(e) => setRearPassengers(e.target.value)}
-              placeholder="Rear passengers (1 to 3)"
-              sx={{ width: 200 }}
-              InputProps={{
-                sx: {
-                  '& input': {
-                    fontSize: '0.85rem'
-                  }
-                }
-              }}
-            />
+            <FormControl sx={{ mr: 2, width: 200 }} size="small">
+              <InputLabel id="front-passengers-label">Front</InputLabel>
+              <Select
+                labelId="front-passengers-label"
+                label="Front"
+                value={frontPassengers}
+                onChange={(e) => setFrontPassengers(e.target.value)}
+              >
+                <MenuItem value="1">1</MenuItem>
+                <MenuItem value="2">2</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl sx={{ width: 200 }} size="small">
+              <InputLabel id="rear-passengers-label">Rear</InputLabel>
+              <Select
+                labelId="rear-passengers-label"
+                label="Rear"
+                value={rearPassengers}
+                onChange={(e) => setRearPassengers(e.target.value)}
+              >
+                <MenuItem value="0">0</MenuItem>
+                <MenuItem value="1">1</MenuItem>
+                <MenuItem value="2">2</MenuItem>
+                <MenuItem value="3">3</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
 
           <Typography

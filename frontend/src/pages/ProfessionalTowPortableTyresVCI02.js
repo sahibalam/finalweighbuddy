@@ -9,6 +9,7 @@ const ProfessionalTowPortableTyresVCI02 = () => {
   const weighingSelection = location.state?.weighingSelection || 'tow_vehicle_and_caravan';
   const previousAxleWeigh = location.state?.axleWeigh || null;
   const vci01 = location.state?.vci01 || null;
+  const preWeigh = location.state?.preWeigh || null;
   const axleConfig = location.state?.axleConfig || 'SINGLE';
   const isDualAxle = axleConfig === 'DUAL' || axleConfig === 'Dual Axle';
 
@@ -37,6 +38,7 @@ const ProfessionalTowPortableTyresVCI02 = () => {
           gvmUnhitched,
         },
         towBallMass: tbm ? Number(tbm) : null,
+        preWeigh,
       },
     });
   };

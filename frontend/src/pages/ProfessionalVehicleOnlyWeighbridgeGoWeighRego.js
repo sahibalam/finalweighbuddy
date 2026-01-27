@@ -26,6 +26,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
   const axleWeigh = location.state?.axleWeigh || null;
   const goweighData = location.state?.goweighData || null;
+  const preWeigh = location.state?.preWeigh || null;
 
   const handleContinue = async () => {
     setError('');
@@ -66,6 +67,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
           axleWeigh,
           goweighData,
           weighingSelection,
+          preWeigh,
         }
       });
     } catch (err) {
@@ -83,6 +85,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
             axleWeigh,
             goweighData,
             weighingSelection,
+            preWeigh,
           }
         });
       } else {

@@ -11,6 +11,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighPayment = () => {
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
   const axleWeigh = location.state?.axleWeigh || null;
   const goweighData = location.state?.goweighData || null;
+  const preWeigh = location.state?.preWeigh || null;
 
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
@@ -49,11 +50,11 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighPayment = () => {
             Create Comprehensive Weigh Report
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 3 }}>
-            Payment due $5.99
+            Payment due $9.99
           </Typography>
 
           <StripePaymentForm
-            amount={5.99}
+            amount={9.99}
             currency="aud"
             reportData={{ flowType: 'VEHICLE_ONLY_WEIGHBRIDGE_AXLE' }}
             onSuccess={() => setPaymentComplete(true)}
@@ -70,6 +71,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighPayment = () => {
                     weighingSelection,
                     axleWeigh,
                     goweighData,
+                    preWeigh,
                   },
                 });
               }}

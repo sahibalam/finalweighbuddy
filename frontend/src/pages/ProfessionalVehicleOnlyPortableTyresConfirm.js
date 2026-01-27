@@ -174,6 +174,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
             passengersFront,
             passengersRear,
             modifiedImages,
+            preWeigh,
             methodSelection: 'Portable Scales - Individual Tyre Weights',
             weighingSelection,
           },
@@ -192,6 +193,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           methodSelection: 'Portable Scales - Individual Tyre Weights',
           weighingSelection,
           towBallMass,
+          preWeigh,
           caravan: {
             rego,
             state,
@@ -236,6 +238,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           passengersFront,
           passengersRear,
           modifiedImages,
+          preWeigh,
           methodSelection: 'Portable Scales - Individual Tyre Weights',
           weighingSelection,
         },

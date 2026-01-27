@@ -43,6 +43,27 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
     goweighData = null
   } = location.state || {};
 
+  const resolvedFuelLevel =
+    fuelLevel !== '' && fuelLevel != null
+      ? fuelLevel
+      : preWeigh && preWeigh.fuelLevel != null
+        ? preWeigh.fuelLevel
+        : '';
+
+  const resolvedPassengersFront =
+    passengersFront !== '' && passengersFront != null
+      ? passengersFront
+      : preWeigh && preWeigh.passengersFront != null
+        ? preWeigh.passengersFront
+        : 0;
+
+  const resolvedPassengersRear =
+    passengersRear !== '' && passengersRear != null
+      ? passengersRear
+      : preWeigh && preWeigh.passengersRear != null
+        ? preWeigh.passengersRear
+        : 0;
+
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
   const isCaravanGoweighMethod =
     methodSelection === 'Weighbridge - goweigh' || methodSelection === 'GoWeigh Weighbridge';
@@ -102,6 +123,14 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
   const caravanAtmCapacityNum = caravan.atm ? Number(caravan.atm) || 0 : 0;
   const caravanGtmCapacityNum = caravan.gtm ? Number(caravan.gtm) || 0 : 0;
   const caravanAxleCapacityNum = caravan.axleGroups ? Number(caravan.axleGroups) || 0 : 0;
+
+  // For caravan-only flows, derive a TBM capacity from ATM - GTM when both are provided
+  // on the Confirm Caravan/Trailer Details screen. This gives a meaningful "Compliance"
+  // value for Tow Ball Mass (TBM) instead of N/A.
+  const caravanTbmCapacityNum =
+    weighingSelection === 'caravan_only_registered' && caravanAtmCapacityNum > 0 && caravanGtmCapacityNum > 0
+      ? caravanAtmCapacityNum - caravanGtmCapacityNum
+      : null;
 
   // Measured caravan metrics for Caravan Only flows
   let caravanMeasuredGtm = 0;
@@ -326,42 +355,43 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
     // 1) Always use GVM Unhitched derived from individual tyre loads on the VCI02 screen.
     gvmUnhitched = safeNum(axleWeigh.gvmUnhitched);
 
-    // 2) TBM: prefer explicit towBallMass override if provided.
+    // 2) Use VCI01 hitch readings to derive GVM Hitched (for GCM) when available.
+    const vci01 = location.state?.vci01 || null;
+    const hitchWeigh = vci01?.hitchWeigh || null;
+    const hitchWdhOffWeigh = vci01?.hitchWdhOffWeigh || null;
+    const hasWdh = vci01?.hasWdh;
+
+    let gvmHitchedPortable = 0;
+    if (hitchWeigh) {
+      const hitchedFront = safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight);
+      const hitchedRear = safeNum(hitchWeigh.rearLeft) + safeNum(hitchWeigh.rearRight);
+      gvmHitchedPortable = hitchedFront + hitchedRear;
+    }
+
+    // 3) TBM: prefer explicit towBallMass override if provided, otherwise derive from GVM Hitched vs Unhitched.
     if (location.state && location.state.towBallMass != null) {
       tbm = safeNum(location.state.towBallMass);
-    } else {
-      // 3) Otherwise, derive TBM from GVM Hitched vs GVM Unhitched using VCI01 hitch weights.
-      const vci01 = location.state?.vci01 || null;
-      const hitchWeigh = vci01?.hitchWeigh || null;
-      const hitchWdhOffWeigh = vci01?.hitchWdhOffWeigh || null;
-      const hasWdh = vci01?.hasWdh;
-
-      if (hitchWeigh) {
-        const hitchedFront = safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight);
-        const hitchedRear = safeNum(hitchWeigh.rearLeft) + safeNum(hitchWeigh.rearRight);
-        const gvmHitchedPortable = hitchedFront + hitchedRear;
-
-        // Use the caravan GTM from the Professional GTM/ATM screen as measured GTM.
-        gtmMeasured = safeNum(axleWeigh.trailerGtm);
-
-        if (hasWdh && hitchWdhOffWeigh) {
-          // With WDH: use the GVM with WDH released.
-          const wdhOffFront = safeNum(hitchWdhOffWeigh.frontLeft) + safeNum(hitchWdhOffWeigh.frontRight);
-          const wdhOffRear = safeNum(hitchWdhOffWeigh.rearLeft) + safeNum(hitchWdhOffWeigh.rearRight);
-          const gvmHitchWdhReleasePortable = wdhOffFront + wdhOffRear;
-          tbm = gvmHitchWdhReleasePortable - gvmUnhitched;
-        } else {
-          // Without WDH: GVM Hitched - GVM Unhitched = TBM.
-          tbm = gvmHitchedPortable - gvmUnhitched;
-        }
-
-        if (gtmMeasured > 0) {
-          // GTM + TBM = ATM
-          atmMeasured = gtmMeasured + tbm;
-          // GCM = GTM + GVM Hitched
-          gcmMeasured = gtmMeasured + gvmHitchedPortable;
-        }
+    } else if (hitchWeigh) {
+      if (hasWdh && hitchWdhOffWeigh) {
+        // With WDH: use the GVM with WDH released.
+        const wdhOffFront = safeNum(hitchWdhOffWeigh.frontLeft) + safeNum(hitchWdhOffWeigh.frontRight);
+        const wdhOffRear = safeNum(hitchWdhOffWeigh.rearLeft) + safeNum(hitchWdhOffWeigh.rearRight);
+        const gvmHitchWdhReleasePortable = wdhOffFront + wdhOffRear;
+        tbm = gvmHitchWdhReleasePortable - gvmUnhitched;
+      } else {
+        // Without WDH: GVM Hitched - GVM Unhitched = TBM.
+        tbm = gvmHitchedPortable - gvmUnhitched;
       }
+    }
+
+    // 4) Always use the caravan GTM from the Professional GTM/ATM screen as measured GTM.
+    gtmMeasured = safeNum(axleWeigh.trailerGtm);
+
+    if (gtmMeasured > 0) {
+      // GTM + TBM = ATM
+      atmMeasured = gtmMeasured + tbm;
+      // GCM = GTM + GVM Hitched
+      gcmMeasured = gtmMeasured + gvmHitchedPortable;
     }
   } else if (location.state && location.state.towBallMass != null) {
     // For non in-ground flows that provide an explicit towBallMass (e.g. professional portable scales),
@@ -451,9 +481,9 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
           rear: rearCapacityDiff
         },
         carInfo: {
-          fuelLevel: fuelLevel === '' ? null : Number(fuelLevel),
-          passengersFront: Number(passengersFront) || 0,
-          passengersRear: Number(passengersRear) || 0
+          fuelLevel: resolvedFuelLevel === '' ? null : Number(resolvedFuelLevel),
+          passengersFront: Number(resolvedPassengersFront) || 0,
+          passengersRear: Number(resolvedPassengersRear) || 0
         },
         notes: '',
         methodSelection
@@ -489,9 +519,9 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
           rearUnhitched: rearMeasured
         },
         preWeigh: {
-          fuelLevel: fuelLevel === '' ? null : Number(fuelLevel),
-          passengersFront: Number(passengersFront) || 0,
-          passengersRear: Number(passengersRear) || 0
+          fuelLevel: resolvedFuelLevel === '' ? null : Number(resolvedFuelLevel),
+          passengersFront: Number(resolvedPassengersFront) || 0,
+          passengersRear: Number(resolvedPassengersRear) || 0
         },
         modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : []
       });
@@ -1101,7 +1131,8 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                       </>
                     )}
 
-                    {/* TBM row for Caravan Only flows (all methods) */}
+                    {/* TBM row for Caravan Only flows (all methods).
+                        Compliance uses caravan TBM rating derived from ATM - GTM when available. */}
                     <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                       <Grid item xs={4}>
                         <Typography variant="body2">Tow Ball Mass (TBM)</Typography>
@@ -1109,7 +1140,7 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                       {/* Compliance: use TBM capacity when available, otherwise N/A */}
                       <Grid item xs={2}>
                         <Typography variant="body2">
-                          {tbmCapacityNum != null ? `${tbmCapacityNum} kg` : 'N/A'}
+                          {caravanTbmCapacityNum != null ? `${caravanTbmCapacityNum} kg` : 'N/A'}
                         </Typography>
                       </Grid>
                       {/* Measured: caravan TBM derived per method */}
@@ -1118,21 +1149,21 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                       </Grid>
                       <Grid item xs={2}>
                         <Typography variant="body2">
-                          {tbmCapacityNum != null ? `${tbmCapacityNum - caravanMeasuredTbm} kg` : 'N/A'}
+                          {caravanTbmCapacityNum != null ? `${caravanTbmCapacityNum - caravanMeasuredTbm} kg` : 'N/A'}
                         </Typography>
                       </Grid>
                       <Grid item xs={2}>
                         <Typography
                           variant="body2"
                           color={
-                            tbmCapacityNum == null || caravanMeasuredTbm <= tbmCapacityNum
+                            caravanTbmCapacityNum == null || caravanMeasuredTbm <= caravanTbmCapacityNum
                               ? 'success.main'
                               : 'error'
                           }
                         >
-                          {tbmCapacityNum == null
+                          {caravanTbmCapacityNum == null
                             ? 'N/A'
-                            : caravanMeasuredTbm <= tbmCapacityNum
+                            : caravanMeasuredTbm <= caravanTbmCapacityNum
                               ? 'OK'
                               : 'OVER'}
                         </Typography>
@@ -1164,11 +1195,11 @@ const DIYVehicleOnlyWeighbridgeResults = () => {
                 </React.Fragment>
               ) : (
                 <React.Fragment>
-                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
                     Additional Information : Front Axle {frontMeasured} kg , Rear Axle {rearMeasured} kg
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 1 }}>
-                    Additional Information : Fuel {fuelLevel !== '' ? `${fuelLevel}%` : 'N/A'}, Passengers Front {passengersFront || 0}, Passengers Rear {passengersRear || 0}, Additional Notes from Page on
+                    Additional Information : Fuel {resolvedFuelLevel !== '' ? `${resolvedFuelLevel}%` : 'N/A'}, Passengers Front {resolvedPassengersFront || 0}, Passengers Rear {resolvedPassengersRear || 0}, Additional Notes from Page on: {preWeigh?.notes || 'N/A'}
                   </Typography>
                 </React.Fragment>
               )}

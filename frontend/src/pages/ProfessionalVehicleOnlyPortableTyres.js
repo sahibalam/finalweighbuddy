@@ -394,18 +394,22 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         </Box>
       )}
 
-      {/* Right Tow Ball Weight field as per caravan-only portable scales wireframe */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TextField
-            label="Right Tow Ball Weight"
-            value={towBallMass}
-            onChange={(e) => setTowBallMass(e.target.value)}
-            sx={{ width: 180 }}
-          />
-          <Typography>kg</Typography>
+      {weighingSelection === 'caravan_only_registered' && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Tow Ball Weight
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TextField
+              label="Tow Ball Weight"
+              value={towBallMass}
+              onChange={(e) => setTowBallMass(e.target.value)}
+              sx={{ width: 200 }}
+            />
+            <Typography>kg</Typography>
+          </Box>
         </Box>
-      </Box>
+      )}
     </>
   );
 

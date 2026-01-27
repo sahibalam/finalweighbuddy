@@ -10,6 +10,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundPayment = () => {
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
   const axleWeigh = location.state?.axleWeigh || null;
+  const preWeigh = location.state?.preWeigh || null;
 
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
@@ -65,6 +66,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundPayment = () => {
                   state: {
                     weighingSelection,
                     axleWeigh,
+                    preWeigh,
                   },
                 });
               }}

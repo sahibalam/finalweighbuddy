@@ -42,6 +42,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
   const [caravanComplianceImage, setCaravanComplianceImage] = useState('');
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const preWeigh = location.state?.preWeigh || null;
 
   useEffect(() => {
     const stateData = location.state || {};
@@ -153,14 +154,15 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
         measuredFrontAxle: axleWeigh?.frontAxleUnhitched ?? '',
         measuredRearAxle: '',
         measuredGvm: axleWeigh?.gvmUnhitched ?? '',
-        fuelLevel: '',
-        passengersFront: '',
-        passengersRear: '',
+        fuelLevel: preWeigh?.fuelLevel ?? '',
+        passengersFront: preWeigh?.passengersFront ?? '',
+        passengersRear: preWeigh?.passengersRear ?? '',
         modifiedImages,
         methodSelection: 'Weighbridge - goweigh',
         weighingSelection,
         axleWeigh,
         goweighData,
+        preWeigh,
       };
 
       if (weighingSelection === 'caravan_only_registered') {

@@ -42,6 +42,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   const [caravanComplianceImage, setCaravanComplianceImage] = useState('');
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const preWeigh = location.state?.preWeigh || null;
 
   // Hydrate from rego lookup state
   useEffect(() => {
@@ -154,13 +155,14 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
         measuredFrontAxle: axleWeigh?.frontAxleUnhitched ?? '',
         measuredRearAxle: '',
         measuredGvm: axleWeigh?.gvmUnhitched ?? '',
-        fuelLevel: '',
-        passengersFront: '',
-        passengersRear: '',
+        fuelLevel: preWeigh?.fuelLevel ?? '',
+        passengersFront: preWeigh?.passengersFront ?? '',
+        passengersRear: preWeigh?.passengersRear ?? '',
         modifiedImages,
         methodSelection: 'Weighbridge - In Ground - Individual Axle Weights',
         weighingSelection,
         axleWeigh,
+        preWeigh,
       };
 
       // Caravan-only flow: send caravan details with caravan object straight to results

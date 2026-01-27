@@ -29,7 +29,10 @@ const userSchema = new mongoose.Schema({
   },
   postcode: {
     type: String,
-    required: [true, 'Postcode is required'],
+    // Postcode is required only for professional users; optional for DIY/admin
+    required: function () {
+      return this.userType === 'professional';
+    },
     trim: true
   },
   userType: {

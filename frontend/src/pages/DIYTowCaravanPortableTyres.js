@@ -141,41 +141,50 @@ const DIYTowCaravanPortableTyres = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Dual Axle
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 100 }}>Front Left Tyre</Typography>
-                <TextField
-                  value={dualFrontLeft}
-                  onChange={(e) => setDualFrontLeft(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 100 }}>Front Right Tyre</Typography>
-                <TextField
-                  value={dualFrontRight}
-                  onChange={(e) => setDualFrontRight(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 100 }}>Rear Left Tyre</Typography>
-                <TextField
-                  value={dualRearLeft}
-                  onChange={(e) => setDualRearLeft(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography sx={{ minWidth: 100 }}>Rear Right Tyre</Typography>
-                <TextField
-                  value={dualRearRight}
-                  onChange={(e) => setDualRearRight(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                  columnGap: 3,
+                  rowGap: 1,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 120 }}>Front Left Tyre</Typography>
+                  <TextField
+                    value={dualFrontLeft}
+                    onChange={(e) => setDualFrontLeft(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 120 }}>Front Right Tyre</Typography>
+                  <TextField
+                    value={dualFrontRight}
+                    onChange={(e) => setDualFrontRight(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 120 }}>Rear Left Tyre</Typography>
+                  <TextField
+                    value={dualRearLeft}
+                    onChange={(e) => setDualRearLeft(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 120 }}>Rear Right Tyre</Typography>
+                  <TextField
+                    value={dualRearRight}
+                    onChange={(e) => setDualRearRight(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
               </Box>
             </Box>
           )}
@@ -186,59 +195,68 @@ const DIYTowCaravanPortableTyres = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Triple Axle
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 120 }}>Front Left Tyre</Typography>
-                <TextField
-                  value={tripleFrontLeft}
-                  onChange={(e) => setTripleFrontLeft(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 120 }}>Front Right Tyre</Typography>
-                <TextField
-                  value={tripleFrontRight}
-                  onChange={(e) => setTripleFrontRight(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 120 }}>Middle Left Tyre</Typography>
-                <TextField
-                  value={tripleMiddleLeft}
-                  onChange={(e) => setTripleMiddleLeft(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 120 }}>Middle Right Tyre</Typography>
-                <TextField
-                  value={tripleMiddleRight}
-                  onChange={(e) => setTripleMiddleRight(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 120 }}>Rear Left Tyre</Typography>
-                <TextField
-                  value={tripleRearLeft}
-                  onChange={(e) => setTripleRearLeft(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography sx={{ minWidth: 120 }}>Rear Right Tyre</Typography>
-                <TextField
-                  value={tripleRearRight}
-                  onChange={(e) => setTripleRearRight(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                  columnGap: 3,
+                  rowGap: 1,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 140 }}>Front Left Tyre</Typography>
+                  <TextField
+                    value={tripleFrontLeft}
+                    onChange={(e) => setTripleFrontLeft(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 140 }}>Front Right Tyre</Typography>
+                  <TextField
+                    value={tripleFrontRight}
+                    onChange={(e) => setTripleFrontRight(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 140 }}>Middle Left Tyre</Typography>
+                  <TextField
+                    value={tripleMiddleLeft}
+                    onChange={(e) => setTripleMiddleLeft(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 140 }}>Middle Right Tyre</Typography>
+                  <TextField
+                    value={tripleMiddleRight}
+                    onChange={(e) => setTripleMiddleRight(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 140 }}>Rear Left Tyre</Typography>
+                  <TextField
+                    value={tripleRearLeft}
+                    onChange={(e) => setTripleRearLeft(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography sx={{ minWidth: 140 }}>Rear Right Tyre</Typography>
+                  <TextField
+                    value={tripleRearRight}
+                    onChange={(e) => setTripleRearRight(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
               </Box>
             </Box>
           )}

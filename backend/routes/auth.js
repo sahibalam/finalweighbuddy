@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { createDiyClientFromProfessional } = require('../services/professionalClientService');
 
 const router = express.Router();
 
@@ -15,8 +16,14 @@ router.post('/register', [
   body('email', 'Please include a valid email').isEmail(),
   body('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
   body('phone', 'Phone number is required').not().isEmpty(),
-  body('postcode', 'Postcode is required').not().isEmpty(),
   body('userType', 'User type must be professional or diy').isIn(['professional', 'diy']),
+  // Postcode is required only for professional users; optional for DIY
+  body('postcode').custom((value, { req }) => {
+    if (req.body.userType === 'professional' && (!value || String(value).trim() === '')) {
+      throw new Error('Postcode is required for professional users');
+    }
+    return true;
+  }),
   body('businessName').custom((value, { req }) => {
     if (req.body.userType === 'professional' && !value) {
       throw new Error('Business name is required for professional users');
@@ -336,4 +343,49 @@ router.post('/sync-weigh-count', protect, async (req, res) => {
   }
 });
 
-module.exports = router; 
+// @desc    Create DIY client from professional flow and send welcome email
+// @route   POST /api/auth/create-diy-client-from-professional
+// @access  Public (called from authenticated professional UI but does not require DIY auth)
+const professionalClientService = require('../services/professionalClientService');
+router.post(
+  '/create-diy-client-from-professional',
+  [
+    body('firstName', 'First name is required').not().isEmpty(),
+    body('lastName', 'Last name is required').not().isEmpty(),
+    body('email', 'Please include a valid email').isEmail(),
+    body('phone', 'Phone number is required').not().isEmpty(),
+    body('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { firstName, lastName, email, phone, password } = req.body;
+
+    try {
+      const result = await professionalClientService.createDiyClientFromProfessional({
+        firstName,
+        lastName,
+        email,
+        phone,
+        password,
+      });
+
+      return res.status(201).json({
+        success: true,
+        created: result.created,
+        emailSent: result.emailSent,
+      });
+    } catch (error) {
+      console.error('Error creating DIY client from professional flow:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create DIY client from professional flow',
+      });
+    }
+  }
+);
+
+module.exports = router;
