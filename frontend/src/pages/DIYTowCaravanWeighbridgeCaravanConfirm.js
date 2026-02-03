@@ -29,6 +29,7 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
   const [tare, setTare] = useState('');
   const [complianceImage, setComplianceImage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -56,7 +57,189 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (saving) return;
+
+    // Professional tow+caravan in-ground flow: persist to DB so it appears in Weigh History.
+    if (baseState.isProfessionalFlow) {
+      setSaving(true);
+      try {
+        const safeNum = (v) => (v != null && v !== '' ? Number(v) || 0 : 0);
+
+        // 1) Upsert vehicle master
+        const descriptionParts = String(baseState.description || '').split(' ').filter(Boolean);
+        const vehicleYearRaw = descriptionParts[0] || baseState.vehicleYear || baseState.year;
+        const vehicleYear = safeNum(vehicleYearRaw) || new Date().getFullYear();
+
+        const vehicleMakeFromDesc = descriptionParts[1] || '';
+        const vehicleModelFromDesc = descriptionParts[2] || '';
+        const vehicleVariantFromDesc = descriptionParts.slice(3).join(' ') || '';
+
+        const vehicleMake = String(baseState.vehicleMake || vehicleMakeFromDesc || 'Unknown').trim();
+        const vehicleModel = String(baseState.vehicleModel || vehicleModelFromDesc || 'Unknown').trim();
+        const vehicleVariant = String(baseState.vehicleVariant || vehicleVariantFromDesc || 'Base').trim();
+
+        const upsertVehicleResp = await axios.post('/api/vehicles/master-upsert', {
+          make: vehicleMake,
+          model: vehicleModel,
+          year: vehicleYear,
+          variant: vehicleVariant,
+          fawr: safeNum(baseState.frontAxleCapacity),
+          rawr: safeNum(baseState.rearAxleCapacity),
+          gvm: safeNum(baseState.gvmCapacity),
+          btc: safeNum(baseState.btcCapacity),
+          tbm: safeNum(baseState.tbmCapacity),
+          gcm: safeNum(baseState.gcmCapacity),
+        });
+
+        const vehicleId = upsertVehicleResp.data?.data?._id || null;
+
+        if (!vehicleId) {
+          throw new Error('Vehicle master-upsert did not return a vehicleId');
+        }
+
+        // 2) Upsert caravan master
+        const axleCapacityFromInput = safeNum(axleGroups);
+        const axleCapacityFromGtm = safeNum(gtm);
+        const axleCapacity = axleCapacityFromInput || axleCapacityFromGtm;
+
+        const upsertCaravanResp = await axios.post('/api/caravans/master-upsert', {
+          make,
+          model,
+          year: safeNum(year) || new Date().getFullYear(),
+          atm: safeNum(atm),
+          gtm: safeNum(gtm),
+          axleCapacity,
+          numberOfAxles: 'Single',
+        });
+
+        const caravanId = upsertCaravanResp.data?.data?._id || null;
+
+        if (!caravanId) {
+          throw new Error('Caravan master-upsert did not return a caravanId');
+        }
+
+        // 3) Build measured weights from axleWeigh / goweighData
+        const axleWeigh = baseState.axleWeigh || {};
+        const goweighData = baseState.goweighData || null;
+        const isGoWeighMethod = baseState.methodSelection === 'Weighbridge - goweigh' || Boolean(goweighData);
+
+        let frontAxleUnhitched = 0;
+        let rearAxleUnhitched = 0;
+        let gvmUnhitched = 0;
+        let frontAxleHitched = 0;
+        let rearAxleHitched = 0;
+        let gvmHitched = 0;
+        let trailerGtm = 0;
+        let tbmMeasured = 0;
+        let grossCombination = 0;
+
+        if (isGoWeighMethod && goweighData) {
+          const first = goweighData.firstWeigh || {};
+          const second = goweighData.secondWeigh || {};
+          const summary = goweighData.summary || {};
+
+          frontAxleUnhitched = safeNum(first.frontUnhitched);
+          rearAxleUnhitched = safeNum(first.rearUnhitched);
+          gvmUnhitched = frontAxleUnhitched + rearAxleUnhitched;
+
+          frontAxleHitched = safeNum(second.frontHitched);
+          rearAxleHitched = safeNum(second.rearHitched);
+          gvmHitched = frontAxleHitched + rearAxleHitched;
+
+          trailerGtm = safeNum(second.trailerGtm);
+          tbmMeasured = safeNum(summary.tbm);
+          grossCombination = gvmHitched + trailerGtm;
+        } else {
+          // In-ground axle flow
+          frontAxleUnhitched = safeNum(axleWeigh.frontAxleUnhitched);
+          gvmUnhitched = safeNum(axleWeigh.gvmUnhitched);
+          rearAxleUnhitched = gvmUnhitched - frontAxleUnhitched;
+
+          frontAxleHitched = safeNum(axleWeigh.frontAxleHitched);
+          gvmHitched = safeNum(axleWeigh.gvmHitched);
+          rearAxleHitched = gvmHitched - frontAxleHitched;
+
+          const gvmHitchedWdhRelease = safeNum(axleWeigh.gvmHitchedWdhRelease);
+          trailerGtm = safeNum(axleWeigh.trailerGtm);
+
+          tbmMeasured = 0;
+          if (gvmUnhitched > 0) {
+            if (gvmHitchedWdhRelease > 0) {
+              tbmMeasured = gvmHitchedWdhRelease - gvmUnhitched;
+            } else {
+              tbmMeasured = gvmHitched - gvmUnhitched;
+            }
+          }
+
+          grossCombination = gvmHitched + trailerGtm;
+        }
+
+        const payload = {
+          customerName: baseState.customerName || 'Professional Client',
+          customerPhone: baseState.customerPhone || 'N/A',
+          customerEmail: baseState.customerEmail || 'unknown@example.com',
+          vehicleId,
+          caravanId,
+          vehicleNumberPlate: baseState.rego || '',
+          vehicleState: baseState.state || baseState.vehicleState || '',
+          caravanNumberPlate: rego || '',
+          caravanState: state || '',
+          weights: {
+            frontAxle: frontAxleUnhitched,
+            rearAxle: rearAxleUnhitched,
+            totalVehicle: gvmUnhitched,
+            frontAxleGroup: 0,
+            rearAxleGroup: 0,
+            totalCaravan: trailerGtm,
+            grossCombination,
+            tbm: tbmMeasured,
+            raw: {
+              axleWeigh: baseState.axleWeigh || null,
+              goweighData: baseState.goweighData || null,
+              hitchedFrontAxle: frontAxleHitched,
+              hitchedRearAxle: rearAxleHitched,
+            },
+          },
+          preWeigh: baseState.preWeigh || null,
+          notes: baseState.notes || '',
+        };
+
+        const saveResp = await axios.post('/api/weighs', payload);
+        const savedWeighId = saveResp?.data?.weigh?._id || saveResp?.data?.weighId || null;
+
+        navigate('/vehicle-only-weighbridge-results', {
+          state: {
+            ...baseState,
+            weighId: savedWeighId,
+            alreadySaved: true,
+            caravan: {
+              rego,
+              state,
+              make,
+              model,
+              year,
+              vin,
+              gtm,
+              atm,
+              axleGroups,
+              tare,
+              complianceImage,
+            },
+          },
+        });
+      } catch (error) {
+        console.error(
+          'Failed to save professional tow+caravan in-ground weigh:',
+          error?.response?.data || error
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Default DIY behavior: just navigate to results (save is via Finish)
     navigate('/vehicle-only-weighbridge-results', {
       state: {
         ...baseState,

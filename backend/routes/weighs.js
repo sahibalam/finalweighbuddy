@@ -52,7 +52,9 @@ router.post('/', protect, checkSubscription, [
       vehicleId,
       caravanId,
       vehicleNumberPlate,
+      vehicleState,
       caravanNumberPlate,
+      caravanState,
       weights,
       preWeigh,
       notes,
@@ -182,21 +184,32 @@ router.post('/', protect, checkSubscription, [
     // Create weigh entry
     const weigh = new Weigh({
       userId: req.user.id,
-      customer: {
-        name: customerName,
-        phone: customerPhone,
-        email: customerEmail
-      },
+      customerName,
+      customerPhone,
+      customerEmail,
+
       vehicle: vehicleId,
       vehicleNumberPlate,
       caravan: caravanId,
       caravanNumberPlate,
+
+      // Required legacy fields (used by history table + schema validation)
+      vehicleWeightHitched: parseFloat(weights.totalVehicle) || 0,
+      vehicleWeightUnhitched: parseFloat(weights.totalVehicle) || 0,
+      caravanWeight: parseFloat(weights.totalCaravan) || 0,
+      towBallWeight: parseFloat(weights.tbm) || 0,
+
       // Store complete vehicle and caravan data for admin review
       vehicleData: {
         ...vehicle.toObject(),
-        numberPlate: vehicleNumberPlate // Add number plate to vehicle data
+        numberPlate: vehicleNumberPlate,
+        state: vehicleState || vehicle.state || ''
       },
-      caravanData: caravan.toObject(),
+      caravanData: {
+        ...caravan.toObject(),
+        numberPlate: caravanNumberPlate,
+        state: caravanState || caravan.state || ''
+      },
       weights,
       preWeigh,
       notes,
@@ -209,9 +222,9 @@ router.post('/', protect, checkSubscription, [
       payment: (() => {
         if (req.user.userType === 'professional') {
           return {
-            method: 'subscription',
+            method: 'direct',
             amount: 0,
-            status: 'included_in_subscription'
+            status: 'completed'
           };
         }
         // DIY: allow client to pass payment method/status/amount
@@ -274,6 +287,8 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
   try {
     const {
       vehicleSummary = {},
+      caravanSummary = null,
+      weights: normalizedWeights = null,
       preWeigh = {},
       notes,
       payment: clientPayment = {},
@@ -309,15 +324,50 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
         numberPlate: vehicleSummary.rego,
         state: vehicleSummary.state,
         vin: vehicleSummary.vin,
-        gvm: vehicleSummary.gvmUnhitched,
+        // Optional capacities (present for professional vehicle-only portable flow)
+        fawr: vehicleSummary.fawr != null ? Number(vehicleSummary.fawr) || 0 : undefined,
+        rawr: vehicleSummary.rawr != null ? Number(vehicleSummary.rawr) || 0 : undefined,
+        gvm: vehicleSummary.gvm != null ? Number(vehicleSummary.gvm) || 0 : undefined,
+        gcm: vehicleSummary.gcm != null ? Number(vehicleSummary.gcm) || 0 : undefined,
+        btc: vehicleSummary.btc != null ? Number(vehicleSummary.btc) || 0 : undefined,
+        tbm: vehicleSummary.tbm != null ? Number(vehicleSummary.tbm) || 0 : undefined,
+        // Keep a measured reference as well (some screens store measured GVM as unhitched)
+        gvmUnhitched: vehicleSummary.gvmUnhitched,
         frontAxleUnhitched: frontUnhitched,
         rearAxleUnhitched: rearUnhitched
       },
+
+      // Optional caravan summary for caravan-only registered flows
+      ...(caravanSummary && typeof caravanSummary === 'object'
+        ? {
+            caravanData: {
+              description: caravanSummary.description,
+              numberPlate: caravanSummary.rego,
+              state: caravanSummary.state,
+              vin: caravanSummary.vin,
+              make: caravanSummary.make,
+              model: caravanSummary.model,
+              year: caravanSummary.year,
+              atm: caravanSummary.atm,
+              gtm: caravanSummary.gtm,
+              axleGroups: caravanSummary.axleGroups,
+              tare: caravanSummary.tare,
+              tbmMeasured: caravanSummary.tbmMeasured,
+              gtmMeasured: caravanSummary.gtmMeasured,
+              atmMeasured: caravanSummary.atmMeasured,
+            },
+            caravanNumberPlate: caravanSummary.rego,
+            caravanState: caravanSummary.state,
+          }
+        : {}),
 
       // Store any uploaded modified compliance plate images (up to 3 URLs)
       modifiedVehicleComplianceImages: Array.isArray(modifiedVehicleImages)
         ? modifiedVehicleImages.slice(0, 3)
         : [],
+
+      // Optional normalized weights payload (used by newer results screens + history modal mirroring)
+      weights: normalizedWeights && typeof normalizedWeights === 'object' ? normalizedWeights : undefined,
 
       preWeigh,
       notes,
@@ -643,6 +693,8 @@ router.get('/:id', protect, async (req, res) => {
   try {
     console.log('GET /api/weighs/:id', { id: req.params.id, userId: req.user?.id });
     const weigh = await Weigh.findById(req.params.id)
+      .populate('vehicleRegistryId')
+      .populate('caravanRegistryId')
       .populate('vehicle')
       .populate('caravan')
       .populate('userId', 'name email userType');

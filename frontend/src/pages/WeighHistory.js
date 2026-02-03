@@ -18,8 +18,6 @@ import {
   Chip,
   IconButton,
   Button,
-  Card,
-  CardContent,
   Grid,
   Alert,
   CircularProgress,
@@ -45,6 +43,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from 'react-query';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
+import DIYVehicleOnlyWeighbridgeResults from './DIYVehicleOnlyWeighbridgeResults';
 
 const WeighHistory = () => {
   const [page, setPage] = useState(0);
@@ -72,7 +71,9 @@ const WeighHistory = () => {
     },
     {
       keepPreviousData: true,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      refetchOnMount: 'always',
+      staleTime: 0
     }
   );
 
@@ -106,9 +107,338 @@ const WeighHistory = () => {
   };
 
   // Open weigh detail dialog
-  const handleViewDetail = (weigh) => {
-    setSelectedWeigh(weigh);
-    setDetailDialogOpen(true);
+  const buildResultsStateFromWeigh = (weigh) => {
+    const v = weigh?.vehicleData || {};
+    const c = weigh?.caravanData || {};
+    const w = weigh?.weights || {};
+    const raw = w?.raw || {};
+
+    const safeNum = (val) => {
+      if (val == null || val === '') return null;
+      const n = Number(val);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const descriptionParts = [v.year, v.make, v.model, v.variant].filter(Boolean);
+    const description = descriptionParts.length ? descriptionParts.join(' ') : (v.description || '');
+
+    const hasCaravan =
+      (c && Object.keys(c).length > 0) ||
+      Boolean(
+        weigh?.caravanNumberPlate ||
+        weigh?.caravanState ||
+        weigh?.caravanRegistryId ||
+        weigh?.caravan
+      );
+
+    const weighingSelection = hasCaravan ? 'tow_vehicle_and_caravan' : 'vehicle_only';
+    const axleWeighRaw = raw?.axleWeigh || null;
+
+    // If methodSelection wasn't persisted on older/newer records, infer it.
+    // Defaulting to Portable Scales is incorrect for in-ground axle flows and
+    // causes the embedded results component to read the wrong axle keys.
+    let methodSelection = w?.methodSelection || weigh?.methodSelection || '';
+
+    const goWeighData = raw?.goweighData;
+    const looksLikeGoWeigh = Boolean(goWeighData);
+    const looksLikeGoWeighStrong = Boolean(
+      goWeighData && (goWeighData.firstWeigh || goWeighData.secondWeigh || goWeighData.summary)
+    );
+    const looksLikePortableTow = Boolean(
+      raw?.vci01 ||
+        raw?.vci02 ||
+        raw?.towBallMass != null ||
+        axleWeighRaw?.unhitchedFrontAxle != null
+    );
+    const hasUnhitchedAxleSignal = Boolean(
+      axleWeighRaw &&
+        (axleWeighRaw.frontAxleUnhitched != null || axleWeighRaw.gvmUnhitched != null)
+    );
+
+    const hasHitchedAxleSignal = Boolean(
+      (axleWeighRaw &&
+        (axleWeighRaw.frontAxleHitched != null ||
+          axleWeighRaw.gvmHitched != null ||
+          axleWeighRaw.gvmHitchedWdhRelease != null)) ||
+        raw?.hitchedFrontAxle != null ||
+        raw?.hitchedRearAxle != null
+    );
+
+    // In-ground individual axle records typically have BOTH unhitched + hitched readings.
+    // GoWeigh records can have goweighData + unhitched readings, but usually do NOT include hitched axle values.
+    const looksLikeInGroundAxle = Boolean(hasUnhitchedAxleSignal && hasHitchedAxleSignal);
+
+    if (!methodSelection) {
+      if (looksLikePortableTow) {
+        methodSelection = 'Portable Scales - Individual Tyre Weights';
+      } else if (looksLikeGoWeighStrong) {
+        methodSelection = 'Weighbridge - goweigh';
+      } else if (looksLikeInGroundAxle) {
+        methodSelection = 'Weighbridge - In Ground - Individual Axle Weights';
+      } else if (looksLikeGoWeigh) {
+        methodSelection = 'Weighbridge - goweigh';
+      } else {
+        methodSelection = 'Portable Scales - Individual Tyre Weights';
+      }
+    }
+
+    // Normalize to canonical in-ground label ONLY when the saved axle keys match the in-ground schema.
+    const shouldForceInGroundLabel =
+      weighingSelection === 'tow_vehicle_and_caravan' &&
+      looksLikeInGroundAxle &&
+      !looksLikePortableTow &&
+      !looksLikeGoWeighStrong;
+
+    if (shouldForceInGroundLabel) {
+      methodSelection = 'Weighbridge - In Ground - Individual Axle Weights';
+    }
+
+    // Provide compatibility aliases so the embedded results component can
+    // compute values regardless of which axleWeigh key names were saved.
+    const hitchedFrontFromRaw = safeNum(raw?.hitchedFrontAxle);
+    const hitchedRearFromRaw = safeNum(raw?.hitchedRearAxle);
+    const hitchedGvmFromRaw =
+      hitchedFrontFromRaw != null && hitchedRearFromRaw != null
+        ? hitchedFrontFromRaw + hitchedRearFromRaw
+        : null;
+
+    const trailerGtmFallback =
+      axleWeighRaw?.trailerGtm != null
+        ? axleWeighRaw.trailerGtm
+        : w.totalCaravan != null
+          ? w.totalCaravan
+          : null;
+
+    const axleWeigh = axleWeighRaw
+      ? {
+          ...axleWeighRaw,
+          // Professional in-ground branch expects hitched keys.
+          frontAxleHitched:
+            axleWeighRaw.frontAxleHitched != null
+              ? axleWeighRaw.frontAxleHitched
+              : hitchedFrontFromRaw,
+          gvmHitched:
+            axleWeighRaw.gvmHitched != null
+              ? axleWeighRaw.gvmHitched
+              : hitchedGvmFromRaw,
+          gvmHitchedWdhRelease:
+            axleWeighRaw.gvmHitchedWdhRelease != null
+              ? axleWeighRaw.gvmHitchedWdhRelease
+              : 0,
+          trailerGtm: trailerGtmFallback,
+          // DIY in-ground branch expects `frontAxle` + `unhitchedFrontAxle`
+          frontAxle:
+            axleWeighRaw.frontAxle != null
+              ? axleWeighRaw.frontAxle
+              : axleWeighRaw.frontAxleHitched != null
+                ? axleWeighRaw.frontAxleHitched
+                : hitchedFrontFromRaw,
+          unhitchedFrontAxle:
+            axleWeighRaw.unhitchedFrontAxle != null
+              ? axleWeighRaw.unhitchedFrontAxle
+              : axleWeighRaw.frontAxleUnhitched,
+          // Portable / other branches sometimes use these names
+          hitchedFrontAxle:
+            axleWeighRaw.hitchedFrontAxle != null
+              ? axleWeighRaw.hitchedFrontAxle
+              : axleWeighRaw.frontAxleHitched != null
+                ? axleWeighRaw.frontAxleHitched
+                : hitchedFrontFromRaw,
+          // Ensure gvm values are available under expected keys
+          gvm:
+            axleWeighRaw.gvm != null
+              ? axleWeighRaw.gvm
+              : axleWeighRaw.gvmUnhitched,
+        }
+      : null;
+
+    const deriveTowBallMass = () => {
+      if (!axleWeigh) return null;
+
+      const gvmUnhitched = safeNum(axleWeigh.gvmUnhitched);
+      const gvmHitched = safeNum(axleWeigh.gvmHitched);
+      const gvmHitchedWdhRelease = safeNum(axleWeigh.gvmHitchedWdhRelease);
+
+      if (gvmUnhitched == null || gvmUnhitched <= 0) return null;
+
+      // Portable-scales professional tow flow: derive hitched GVM from vci01 tyre totals.
+      if (methodSelection === 'Portable Scales - Individual Tyre Weights' && raw?.vci01) {
+        const vci01 = raw.vci01 || {};
+        const hitchWeigh = vci01.hitchWeigh || null;
+        const hitchWdhOffWeigh = vci01.hitchWdhOffWeigh || null;
+        const hasWdh = vci01.hasWdh;
+
+        const sumPairStrict = (a, b) => {
+          const na = safeNum(a);
+          const nb = safeNum(b);
+          if (na == null || nb == null) return null;
+          return na + nb;
+        };
+
+        const sumAxlesFromTyresStrict = (weighObj) => {
+          if (!weighObj) return { front: null, rear: null, gvm: null };
+          const front = sumPairStrict(weighObj.frontLeft, weighObj.frontRight);
+          const rear = sumPairStrict(weighObj.rearLeft, weighObj.rearRight);
+          if (front == null || rear == null) return { front: null, rear: null, gvm: null };
+          return { front, rear, gvm: front + rear };
+        };
+
+        if (hitchWeigh) {
+          const hitched = sumAxlesFromTyresStrict(hitchWeigh);
+          const gvmHitchedPortable =
+            hitched.gvm != null && hitched.gvm > 0
+              ? hitched.gvm
+              : (safeNum(w.totalVehicle) != null && safeNum(w.totalVehicle) > 0 ? safeNum(w.totalVehicle) : null);
+
+          if (hasWdh && hitchWdhOffWeigh) {
+            const wdhOff = sumAxlesFromTyresStrict(hitchWdhOffWeigh);
+            const gvmHitchWdhReleasePortable = wdhOff.gvm;
+            if (gvmHitchWdhReleasePortable != null && gvmHitchWdhReleasePortable > 0) {
+              return Math.max(0, gvmHitchWdhReleasePortable - gvmUnhitched);
+            }
+          }
+
+          if (gvmHitchedPortable != null && gvmHitchedPortable > 0) {
+            return Math.max(0, gvmHitchedPortable - gvmUnhitched);
+          }
+        }
+      }
+
+      // In-ground / other axle-based flows: Prefer WDH release reading when present.
+      if (gvmHitchedWdhRelease != null && gvmHitchedWdhRelease > 0) {
+        return Math.max(0, gvmHitchedWdhRelease - gvmUnhitched);
+      }
+
+      if (gvmHitched != null && gvmHitched > 0) {
+        return Math.max(0, gvmHitched - gvmUnhitched);
+      }
+
+      return null;
+    };
+
+    const derivedTowBallMass = deriveTowBallMass();
+
+    const resolveTowBallMass = () => {
+      const explicitTbm = safeNum(w.tbm);
+      if (explicitTbm != null && explicitTbm > 0) return explicitTbm;
+
+      const explicitTowBallMass = safeNum(raw?.towBallMass);
+      if (explicitTowBallMass != null && explicitTowBallMass > 0) return explicitTowBallMass;
+
+      if (derivedTowBallMass != null && derivedTowBallMass > 0) return derivedTowBallMass;
+
+      const legacy = safeNum(weigh?.towBallWeight);
+      return legacy != null ? legacy : 0;
+    };
+
+    let resolvedTowBallMass = resolveTowBallMass();
+
+    // Vehicle-only results do not use TBM; avoid showing misleading 0 in the modal.
+    if (weighingSelection === 'vehicle_only') {
+      resolvedTowBallMass = null;
+    }
+
+    // Some stored records (esp. when mixing flows) can have gvmHitched missing or equal to gvmUnhitched
+    // even when a TBM is known. The results component derives TBM from gvmHitched - gvmUnhitched,
+    // so synthesize a consistent gvmHitched when needed.
+    if (
+      axleWeigh &&
+      resolvedTowBallMass > 0 &&
+      safeNum(axleWeigh.gvmUnhitched) != null &&
+      safeNum(axleWeigh.gvmUnhitched) > 0
+    ) {
+      const gvmUnhitchedNum = safeNum(axleWeigh.gvmUnhitched);
+      const gvmHitchedNum = safeNum(axleWeigh.gvmHitched);
+
+      if (gvmHitchedNum == null || gvmHitchedNum <= gvmUnhitchedNum) {
+        axleWeigh.gvmHitched = gvmUnhitchedNum + resolvedTowBallMass;
+      }
+    }
+
+    // Measured fallback logic to mirror results screen behavior.
+    // Prefer explicit weights.* if present; otherwise derive from raw.axleWeigh.
+    let measuredFrontAxle = w.frontAxle != null ? safeNum(w.frontAxle) : null;
+    let measuredRearAxle = w.rearAxle != null ? safeNum(w.rearAxle) : null;
+    let measuredGvm = w.totalVehicle != null ? safeNum(w.totalVehicle) : safeNum(weigh?.vehicleWeightUnhitched);
+
+    if ((measuredFrontAxle == null || measuredRearAxle == null || measuredGvm == null) && axleWeigh) {
+      // Tow + caravan weighbridge in-ground uses unhitched values.
+      const frontUnhitched = safeNum(axleWeigh.frontAxleUnhitched);
+      const gvmUnhitched = safeNum(axleWeigh.gvmUnhitched);
+
+      // Vehicle-only weighbridge in-ground often uses frontAxle/gvm.
+      const frontVehicleOnly = safeNum(axleWeigh.frontAxle);
+      const gvmVehicleOnly = safeNum(axleWeigh.gvm);
+
+      const derivedFront = weighingSelection === 'tow_vehicle_and_caravan'
+        ? frontUnhitched
+        : frontVehicleOnly;
+      const derivedGvm = weighingSelection === 'tow_vehicle_and_caravan'
+        ? gvmUnhitched
+        : gvmVehicleOnly;
+
+      if (measuredFrontAxle == null && derivedFront != null) measuredFrontAxle = derivedFront;
+      if (measuredGvm == null && derivedGvm != null) measuredGvm = derivedGvm;
+
+      // Rear axle is derived for weighbridge axle flows.
+      if (measuredRearAxle == null && measuredGvm != null && measuredFrontAxle != null) {
+        measuredRearAxle = Math.max(0, measuredGvm - measuredFrontAxle);
+      }
+    }
+
+    return {
+      weighId: weigh?._id || null,
+      alreadySaved: true,
+      rego: weigh?.vehicleNumberPlate || v.numberPlate || v.plate || '',
+      state: v.state || weigh?.vehicleRegistryId?.state || weigh?.vehicleState || '',
+      description,
+      vin: v.vin || '',
+      frontAxleCapacity: v.fawr || v.frontAxleCapacity || '',
+      rearAxleCapacity: v.rawr || v.rearAxleCapacity || '',
+      gvmCapacity: v.gvm || '',
+      gcmCapacity: v.gcm || '',
+      btcCapacity: v.btc || '',
+      tbmCapacity: v.tbm || '',
+
+      measuredFrontAxle: measuredFrontAxle != null ? measuredFrontAxle : 0,
+      measuredRearAxle: measuredRearAxle != null ? measuredRearAxle : 0,
+      measuredGvm: measuredGvm != null ? measuredGvm : 0,
+
+      towBallMass: resolvedTowBallMass,
+      weighingSelection,
+      methodSelection,
+
+      caravan: {
+        make: c.make || '',
+        model: c.model || '',
+        year: c.year || '',
+        atm: c.atm || 0,
+        gtm: c.gtm || 0,
+        axleGroups: c.axleCapacity || c.axleGroups || 0,
+        rego: weigh?.caravanNumberPlate || c.numberPlate || c.plate || '',
+        state: c.state || weigh?.caravanRegistryId?.state || weigh?.caravanState || ''
+      },
+
+      preWeigh: weigh?.preWeigh || null,
+      notes: weigh?.notes || '',
+
+      axleWeigh: axleWeigh,
+      vci01: raw.vci01 || null,
+      vci02: raw.vci02 || null
+    };
+  };
+
+  const handleViewDetail = async (weigh) => {
+    try {
+      const { data } = await axios.get(`/api/weighs/${weigh._id}`);
+      const fullWeigh = data?.weigh || weigh;
+
+      setSelectedWeigh(fullWeigh);
+      setDetailDialogOpen(true);
+    } catch (err) {
+      console.error('Failed to fetch weigh details:', err);
+      window.alert('Failed to load weigh details. Please try again.');
+    }
   };
 
   // Handle download PDF
@@ -422,228 +752,10 @@ const WeighHistory = () => {
         </DialogTitle>
         <DialogContent>
           {selectedWeigh && (
-            <Box>
-              {/* Report Meta */}
-              <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="body2" color="text.secondary">
-                      Date: {new Date(selectedWeigh.createdAt).toLocaleDateString()}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="body2" color="text.secondary">
-                      Customer: {selectedWeigh.customerName || selectedWeigh.customer?.name || '-'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="body2" color="text.secondary">
-                      Phone: {selectedWeigh.customerPhone || selectedWeigh.customer?.phone || '-'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary">
-                      Email: {selectedWeigh.customerEmail || selectedWeigh.customer?.email || '-'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              {/* Vehicle/Caravan Summary Cards */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={6}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>Vehicle</Typography>
-                      <Typography variant="body2">
-                        Make/Model: {selectedWeigh.vehicleData?.make || ''} {selectedWeigh.vehicleData?.model || ''}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Year: {selectedWeigh.vehicleData?.year || '-'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Number Plate: {selectedWeigh.vehicleData?.numberPlate || selectedWeigh.vehicleData?.plate || selectedWeigh.vehicleData?.registration || selectedWeigh.vehicleRegistryId?.numberPlate || 'Not Available'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        GVM limit: {selectedWeigh.vehicleData?.gvm || 0} kg
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        GCM limit: {selectedWeigh.vehicleData?.gcm || 0} kg
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        BTC limit: {selectedWeigh.vehicleData?.btc || 0} kg
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                {selectedWeigh.caravanData && (
-                  <Grid item xs={12} md={6}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>Caravan</Typography>
-                        <Typography variant="body2">
-                          Make/Model: {selectedWeigh.caravanData?.make || ''} {selectedWeigh.caravanData?.model || ''}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Year: {selectedWeigh.caravanData?.year || '-'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Number Plate: {selectedWeigh.caravanData?.numberPlate || '-'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          ATM limit: {selectedWeigh.caravanData?.atm || 0} kg
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          GTM limit: {selectedWeigh.caravanData?.gtm || 0} kg
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )}
-              </Grid>
-
-              {/* Compliance Summary Table */}
-              <Typography variant="h6" gutterBottom>Compliance Summary</Typography>
-              <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Metric</TableCell>
-                      <TableCell>Measured</TableCell>
-                      <TableCell>Compliance</TableCell>
-                      <TableCell>Result</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {[
-                      {
-                        name: 'Vehicle Load (GVM Unhooked)',
-                        actual: selectedWeigh.vehicleWeightUnhitched || 0,
-                        limit: selectedWeigh.vehicleData?.gvm || 0,
-                        ok: (selectedWeigh.vehicleWeightUnhitched || 0) <= (selectedWeigh.vehicleData?.gvm || 0)
-                      },
-                      {
-                        name: 'Tow Ball Load (TBM)',
-                        actual: selectedWeigh.towBallWeight || 0,
-                        limit: selectedWeigh.vehicleData?.tbm || (selectedWeigh.caravanData?.atm * 0.1) || 0,
-                        ok: (selectedWeigh.towBallWeight || 0) <= (selectedWeigh.vehicleData?.tbm || (selectedWeigh.caravanData?.atm * 0.1) || 0)
-                      },
-                      {
-                        name: 'Caravan Load (ATM)',
-                        actual: (selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0),
-                        limit: selectedWeigh.caravanData?.atm || 0,
-                        ok: ((selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0)) <= (selectedWeigh.caravanData?.atm || 0)
-                      },
-                      {
-                        name: 'Combined Load (GCM)',
-                        actual: (selectedWeigh.vehicleWeightUnhitched || 0) + ((selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0)),
-                        limit: selectedWeigh.vehicleData?.gcm || 0,
-                        ok: ((selectedWeigh.vehicleWeightUnhitched || 0) + ((selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0))) <= (selectedWeigh.vehicleData?.gcm || 0)
-                      },
-                      {
-                        name: 'Caravan Axle Load (GTM)',
-                        actual: selectedWeigh.caravanWeight || 0,
-                        limit: selectedWeigh.caravanData?.gtm || 0,
-                        ok: selectedWeigh.caravanData?.gtm > 0 ? (selectedWeigh.caravanWeight || 0) <= (selectedWeigh.caravanData?.gtm || 0) : true
-                      }
-                    ].map((row) => {
-                      const diff = (row.limit || 0) - (row.actual || 0);
-                      return (
-                        <TableRow key={row.name}>
-                          <TableCell>{row.name}</TableCell>
-                          <TableCell>{row.limit.toFixed ? row.limit.toFixed(0) : row.limit} kg</TableCell>
-                          <TableCell>{row.actual.toFixed ? row.actual.toFixed(0) : row.actual} kg</TableCell>
-                          <TableCell>{diff >= 0 ? '+' : ''}{diff} kg</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={row.ok ? 'OK' : 'OVER'}
-                              color={row.ok ? 'success' : 'error'}
-                              size="small"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* Advisory Section */}
-              <Typography variant="h6" gutterBottom>Advisory (Informational)</Typography>
-              <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-                <Table size="small">
-                  <TableBody>
-                    {(() => {
-                      const towBallPct = selectedWeigh.caravanWeight > 0 ? (selectedWeigh.towBallWeight / selectedWeigh.caravanWeight) * 100 : 0;
-                      const vanToCarRatio = (selectedWeigh.vehicleWeightUnhitched || 0) > 0 ? (selectedWeigh.caravanWeight / (selectedWeigh.vehicleWeightUnhitched || 0)) * 100 : 0;
-                      const btcPct = selectedWeigh.vehicleData?.btc ? (((selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0)) / selectedWeigh.vehicleData.btc) * 100 : 0;
-
-                      return [
-                        { label: 'Van to Car Ratio (< 85% ideal)', value: `${vanToCarRatio.toFixed(0)}%`, ok: vanToCarRatio < 85 },
-                        { label: 'Tow Ball % (8%–10% ideal)', value: `${towBallPct.toFixed(0)}%`, ok: towBallPct >= 8 && towBallPct <= 10 },
-                        { label: 'BTC Ratio - ATM (< 80% ideal)', value: `${btcPct.toFixed(0)}%`, ok: btcPct < 80 }
-                      ].map((row) => (
-                        <TableRow key={row.label}>
-                          <TableCell>{row.label}</TableCell>
-                          <TableCell>{row.value}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={row.ok ? 'IDEAL' : 'CHECK'}
-                              color={row.ok ? 'success' : 'warning'}
-                              size="small"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ));
-                    })()}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* Overall Status */}
-              <Box sx={{ mb: 3 }}>
-                {(() => {
-                  // Calculate overall compliance based on individual checks (same as DIYComplianceReport.js)
-                  const gvmOk = (selectedWeigh.vehicleWeightUnhitched || 0) <= (selectedWeigh.vehicleData?.gvm || 0);
-                  const tbmOk = (selectedWeigh.towBallWeight || 0) <= (selectedWeigh.vehicleData?.tbm || (selectedWeigh.caravanData?.atm * 0.1) || 0);
-                  const atmOk = ((selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0)) <= (selectedWeigh.caravanData?.atm || 0);
-                  const gcmOk = ((selectedWeigh.vehicleWeightUnhitched || 0) + ((selectedWeigh.caravanWeight || 0) + (selectedWeigh.towBallWeight || 0))) <= (selectedWeigh.vehicleData?.gcm || 0);
-                  const gtmOk = selectedWeigh.caravanData?.gtm > 0 ? (selectedWeigh.caravanWeight || 0) <= (selectedWeigh.caravanData?.gtm || 0) : true;
-                  
-                  const overallOk = gvmOk && tbmOk && atmOk && gcmOk && gtmOk;
-                  
-
-                  
-                  return (
-                    <Chip
-                      label={overallOk ? 'OVERALL: COMPLIANT' : 'OVERALL: NON-COMPLIANT'}
-                      color={overallOk ? 'success' : 'error'}
-                      size="large"
-                      sx={{ fontSize: '1.1rem', py: 1 }}
-                    />
-                  );
-                })()}
-              </Box>
-
-              {/* Notes */}
-              {selectedWeigh.notes && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>Notes</Typography>
-                  <Typography variant="body2">{selectedWeigh.notes}</Typography>
-                </Box>
-              )}
-
-              {/* Footer */}
-              <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary">
-                  Generated by WeighBuddy - Caravan Compliance System
-                </Typography>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Generated on: {new Date().toLocaleString()}
-                </Typography>
-              </Box>
-            </Box>
+            <DIYVehicleOnlyWeighbridgeResults
+              embedded
+              overrideState={buildResultsStateFromWeigh(selectedWeigh)}
+            />
           )}
         </DialogContent>
         <DialogActions>

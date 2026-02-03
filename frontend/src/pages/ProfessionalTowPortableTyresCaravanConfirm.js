@@ -29,6 +29,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
   const [tare, setTare] = useState('');
   const [complianceImage, setComplianceImage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -56,31 +57,148 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
     }
   };
 
-  const handleConfirm = () => {
-    const enhancedState = {
-      ...baseState,
-      // Keep existing axleWeigh (which already contains measured trailerGtm from the caravan tyre screen)
-      axleWeigh: {
-        ...(baseState.axleWeigh || {}),
-      },
-      caravan: {
-        rego,
-        state,
+  const handleConfirm = async () => {
+    if (saving) return;
+    setSaving(true);
+
+    try {
+      const safeNum = (v) => (v != null && v !== '' ? Number(v) || 0 : 0);
+
+      // Ensure we have a Vehicle document ID (required by POST /api/weighs)
+      let vehicleId = baseState.vehicleMasterId || null;
+
+      if (!vehicleId) {
+        const descriptionParts = String(baseState.description || '').split(' ').filter(Boolean);
+        const vehicleYearRaw = descriptionParts[0] || baseState.vehicleYear || baseState.year;
+        const vehicleYear = safeNum(vehicleYearRaw) || new Date().getFullYear();
+
+        const vehicleMakeFromDesc = descriptionParts[1] || '';
+        const vehicleModelFromDesc = descriptionParts[2] || '';
+        const vehicleVariantFromDesc = descriptionParts.slice(3).join(' ') || '';
+
+        const vehicleMake = String(baseState.vehicleMake || vehicleMakeFromDesc || 'Unknown').trim();
+        const vehicleModel = String(baseState.vehicleModel || vehicleModelFromDesc || 'Unknown').trim();
+        const vehicleVariant = String(baseState.vehicleVariant || vehicleVariantFromDesc || 'Base').trim();
+
+        const upsertVehicleResp = await axios.post('/api/vehicles/master-upsert', {
+          make: vehicleMake,
+          model: vehicleModel,
+          year: vehicleYear,
+          variant: vehicleVariant,
+          fawr: safeNum(baseState.frontAxleCapacity),
+          rawr: safeNum(baseState.rearAxleCapacity),
+          gvm: safeNum(baseState.gvmCapacity),
+          btc: safeNum(baseState.btcCapacity),
+          tbm: safeNum(baseState.tbmCapacity),
+          gcm: safeNum(baseState.gcmCapacity),
+        });
+
+        vehicleId = upsertVehicleResp.data?.data?._id || null;
+      }
+
+      // Create/reuse a Caravan master record (required by POST /api/weighs)
+      const axleCapacityFromInput = safeNum(axleGroups);
+      const axleCapacityFromGtm = safeNum(gtm);
+      const axleCapacity = axleCapacityFromInput || axleCapacityFromGtm;
+
+      const upsertCaravanResp = await axios.post('/api/caravans/master-upsert', {
         make,
         model,
-        year,
-        vin,
-        gtm,
-        atm,
-        axleGroups,
-        tare,
-        complianceImage,
-      },
-    };
+        year: safeNum(year) || new Date().getFullYear(),
+        atm: safeNum(atm),
+        gtm: safeNum(gtm),
+        axleCapacity,
+        numberOfAxles: 'Single',
+      });
 
-    navigate('/vehicle-only-weighbridge-results', {
-      state: enhancedState,
-    });
+      const caravanId = upsertCaravanResp.data?.data?._id || null;
+
+      // Measured weights (portable tyres: derived from VCI01 + caravan GTM + TBM)
+      const axleWeigh = baseState.axleWeigh || {};
+      const vci01 = baseState.vci01 || null;
+      const hitchWeigh = vci01?.hitchWeigh || null;
+
+      const hitchedFront = hitchWeigh
+        ? safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight)
+        : safeNum(baseState.measuredFrontAxle);
+
+      const hitchedRear = hitchWeigh
+        ? safeNum(hitchWeigh.rearLeft) + safeNum(hitchWeigh.rearRight)
+        : safeNum(baseState.measuredRearAxle);
+
+      const gvmHitched = hitchedFront + hitchedRear;
+      const gtmMeasured = safeNum(axleWeigh.trailerGtm);
+      const tbmMeasured = baseState.towBallMass != null ? safeNum(baseState.towBallMass) : 0;
+      const gcmMeasured = gvmHitched + gtmMeasured;
+
+      // Customer details: for professional flow we save under the logged-in pro user
+      // and use placeholders if client details are not in state.
+      const payload = {
+        customerName: baseState.customerName || 'Professional Client',
+        customerPhone: baseState.customerPhone || 'N/A',
+        customerEmail: baseState.customerEmail || 'unknown@example.com',
+        vehicleId,
+        caravanId,
+        vehicleNumberPlate: baseState.rego || '',
+        vehicleState: baseState.state || baseState.vehicleState || '',
+        caravanNumberPlate: rego || '',
+        caravanState: state || '',
+        weights: {
+          frontAxle: hitchedFront,
+          rearAxle: hitchedRear,
+          totalVehicle: gvmHitched,
+          frontAxleGroup: 0,
+          rearAxleGroup: 0,
+          totalCaravan: gtmMeasured,
+          grossCombination: gcmMeasured,
+          tbm: tbmMeasured,
+          raw: {
+            axleWeigh: baseState.axleWeigh || null,
+            vci01: baseState.vci01 || null,
+            vci02: baseState.vci02 || null,
+            towBallMass: baseState.towBallMass != null ? safeNum(baseState.towBallMass) : null,
+          },
+        },
+        preWeigh: baseState.preWeigh || null,
+        notes: baseState.notes || '',
+      };
+
+      const saveResp = await axios.post('/api/weighs', payload);
+      const savedWeighId = saveResp?.data?.weigh?._id || saveResp?.data?.weighId || null;
+
+      const enhancedState = {
+        ...baseState,
+        weighId: savedWeighId,
+        alreadySaved: true,
+        axleWeigh: {
+          ...(baseState.axleWeigh || {}),
+        },
+        caravan: {
+          rego,
+          state,
+          make,
+          model,
+          year,
+          vin,
+          gtm,
+          atm,
+          axleGroups,
+          tare,
+          complianceImage,
+        },
+      };
+
+      navigate('/vehicle-only-weighbridge-results', {
+        state: enhancedState,
+      });
+    } catch (error) {
+      console.error(
+        'Failed to save professional tow+caravan portable weigh:',
+        error?.response?.data || error
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

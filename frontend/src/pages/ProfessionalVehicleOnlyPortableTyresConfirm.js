@@ -8,7 +8,9 @@ import {
   Button,
   Grid,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Dialog,
+  DialogContent
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -40,11 +42,16 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
   const [caravanAxleGroups, setCaravanAxleGroups] = useState('');
   const [caravanTare, setCaravanTare] = useState('');
   const [caravanComplianceImage, setCaravanComplianceImage] = useState('');
+  const [caravanCompliancePreviewOpen, setCaravanCompliancePreviewOpen] = useState(false);
+  const [caravanCompliancePreviewError, setCaravanCompliancePreviewError] = useState(false);
+  const [caravanComplianceLocalPreviewUrl, setCaravanComplianceLocalPreviewUrl] = useState('');
+  const [caravanComplianceLocalPreviewIsPdf, setCaravanComplianceLocalPreviewIsPdf] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
   const towBallMass = location.state?.towBallMass ?? null;
   const vci01 = location.state?.vci01 || null;
   const preWeigh = location.state?.preWeigh || null;
+  const vehicleMasterId = location.state?.vehicleMasterId || null;
 
   useEffect(() => {
     const stateData = location.state || {};
@@ -73,10 +80,41 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
     if (vehicle.tbm != null) setTbm(String(vehicle.tbm));
   }, [location.state]);
 
+  useEffect(() => {
+    setCaravanCompliancePreviewError(false);
+  }, [caravanComplianceImage]);
+
+  useEffect(() => {
+    return () => {
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+      }
+    };
+  }, [caravanComplianceLocalPreviewUrl]);
+
   const handleModifiedImageUpload = async (event) => {
     if (modifiedImages.length >= 3) return;
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const isPdf =
+      String(file.type).toLowerCase() === 'application/pdf' ||
+      String(file.name || '').toLowerCase().endsWith('.pdf');
+
+    setCaravanComplianceLocalPreviewIsPdf(isPdf);
+    setCaravanCompliancePreviewError(false);
+
+    if (!isPdf) {
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+      }
+      setCaravanComplianceLocalPreviewUrl(URL.createObjectURL(file));
+    } else {
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+      }
+      setCaravanComplianceLocalPreviewUrl('');
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -150,40 +188,187 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       const passengersFront = preWeigh?.passengersFront ?? '';
       const passengersRear = preWeigh?.passengersRear ?? '';
 
+      const saveVehicleOnlyWeigh = async () => {
+        try {
+          setSaving(true);
+
+          const capacities = {
+            fawr: frontAxleLoading !== '' ? Number(frontAxleLoading) || 0 : null,
+            rawr: rearAxleLoading !== '' ? Number(rearAxleLoading) || 0 : null,
+            gvm: gvm !== '' ? Number(gvm) || 0 : null,
+            gcm: gcm !== '' ? Number(gcm) || 0 : null,
+            btc: btc !== '' ? Number(btc) || 0 : null,
+            tbm: tbm !== '' ? Number(tbm) || 0 : null,
+          };
+
+          const normalizedWeights = {
+            methodSelection: 'Portable Scales - Individual Tyre Weights',
+            frontAxle: frontMeasured,
+            rearAxle: rearMeasured,
+            totalVehicle: gvmMeasured,
+            totalCaravan: 0,
+            grossCombination: gvmMeasured,
+            tbm: 0,
+            raw: {
+              axleWeigh: axleWeigh || null,
+              vci01: vci01 || null,
+              towBallMass: towBallMass ?? null,
+              vehicleCapacities: capacities,
+            },
+          };
+
+          const response = await axios.post('/api/weighs/diy-vehicle-only', {
+            vehicleSummary: {
+              description,
+              rego,
+              state,
+              vin,
+              gvmUnhitched: gvmMeasured,
+              frontUnhitched: frontMeasured,
+              rearUnhitched: rearMeasured,
+              ...capacities,
+            },
+            weights: normalizedWeights,
+            preWeigh: {
+              fuelLevel: fuelLevel === '' ? null : Number(fuelLevel),
+              passengersFront: Number(passengersFront) || 0,
+              passengersRear: Number(passengersRear) || 0,
+              notes: preWeigh?.notes || '',
+            },
+            modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+            payment: {
+              method: 'direct',
+              amount: 0,
+              status: 'completed',
+            },
+          });
+
+          return response.data?.weighId || null;
+        } catch (error) {
+          console.error('Failed to save professional vehicle-only portable tyres weigh:', error);
+          console.error('Backend response:', error?.response?.data);
+          return null;
+        } finally {
+          setSaving(false);
+        }
+      };
+
       // Vehicle-only flow goes straight to results as before
       if (weighingSelection === 'vehicle_only') {
-        navigate('/vehicle-only-weighbridge-results', {
-          state: {
-            rego,
-            state,
-            description,
-            vin,
-            frontAxleCapacity: frontAxleLoading,
-            rearAxleCapacity: rearAxleLoading,
-            gvmCapacity: gvm,
-            gcmCapacity: gcm,
-            btcCapacity: btc,
-            tbmCapacity: tbm,
-            towBallMass,
-            axleWeigh,
-            vci01,
-            measuredFrontAxle: frontMeasured,
-            measuredRearAxle: rearMeasured,
-            measuredGvm: gvmMeasured,
-            fuelLevel,
-            passengersFront,
-            passengersRear,
-            modifiedImages,
-            preWeigh,
-            methodSelection: 'Portable Scales - Individual Tyre Weights',
-            weighingSelection,
-          },
+        saveVehicleOnlyWeigh().then((weighId) => {
+          navigate('/vehicle-only-weighbridge-results', {
+            state: {
+              rego,
+              state,
+              description,
+              vin,
+              frontAxleCapacity: frontAxleLoading,
+              rearAxleCapacity: rearAxleLoading,
+              gvmCapacity: gvm,
+              gcmCapacity: gcm,
+              btcCapacity: btc,
+              tbmCapacity: tbm,
+              towBallMass,
+              axleWeigh,
+              vci01,
+              measuredFrontAxle: frontMeasured,
+              measuredRearAxle: rearMeasured,
+              measuredGvm: gvmMeasured,
+              fuelLevel,
+              passengersFront,
+              passengersRear,
+              modifiedImages,
+              preWeigh,
+              methodSelection: 'Portable Scales - Individual Tyre Weights',
+              weighingSelection,
+              vehicleMasterId,
+              alreadySaved: Boolean(weighId),
+              weighId: weighId || null,
+            },
+          });
         });
         return;
       }
 
       // Caravan-only flow: send caravan details with caravan object straight to results
       if (weighingSelection === 'caravan_only_registered') {
+        const saveCaravanOnlyWeigh = async () => {
+          try {
+            setSaving(true);
+
+            const caravanCaps = {
+              atm: caravanAtm !== '' ? Number(caravanAtm) || 0 : null,
+              gtm: caravanGtm !== '' ? Number(caravanGtm) || 0 : null,
+              axleGroups: caravanAxleGroups !== '' ? Number(caravanAxleGroups) || 0 : null,
+              tare: caravanTare !== '' ? Number(caravanTare) || 0 : null,
+            };
+
+            const gtmMeasured = axleWeigh?.trailerGtm != null ? Number(axleWeigh.trailerGtm) || 0 : 0;
+            const tbmMeasured = towBallMass != null ? Number(towBallMass) || 0 : 0;
+            const atmMeasured = gtmMeasured > 0 ? gtmMeasured + tbmMeasured : 0;
+
+            const normalizedWeights = {
+              methodSelection: 'Portable Scales - Individual Tyre Weights',
+              frontAxle: 0,
+              rearAxle: 0,
+              totalVehicle: 0,
+              totalCaravan: gtmMeasured,
+              grossCombination: atmMeasured,
+              tbm: tbmMeasured,
+              raw: {
+                axleWeigh: axleWeigh || null,
+                towBallMass: towBallMass ?? null,
+                caravanCapacities: caravanCaps,
+              },
+            };
+
+            const response = await axios.post('/api/weighs/diy-vehicle-only', {
+              vehicleSummary: {
+                description: '',
+                rego: '',
+                state: '',
+                vin: '',
+                gvmUnhitched: 0,
+                frontUnhitched: 0,
+                rearUnhitched: 0,
+              },
+              caravanSummary: {
+                rego,
+                state,
+                make: caravanMake,
+                model: caravanModel,
+                year: caravanYear,
+                vin,
+                ...caravanCaps,
+                tbmMeasured,
+                gtmMeasured,
+                atmMeasured,
+              },
+              weights: normalizedWeights,
+              preWeigh: {
+                fuelLevel: fuelLevel === '' ? null : Number(fuelLevel),
+                passengersFront: Number(passengersFront) || 0,
+                passengersRear: Number(passengersRear) || 0,
+                notes: preWeigh?.notes || '',
+              },
+              modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+              payment: {
+                method: 'direct',
+                amount: 0,
+                status: 'completed',
+              },
+            });
+
+            return response.data?.weighId || null;
+          } catch (error) {
+            console.error('Failed to save professional caravan-only portable tyres weigh:', error);
+            console.error('Backend response:', error?.response?.data);
+            return null;
+          } finally {
+            setSaving(false);
+          }
+        };
+
         const enhancedState = {
           rego,
           state,
@@ -194,6 +379,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           weighingSelection,
           towBallMass,
           preWeigh,
+          vehicleMasterId,
           caravan: {
             rego,
             state,
@@ -209,8 +395,14 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           },
         };
 
-        navigate('/vehicle-only-weighbridge-results', {
-          state: enhancedState,
+        saveCaravanOnlyWeigh().then((weighId) => {
+          navigate('/vehicle-only-weighbridge-results', {
+            state: {
+              ...enhancedState,
+              alreadySaved: Boolean(weighId),
+              weighId: weighId || null,
+            },
+          });
         });
         return;
       }
@@ -241,6 +433,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           preWeigh,
           methodSelection: 'Portable Scales - Individual Tyre Weights',
           weighingSelection,
+          vehicleMasterId,
         },
       });
     });
@@ -366,7 +559,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       <Box sx={{ flexGrow: 1 }} />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
             variant="contained"
             color="primary"
@@ -381,11 +574,54 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
               onChange={handleModifiedImageUpload}
             />
           </Button>
-          {caravanComplianceImage && (
-            <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-              Compliance image uploaded
-            </Typography>
-          )}
+          {(caravanComplianceLocalPreviewUrl || caravanComplianceImage) &&
+            (caravanCompliancePreviewError ? (
+              <Typography
+                variant="caption"
+                sx={{ display: 'block', cursor: 'pointer' }}
+                onClick={() =>
+                  window.open(
+                    caravanComplianceImage || caravanComplianceLocalPreviewUrl,
+                    '_blank',
+                    'noopener,noreferrer'
+                  )}
+              >
+                Preview unavailable (open file)
+              </Typography>
+            ) : (caravanComplianceLocalPreviewIsPdf ||
+              String(caravanComplianceImage).toLowerCase().endsWith('.pdf')) ? (
+              <Typography variant="caption" sx={{ display: 'block' }}>
+                Compliance plate PDF selected
+              </Typography>
+            ) : (
+              <Box
+                role="button"
+                tabIndex={0}
+                onClick={() => setCaravanCompliancePreviewOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setCaravanCompliancePreviewOpen(true);
+                }}
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'grey.400',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                title="Click to preview"
+              >
+                <Box
+                  component="img"
+                  src={caravanComplianceLocalPreviewUrl || caravanComplianceImage}
+                  alt="Caravan compliance plate preview"
+                  onError={() => setCaravanCompliancePreviewError(true)}
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </Box>
+            ))}
         </Box>
         <Button
           variant="contained"
@@ -396,6 +632,34 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           Confirm Data is Correct
         </Button>
       </Box>
+
+      <Dialog
+        open={caravanCompliancePreviewOpen}
+        onClose={() => setCaravanCompliancePreviewOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogContent sx={{ p: 0 }}>
+          {(caravanComplianceLocalPreviewIsPdf ||
+            String(caravanComplianceImage).toLowerCase().endsWith('.pdf') ||
+            caravanCompliancePreviewError) ? (
+            <Box
+              component="iframe"
+              src={caravanComplianceImage || caravanComplianceLocalPreviewUrl}
+              title="Caravan compliance plate"
+              sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
+            />
+          ) : (
+            <Box
+              component="img"
+              src={caravanComplianceLocalPreviewUrl || caravanComplianceImage}
+              alt="Caravan compliance plate"
+              onError={() => setCaravanCompliancePreviewError(true)}
+              sx={{ width: '100%', height: 'auto', display: 'block' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 

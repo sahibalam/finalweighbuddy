@@ -162,6 +162,12 @@ const weighSchema = new mongoose.Schema({
       trim: true
     }
   },
+
+  // Normalized weights payload (newer flows)
+  weights: {
+    type: mongoose.Schema.Types.Mixed,
+    required: false
+  },
   
   // Image uploads
   vehiclePlateImageUrl: {

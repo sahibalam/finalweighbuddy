@@ -42,6 +42,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
 
       let lookupVehicle = null;
       let lookupSource = null;
+      let vehicleMasterId = null;
 
       if (rego) {
         const response = await axios.get(`/api/vehicles/by-plate/${encodeURIComponent(rego)}`, {
@@ -51,6 +52,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
         if (response.data?.success && response.data?.found) {
           lookupVehicle = response.data.data?.masterVehicle || null;
           lookupSource = response.data.data?.source || null;
+          vehicleMasterId = response.data.data?.masterVehicle?._id || null;
         }
       }
 
@@ -65,6 +67,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
           vin,
           vehicleFromLookup: lookupVehicle,
           lookupSource,
+          vehicleMasterId,
           axleWeigh,
           weighingSelection,
           towBallMass,
@@ -73,9 +76,12 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
         }
       });
     } catch (err) {
-      console.error('Error looking up vehicle by plate (professional portable tyres):', err);
-
       if (err.response?.status === 404) {
+        console.warn('Vehicle lookup returned 404 (professional portable tyres)', {
+          rego,
+          state,
+          message: err.response?.data?.message,
+        });
         setError('Vehicle not found in database or Info-Agent. Please fill details manually on the next screen.');
         navigate('/professional-vehicle-only-portable-tyres-confirm', {
           state: {
@@ -84,6 +90,7 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
             vin,
             vehicleFromLookup: null,
             lookupSource: null,
+            vehicleMasterId: null,
             axleWeigh,
             weighingSelection,
             towBallMass,
@@ -92,8 +99,26 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
           }
         });
       } else {
-        const message = err.response?.data?.message || 'Failed to lookup vehicle. Please try again or enter details manually.';
+        console.error('Error looking up vehicle by plate (professional portable tyres):', err);
+        const message =
+          err.response?.data?.message ||
+          'Failed to lookup vehicle. Please enter details manually on the next screen.';
         setError(message);
+        navigate('/professional-vehicle-only-portable-tyres-confirm', {
+          state: {
+            rego,
+            state,
+            vin,
+            vehicleFromLookup: null,
+            lookupSource: null,
+            vehicleMasterId: null,
+            axleWeigh,
+            weighingSelection,
+            towBallMass,
+            vci01,
+            preWeigh,
+          }
+        });
       }
     } finally {
       setLoading(false);

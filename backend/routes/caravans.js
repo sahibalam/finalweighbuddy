@@ -325,4 +325,71 @@ router.post('/register', protect, authorize('professional'), [
   }
 });
 
-module.exports = router; 
+// Upsert a master caravan record (for Pro users entering caravan details manually)
+router.post('/master-upsert', protect, authorize('professional'), [
+  body('make').trim().notEmpty().withMessage('Make is required'),
+  body('model').trim().notEmpty().withMessage('Model is required'),
+  body('year').isInt({ min: 1900 }).withMessage('Valid year is required'),
+  body('atm').isNumeric().withMessage('ATM is required'),
+  body('gtm').isNumeric().withMessage('GTM is required'),
+  body('axleCapacity').isNumeric().withMessage('Axle group capacity is required'),
+  body('numberOfAxles').optional().isIn(['Single', 'Dual', 'Triple']).withMessage('Invalid axle count')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { make, model, year, atm, gtm, axleCapacity, numberOfAxles } = req.body;
+
+    const normalizedMake = String(make).trim();
+    const normalizedModel = String(model).trim();
+    const normalizedYear = parseInt(year, 10);
+    const atmNum = Number(atm) || 0;
+    const gtmNum = Number(gtm) || 0;
+    const axleCapacityNum = Number(axleCapacity) || 0;
+
+    let caravan = await Caravan.findOne({
+      make: new RegExp(`^${normalizedMake}$`, 'i'),
+      model: new RegExp(`^${normalizedModel}$`, 'i'),
+      year: normalizedYear,
+      atm: atmNum,
+      gtm: gtmNum,
+      axleCapacity: axleCapacityNum,
+      isActive: true
+    });
+
+    if (!caravan) {
+      caravan = new Caravan({
+        make: normalizedMake,
+        model: normalizedModel,
+        year: normalizedYear,
+        atm: atmNum,
+        gtm: gtmNum,
+        axleCapacity: axleCapacityNum,
+        numberOfAxles: numberOfAxles || 'Single',
+        isReferenceData: false,
+        source: 'user_submission'
+      });
+
+      await caravan.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: caravan
+    });
+  } catch (error) {
+    console.error('Error upserting master caravan:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error upserting caravan'
+    });
+  }
+});
+
+module.exports = router;

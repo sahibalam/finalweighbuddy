@@ -481,4 +481,106 @@ router.post('/register', protect, authorize('professional'), [
   }
 });
 
+// Upsert a master vehicle record (for Pro users entering vehicle details manually)
+router.post('/master-upsert', protect, authorize('professional'), [
+  body('make').trim().notEmpty().withMessage('Make is required'),
+  body('model').trim().notEmpty().withMessage('Model is required'),
+  body('year').isInt({ min: 1900 }).withMessage('Valid year is required'),
+  body('variant').trim().notEmpty().withMessage('Variant is required'),
+  body('fawr').isNumeric().withMessage('FAWR is required'),
+  body('rawr').isNumeric().withMessage('RAWR is required'),
+  body('gvm').isNumeric().withMessage('GVM is required'),
+  body('btc').isNumeric().withMessage('BTC is required'),
+  body('tbm').isNumeric().withMessage('TBM is required'),
+  body('gcm').isNumeric().withMessage('GCM is required'),
+  body('series').optional(),
+  body('engine').optional(),
+  body('transmission').optional().isIn(['Automatic', 'Manual']).withMessage('Invalid transmission')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const {
+      make,
+      model,
+      year,
+      variant,
+      fawr,
+      rawr,
+      gvm,
+      btc,
+      tbm,
+      gcm,
+      series,
+      engine,
+      transmission
+    } = req.body;
+
+    const normalizedMake = String(make).trim();
+    const normalizedModel = String(model).trim();
+    const normalizedVariant = String(variant).trim();
+    const normalizedYear = parseInt(year, 10);
+
+    const fawrNum = Number(fawr) || 0;
+    const rawrNum = Number(rawr) || 0;
+    const gvmNum = Number(gvm) || 0;
+    const btcNum = Number(btc) || 0;
+    const tbmNum = Number(tbm) || 0;
+    const gcmNum = Number(gcm) || 0;
+
+    let vehicle = await Vehicle.findOne({
+      make: new RegExp(`^${normalizedMake}$`, 'i'),
+      model: new RegExp(`^${normalizedModel}$`, 'i'),
+      year: normalizedYear,
+      variant: new RegExp(`^${normalizedVariant}$`, 'i'),
+      fawr: fawrNum,
+      rawr: rawrNum,
+      gvm: gvmNum,
+      btc: btcNum,
+      tbm: tbmNum,
+      gcm: gcmNum,
+      isActive: true
+    });
+
+    if (!vehicle) {
+      vehicle = new Vehicle({
+        make: normalizedMake,
+        model: normalizedModel,
+        year: normalizedYear,
+        variant: normalizedVariant,
+        series: series || '',
+        engine: engine || '',
+        transmission: transmission || 'Automatic',
+        fawr: fawrNum,
+        rawr: rawrNum,
+        gvm: gvmNum,
+        btc: btcNum,
+        tbm: tbmNum,
+        gcm: gcmNum,
+        isReferenceData: false,
+        source: 'user_submission'
+      });
+
+      await vehicle.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vehicle
+    });
+  } catch (error) {
+    console.error('Error upserting master vehicle:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error upserting vehicle'
+    });
+  }
+});
+
 module.exports = router;

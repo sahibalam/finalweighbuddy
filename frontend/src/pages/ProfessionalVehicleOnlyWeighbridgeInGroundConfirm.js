@@ -8,7 +8,9 @@ import {
   Button,
   Grid,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Dialog,
+  DialogContent
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -40,6 +42,10 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   const [caravanAxleGroups, setCaravanAxleGroups] = useState('');
   const [caravanTare, setCaravanTare] = useState('');
   const [caravanComplianceImage, setCaravanComplianceImage] = useState('');
+  const [caravanCompliancePreviewOpen, setCaravanCompliancePreviewOpen] = useState(false);
+  const [caravanCompliancePreviewError, setCaravanCompliancePreviewError] = useState(false);
+  const [caravanComplianceLocalPreviewUrl, setCaravanComplianceLocalPreviewUrl] = useState('');
+  const [caravanComplianceLocalPreviewIsPdf, setCaravanComplianceLocalPreviewIsPdf] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
   const preWeigh = location.state?.preWeigh || null;
@@ -72,9 +78,40 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
     if (vehicle.tbm != null) setTbm(String(vehicle.tbm));
   }, [location.state]);
 
+  useEffect(() => {
+    setCaravanCompliancePreviewError(false);
+  }, [caravanComplianceImage]);
+
+  useEffect(() => {
+    return () => {
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+      }
+    };
+  }, [caravanComplianceLocalPreviewUrl]);
+
   const handleModifiedImageUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const isPdf =
+      String(file.type).toLowerCase() === 'application/pdf' ||
+      String(file.name || '').toLowerCase().endsWith('.pdf');
+
+    setCaravanComplianceLocalPreviewIsPdf(isPdf);
+    setCaravanCompliancePreviewError(false);
+
+    if (!isPdf) {
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+      }
+      setCaravanComplianceLocalPreviewUrl(URL.createObjectURL(file));
+    } else {
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+      }
+      setCaravanComplianceLocalPreviewUrl('');
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -165,8 +202,164 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
         preWeigh,
       };
 
+      const saveVehicleOnlyWeigh = async () => {
+        try {
+          setSaving(true);
+
+          const capacities = {
+            fawr: frontAxleLoading !== '' ? Number(frontAxleLoading) || 0 : null,
+            rawr: rearAxleLoading !== '' ? Number(rearAxleLoading) || 0 : null,
+            gvm: gvm !== '' ? Number(gvm) || 0 : null,
+            gcm: gcm !== '' ? Number(gcm) || 0 : null,
+            btc: btc !== '' ? Number(btc) || 0 : null,
+            tbm: tbm !== '' ? Number(tbm) || 0 : null,
+          };
+
+          const frontMeasured = axleWeigh?.frontAxleUnhitched != null ? Number(axleWeigh.frontAxleUnhitched) || 0 : 0;
+          const gvmMeasured = axleWeigh?.gvmUnhitched != null ? Number(axleWeigh.gvmUnhitched) || 0 : 0;
+          const rearMeasured = gvmMeasured > 0 ? Math.max(0, gvmMeasured - frontMeasured) : 0;
+
+          const normalizedWeights = {
+            methodSelection: 'Weighbridge - In Ground - Individual Axle Weights',
+            frontAxle: frontMeasured,
+            rearAxle: rearMeasured,
+            totalVehicle: gvmMeasured,
+            totalCaravan: 0,
+            grossCombination: gvmMeasured,
+            tbm: 0,
+            raw: {
+              axleWeigh: axleWeigh || null,
+              vehicleCapacities: capacities,
+            },
+          };
+
+          const response = await axios.post('/api/weighs/diy-vehicle-only', {
+            vehicleSummary: {
+              description,
+              rego,
+              state,
+              vin,
+              gvmUnhitched: gvmMeasured,
+              frontUnhitched: frontMeasured,
+              rearUnhitched: rearMeasured,
+              ...capacities,
+            },
+            weights: normalizedWeights,
+            preWeigh: {
+              fuelLevel: baseState.fuelLevel === '' ? null : Number(baseState.fuelLevel),
+              passengersFront: Number(baseState.passengersFront) || 0,
+              passengersRear: Number(baseState.passengersRear) || 0,
+              notes: preWeigh?.notes || '',
+            },
+            modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+            payment: {
+              method: 'direct',
+              amount: 0,
+              status: 'completed',
+            },
+          });
+
+          return response.data?.weighId || null;
+        } catch (error) {
+          console.error('Failed to save professional vehicle-only in-ground weigh:', error);
+          console.error('Backend response:', error?.response?.data);
+          return null;
+        } finally {
+          setSaving(false);
+        }
+      };
+
       // Caravan-only flow: send caravan details with caravan object straight to results
       if (weighingSelection === 'caravan_only_registered') {
+        const saveCaravanOnlyWeigh = async () => {
+          try {
+            setSaving(true);
+
+            const caravanCaps = {
+              atm: caravanAtm !== '' ? Number(caravanAtm) || 0 : null,
+              gtm: caravanGtm !== '' ? Number(caravanGtm) || 0 : null,
+              axleGroups: caravanAxleGroups !== '' ? Number(caravanAxleGroups) || 0 : null,
+              tare: caravanTare !== '' ? Number(caravanTare) || 0 : null,
+            };
+
+            const gtmSource =
+              axleWeigh?.caravanHitchedGtm != null
+                ? axleWeigh.caravanHitchedGtm
+                : axleWeigh?.trailerGtm;
+            const atmSource =
+              axleWeigh?.caravanUnhitchedAtm != null
+                ? axleWeigh.caravanUnhitchedAtm
+                : axleWeigh?.trailerAtm;
+
+            const gtmMeasured = gtmSource != null ? Number(gtmSource) || 0 : 0;
+            const atmMeasured = atmSource != null ? Number(atmSource) || 0 : 0;
+            const tbmMeasured =
+              axleWeigh?.tbm != null
+                ? Number(axleWeigh.tbm) || 0
+                : (atmMeasured > 0 && gtmMeasured > 0 ? Math.max(0, atmMeasured - gtmMeasured) : 0);
+
+            const normalizedWeights = {
+              methodSelection: 'Weighbridge - In Ground - Individual Axle Weights',
+              frontAxle: 0,
+              rearAxle: 0,
+              totalVehicle: 0,
+              totalCaravan: gtmMeasured,
+              grossCombination: atmMeasured,
+              tbm: tbmMeasured,
+              raw: {
+                axleWeigh: axleWeigh || null,
+                towBallMass: tbmMeasured,
+                caravanCapacities: caravanCaps,
+              },
+            };
+
+            const response = await axios.post('/api/weighs/diy-vehicle-only', {
+              vehicleSummary: {
+                description: '',
+                rego: '',
+                state: '',
+                vin: '',
+                gvmUnhitched: 0,
+                frontUnhitched: 0,
+                rearUnhitched: 0,
+              },
+              caravanSummary: {
+                rego,
+                state,
+                make: caravanMake,
+                model: caravanModel,
+                year: caravanYear,
+                vin,
+                ...caravanCaps,
+                tbmMeasured,
+                gtmMeasured,
+                atmMeasured,
+              },
+              weights: normalizedWeights,
+              preWeigh: {
+                fuelLevel: baseState.fuelLevel === '' ? null : Number(baseState.fuelLevel),
+                passengersFront: Number(baseState.passengersFront) || 0,
+                passengersRear: Number(baseState.passengersRear) || 0,
+                notes: preWeigh?.notes || '',
+              },
+              modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+              payment: {
+                method: 'direct',
+                amount: 0,
+                status: 'completed',
+              },
+            });
+
+            return response.data?.weighId || null;
+          } catch (error) {
+            console.error('Failed to save professional caravan-only in-ground weigh:', error);
+            console.error('Backend response:', error?.response?.data);
+            return null;
+          } finally {
+            setSaving(false);
+          }
+        };
+
         const enhancedState = {
           ...baseState,
           caravan: {
@@ -184,19 +377,35 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
           },
         };
 
-        navigate('/vehicle-only-weighbridge-results', {
-          state: enhancedState,
+        saveCaravanOnlyWeigh().then((weighId) => {
+          navigate('/vehicle-only-weighbridge-results', {
+            state: {
+              ...enhancedState,
+              alreadySaved: Boolean(weighId),
+              weighId: weighId || null,
+            },
+          });
         });
         return;
       }
 
       if (weighingSelection === 'tow_vehicle_and_caravan') {
         navigate('/tow-caravan-weighbridge-caravan-rego', {
-          state: baseState,
+          state: {
+            ...baseState,
+            isProfessionalFlow: true,
+          },
         });
       } else {
-        navigate('/vehicle-only-weighbridge-results', {
-          state: baseState,
+        // Vehicle-only: persist a weigh record immediately so it appears in history.
+        saveVehicleOnlyWeigh().then((weighId) => {
+          navigate('/vehicle-only-weighbridge-results', {
+            state: {
+              ...baseState,
+              alreadySaved: Boolean(weighId),
+              weighId: weighId || null,
+            },
+          });
         });
       }
     });
@@ -322,7 +531,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
       <Box sx={{ flexGrow: 1 }} />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
             variant="contained"
             color="primary"
@@ -337,11 +546,54 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
               onChange={handleModifiedImageUpload}
             />
           </Button>
-          {caravanComplianceImage && (
-            <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-              Compliance image uploaded
-            </Typography>
-          )}
+          {(caravanComplianceLocalPreviewUrl || caravanComplianceImage) &&
+            (caravanCompliancePreviewError ? (
+              <Typography
+                variant="caption"
+                sx={{ display: 'block', cursor: 'pointer' }}
+                onClick={() =>
+                  window.open(
+                    caravanComplianceImage || caravanComplianceLocalPreviewUrl,
+                    '_blank',
+                    'noopener,noreferrer'
+                  )}
+              >
+                Preview unavailable (open file)
+              </Typography>
+            ) : (caravanComplianceLocalPreviewIsPdf ||
+              String(caravanComplianceImage).toLowerCase().endsWith('.pdf')) ? (
+              <Typography variant="caption" sx={{ display: 'block' }}>
+                Compliance plate PDF selected
+              </Typography>
+            ) : (
+              <Box
+                role="button"
+                tabIndex={0}
+                onClick={() => setCaravanCompliancePreviewOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setCaravanCompliancePreviewOpen(true);
+                }}
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'grey.400',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                title="Click to preview"
+              >
+                <Box
+                  component="img"
+                  src={caravanComplianceLocalPreviewUrl || caravanComplianceImage}
+                  alt="Caravan compliance plate preview"
+                  onError={() => setCaravanCompliancePreviewError(true)}
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </Box>
+            ))}
         </Box>
         <Button
           variant="contained"
@@ -352,6 +604,34 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
           Confirm Data is Correct
         </Button>
       </Box>
+
+      <Dialog
+        open={caravanCompliancePreviewOpen}
+        onClose={() => setCaravanCompliancePreviewOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogContent sx={{ p: 0 }}>
+          {(caravanComplianceLocalPreviewIsPdf ||
+            String(caravanComplianceImage).toLowerCase().endsWith('.pdf') ||
+            caravanCompliancePreviewError) ? (
+            <Box
+              component="iframe"
+              src={caravanComplianceImage || caravanComplianceLocalPreviewUrl}
+              title="Caravan compliance plate"
+              sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
+            />
+          ) : (
+            <Box
+              component="img"
+              src={caravanComplianceLocalPreviewUrl || caravanComplianceImage}
+              alt="Caravan compliance plate"
+              onError={() => setCaravanCompliancePreviewError(true)}
+              sx={{ width: '100%', height: 'auto', display: 'block' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 
