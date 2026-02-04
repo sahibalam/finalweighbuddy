@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -6,7 +6,9 @@ import {
   Container,
   TextField,
   Button,
-  Grid
+  Grid,
+  Dialog,
+  DialogContent
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -28,6 +30,22 @@ const DIYCaravanOnlyConfirm = () => {
   const [axleGroups, setAxleGroups] = useState('');
   const [tare, setTare] = useState('');
   const [complianceImage, setComplianceImage] = useState('');
+  const [compliancePreviewOpen, setCompliancePreviewOpen] = useState(false);
+  const [compliancePreviewError, setCompliancePreviewError] = useState(false);
+  const [complianceLocalPreviewUrl, setComplianceLocalPreviewUrl] = useState('');
+  const [complianceLocalPreviewIsPdf, setComplianceLocalPreviewIsPdf] = useState(false);
+
+  useEffect(() => {
+    setCompliancePreviewError(false);
+  }, [complianceImage]);
+
+  useEffect(() => {
+    return () => {
+      if (complianceLocalPreviewUrl) {
+        URL.revokeObjectURL(complianceLocalPreviewUrl);
+      }
+    };
+  }, [complianceLocalPreviewUrl]);
 
   const handleConfirm = () => {
     navigate('/vehicle-only-weighbridge-results', {
@@ -207,16 +225,107 @@ const DIYCaravanOnlyConfirm = () => {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    // For now just store a local object URL; backend upload can be wired later
+                    const isPdf =
+                      String(file.type).toLowerCase() === 'application/pdf' ||
+                      String(file.name || '').toLowerCase().endsWith('.pdf');
+
+                    setComplianceLocalPreviewIsPdf(isPdf);
+                    setCompliancePreviewError(false);
+
+                    if (!isPdf) {
+                      if (complianceLocalPreviewUrl) {
+                        URL.revokeObjectURL(complianceLocalPreviewUrl);
+                      }
+                      const url = URL.createObjectURL(file);
+                      setComplianceLocalPreviewUrl(url);
+                      setComplianceImage(url);
+                    } else {
+                      if (complianceLocalPreviewUrl) {
+                        URL.revokeObjectURL(complianceLocalPreviewUrl);
+                      }
+                      setComplianceLocalPreviewUrl('');
+                      const url = URL.createObjectURL(file);
+                      setComplianceImage(url);
+                    }
+                  }}
+                />
+              </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                component="label"
+                sx={{ ml: 2 }}
+              >
+                Take Photo
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setComplianceLocalPreviewIsPdf(false);
+                    setCompliancePreviewError(false);
+
+                    if (complianceLocalPreviewUrl) {
+                      URL.revokeObjectURL(complianceLocalPreviewUrl);
+                    }
                     const url = URL.createObjectURL(file);
+                    setComplianceLocalPreviewUrl(url);
                     setComplianceImage(url);
                   }}
                 />
               </Button>
-              {complianceImage && (
-                <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-                  Compliance image selected
-                </Typography>
+              {(complianceLocalPreviewUrl || complianceImage) && (
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, ml: 2 }}>
+                  {compliancePreviewError ? (
+                    <Typography
+                      variant="caption"
+                      sx={{ display: 'block', cursor: 'pointer' }}
+                      onClick={() =>
+                        window.open(
+                          complianceImage || complianceLocalPreviewUrl,
+                          '_blank',
+                          'noopener,noreferrer'
+                        )}
+                    >
+                      Preview unavailable (open file)
+                    </Typography>
+                  ) : complianceLocalPreviewIsPdf ? (
+                    <Typography variant="caption" sx={{ display: 'block' }}>
+                      Compliance plate PDF selected
+                    </Typography>
+                  ) : (
+                    <Box
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCompliancePreviewOpen(true)}
+                      onKeyDown={(ev) => {
+                        if (ev.key === 'Enter' || ev.key === ' ') setCompliancePreviewOpen(true);
+                      }}
+                      sx={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'grey.400',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      title="Click to preview"
+                    >
+                      <Box
+                        component="img"
+                        src={complianceLocalPreviewUrl || complianceImage}
+                        alt="Caravan compliance plate preview"
+                        onError={() => setCompliancePreviewError(true)}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    </Box>
+                  )}
+                </Box>
               )}
             </Box>
             <Button
@@ -227,6 +336,32 @@ const DIYCaravanOnlyConfirm = () => {
               Confirm Data is Correct
             </Button>
           </Box>
+
+          <Dialog
+            open={compliancePreviewOpen}
+            onClose={() => setCompliancePreviewOpen(false)}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogContent sx={{ p: 0 }}>
+              {(complianceLocalPreviewIsPdf || compliancePreviewError) ? (
+                <Box
+                  component="iframe"
+                  src={complianceImage || complianceLocalPreviewUrl}
+                  title="Caravan compliance plate"
+                  sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
+                />
+              ) : (
+                <Box
+                  component="img"
+                  src={complianceLocalPreviewUrl || complianceImage}
+                  alt="Caravan compliance plate"
+                  onError={() => setCompliancePreviewError(true)}
+                  sx={{ width: '100%', height: 'auto', display: 'block' }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
 
           <Box sx={{ mt: 2, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary">

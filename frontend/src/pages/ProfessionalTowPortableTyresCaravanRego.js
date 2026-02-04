@@ -9,6 +9,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'];
 
@@ -20,8 +21,31 @@ const ProfessionalTowPortableTyresCaravanRego = () => {
   const [state, setState] = useState('');
   const [vin, setVin] = useState('');
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     const baseState = location.state || {};
+
+    let lookupCaravan = null;
+    let lookupSource = null;
+    let caravanMasterId = null;
+
+    if (rego) {
+      try {
+        const response = await axios.get(`/api/caravans/by-plate/${encodeURIComponent(rego)}`, {
+          params: state ? { state } : {},
+        });
+
+        if (response.data?.success && response.data?.found) {
+          lookupCaravan = response.data.data?.masterCaravan || null;
+          lookupSource = response.data.data?.source || null;
+          caravanMasterId = response.data.data?.masterCaravan?._id || null;
+        }
+      } catch (e) {
+        // Silent fallback to manual entry
+        lookupCaravan = null;
+        lookupSource = null;
+        caravanMasterId = null;
+      }
+    }
 
     navigate('/professional-tow-portable-tyres-caravan-confirm', {
       state: {
@@ -29,6 +53,9 @@ const ProfessionalTowPortableTyresCaravanRego = () => {
         caravanRego: rego,
         caravanState: state,
         caravanVin: vin,
+        caravanFromLookup: lookupCaravan,
+        caravanLookupSource: lookupSource,
+        caravanMasterId,
       },
     });
   };

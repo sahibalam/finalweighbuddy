@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -7,6 +7,8 @@ import {
   TextField,
   Button,
   Grid,
+  Dialog,
+  DialogContent,
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -28,12 +30,67 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
   const [axleGroups, setAxleGroups] = useState('');
   const [tare, setTare] = useState('');
   const [complianceImage, setComplianceImage] = useState('');
+  const [compliancePreviewOpen, setCompliancePreviewOpen] = useState(false);
+  const [compliancePreviewError, setCompliancePreviewError] = useState(false);
+  const [complianceLocalPreviewUrl, setComplianceLocalPreviewUrl] = useState('');
+  const [complianceLocalPreviewIsPdf, setComplianceLocalPreviewIsPdf] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const c = baseState.caravanFromLookup || {};
+    if (!c) return;
+
+    if (!make && c.make) setMake(String(c.make));
+    if (!model && c.model) setModel(String(c.model));
+    if (!year && c.year != null) setYear(String(c.year));
+
+    if (!gtm && c.gtm != null) setGtm(String(c.gtm));
+    if (!atm && c.atm != null) setAtm(String(c.atm));
+
+    if (!axleGroups && (c.axleCapacity != null || c.axleGroupLoading != null)) {
+      setAxleGroups(String(c.axleCapacity != null ? c.axleCapacity : c.axleGroupLoading));
+    }
+
+    if ((!vin || String(vin).trim() === '') && c.vin) {
+      setVin(String(c.vin).toUpperCase());
+    }
+  }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, vin]);
+
+  useEffect(() => {
+    setCompliancePreviewError(false);
+  }, [complianceImage]);
+
+  useEffect(() => {
+    return () => {
+      if (complianceLocalPreviewUrl) {
+        URL.revokeObjectURL(complianceLocalPreviewUrl);
+      }
+    };
+  }, [complianceLocalPreviewUrl]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const isPdf =
+      String(file.type).toLowerCase() === 'application/pdf' ||
+      String(file.name || '').toLowerCase().endsWith('.pdf');
+
+    setComplianceLocalPreviewIsPdf(isPdf);
+    setCompliancePreviewError(false);
+
+    if (!isPdf) {
+      if (complianceLocalPreviewUrl) {
+        URL.revokeObjectURL(complianceLocalPreviewUrl);
+      }
+      setComplianceLocalPreviewUrl(URL.createObjectURL(file));
+    } else {
+      if (complianceLocalPreviewUrl) {
+        URL.revokeObjectURL(complianceLocalPreviewUrl);
+      }
+      setComplianceLocalPreviewUrl('');
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -141,8 +198,12 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
         caravanId,
         vehicleNumberPlate: baseState.rego || '',
         vehicleState: baseState.state || baseState.vehicleState || '',
+        vehicleDescription: baseState.description || '',
+        vehicleVin: baseState.vin || '',
         caravanNumberPlate: rego || '',
         caravanState: state || '',
+        caravanDescription: [year, make, model].filter(Boolean).map(String).join(' '),
+        caravanVin: vin || '',
         weights: {
           frontAxle: hitchedFront,
           rearAxle: hitchedRear,
@@ -354,16 +415,106 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
                   onChange={handleUpload}
                 />
               </Button>
-              {complianceImage && (
-                <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-                  Compliance image uploaded
-                </Typography>
+              <Button
+                variant="outlined"
+                color="primary"
+                component="label"
+                disabled={uploading}
+                sx={{ ml: 2 }}
+              >
+                Take Photo
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleUpload}
+                />
+              </Button>
+              {(complianceLocalPreviewUrl || complianceImage) && (
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, ml: 2 }}>
+                  {compliancePreviewError ? (
+                    <Typography
+                      variant="caption"
+                      sx={{ display: 'block', cursor: 'pointer' }}
+                      onClick={() =>
+                        window.open(
+                          complianceImage || complianceLocalPreviewUrl,
+                          '_blank',
+                          'noopener,noreferrer'
+                        )}
+                    >
+                      Preview unavailable (open file)
+                    </Typography>
+                  ) : (complianceLocalPreviewIsPdf ||
+                    String(complianceImage).toLowerCase().endsWith('.pdf')) ? (
+                    <Typography variant="caption" sx={{ display: 'block' }}>
+                      Compliance plate PDF selected
+                    </Typography>
+                  ) : (
+                    <Box
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCompliancePreviewOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') setCompliancePreviewOpen(true);
+                      }}
+                      sx={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'grey.400',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      title="Click to preview"
+                    >
+                      <Box
+                        component="img"
+                        src={complianceLocalPreviewUrl || complianceImage}
+                        alt="Caravan compliance plate preview"
+                        onError={() => setCompliancePreviewError(true)}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    </Box>
+                  )}
+                </Box>
               )}
             </Box>
             <Button variant="contained" color="primary" onClick={handleConfirm}>
               Confirm Data is Correct
             </Button>
           </Box>
+
+          <Dialog
+            open={compliancePreviewOpen}
+            onClose={() => setCompliancePreviewOpen(false)}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogContent sx={{ p: 0 }}>
+              {(complianceLocalPreviewIsPdf ||
+                String(complianceImage).toLowerCase().endsWith('.pdf') ||
+                compliancePreviewError) ? (
+                <Box
+                  component="iframe"
+                  src={complianceImage || complianceLocalPreviewUrl}
+                  title="Caravan compliance plate"
+                  sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
+                />
+              ) : (
+                <Box
+                  component="img"
+                  src={complianceLocalPreviewUrl || complianceImage}
+                  alt="Caravan compliance plate"
+                  onError={() => setCompliancePreviewError(true)}
+                  sx={{ width: '100%', height: 'auto', display: 'block' }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
 
           <Box sx={{ mt: 2, textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary">

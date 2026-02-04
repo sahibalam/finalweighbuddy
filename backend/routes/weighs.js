@@ -53,8 +53,12 @@ router.post('/', protect, checkSubscription, [
       caravanId,
       vehicleNumberPlate,
       vehicleState,
+      vehicleDescription,
+      vehicleVin,
       caravanNumberPlate,
       caravanState,
+      caravanDescription,
+      caravanVin,
       weights,
       preWeigh,
       notes,
@@ -202,13 +206,17 @@ router.post('/', protect, checkSubscription, [
       // Store complete vehicle and caravan data for admin review
       vehicleData: {
         ...vehicle.toObject(),
+        description: vehicleDescription || vehicle.description || '',
         numberPlate: vehicleNumberPlate,
-        state: vehicleState || vehicle.state || ''
+        state: vehicleState || vehicle.state || '',
+        vin: vehicleVin || ''
       },
       caravanData: {
         ...caravan.toObject(),
+        description: caravanDescription || caravan.description || '',
         numberPlate: caravanNumberPlate,
-        state: caravanState || caravan.state || ''
+        state: caravanState || caravan.state || '',
+        vin: caravanVin || ''
       },
       weights,
       preWeigh,

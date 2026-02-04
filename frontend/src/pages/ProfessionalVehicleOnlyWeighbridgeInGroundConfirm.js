@@ -30,6 +30,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   const [tbm, setTbm] = useState('');
   const [hasModifications, setHasModifications] = useState(false);
   const [modifiedImages, setModifiedImages] = useState([]);
+  const [modifiedImagePreviews, setModifiedImagePreviews] = useState([]);
+  const [modifiedPreviewOpen, setModifiedPreviewOpen] = useState(false);
+  const [modifiedPreviewIndex, setModifiedPreviewIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -59,7 +62,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
     if (stateData.state) setState(String(stateData.state).toUpperCase());
     if (stateData.vin) setVin(String(stateData.vin).toUpperCase());
 
-    if (vehicle.make || vehicle.model || vehicle.year || vehicle.variant) {
+    if (vehicle.description) {
+      setDescription(String(vehicle.description));
+    } else if (vehicle.make || vehicle.model || vehicle.year || vehicle.variant) {
       const parts = [vehicle.year, vehicle.make, vehicle.model, vehicle.variant]
         .filter(Boolean)
         .map(String);
@@ -90,44 +95,82 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
     };
   }, [caravanComplianceLocalPreviewUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (Array.isArray(modifiedImagePreviews) && modifiedImagePreviews.length > 0) {
+        modifiedImagePreviews.forEach((p) => {
+          if (p?.localUrl) {
+            URL.revokeObjectURL(p.localUrl);
+          }
+        });
+      }
+    };
+  }, [modifiedImagePreviews]);
+
   const handleModifiedImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const isPdf =
-      String(file.type).toLowerCase() === 'application/pdf' ||
-      String(file.name || '').toLowerCase().endsWith('.pdf');
-
-    setCaravanComplianceLocalPreviewIsPdf(isPdf);
-    setCaravanCompliancePreviewError(false);
-
-    if (!isPdf) {
-      if (caravanComplianceLocalPreviewUrl) {
-        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
-      }
-      setCaravanComplianceLocalPreviewUrl(URL.createObjectURL(file));
-    } else {
-      if (caravanComplianceLocalPreviewUrl) {
-        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
-      }
-      setCaravanComplianceLocalPreviewUrl('');
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
+    if (weighingSelection !== 'caravan_only_registered' && modifiedImages.length >= 3) return;
+    const fileList = event.target.files;
+    if (!fileList || fileList.length === 0) return;
 
     try {
       setUploading(true);
-      const response = await axios.post('/api/uploads/compliance', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
 
-      if (response.data?.url) {
-        if (weighingSelection === 'caravan_only_registered') {
-          // Caravan-only: store a single compliance plate image
-          setCaravanComplianceImage(response.data.url);
+      if (weighingSelection === 'caravan_only_registered') {
+        const file = fileList[0];
+        const isPdf =
+          String(file.type).toLowerCase() === 'application/pdf' ||
+          String(file.name || '').toLowerCase().endsWith('.pdf');
+
+        setCaravanComplianceLocalPreviewIsPdf(isPdf);
+        setCaravanCompliancePreviewError(false);
+
+        if (!isPdf) {
+          if (caravanComplianceLocalPreviewUrl) {
+            URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+          }
+          setCaravanComplianceLocalPreviewUrl(URL.createObjectURL(file));
         } else {
-          // Vehicle / tow flows: allow up to 3 modified vehicle images
+          if (caravanComplianceLocalPreviewUrl) {
+            URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
+          }
+          setCaravanComplianceLocalPreviewUrl('');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post('/api/uploads/compliance', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (response.data?.url) setCaravanComplianceImage(response.data.url);
+        return;
+      }
+
+      const remainingSlots = Math.max(0, 3 - modifiedImages.length);
+      const files = Array.from(fileList).slice(0, remainingSlots);
+
+      for (const file of files) {
+        const isPdf =
+          String(file.type).toLowerCase() === 'application/pdf' ||
+          String(file.name || '').toLowerCase().endsWith('.pdf');
+
+        const localUrl = URL.createObjectURL(file);
+        setModifiedImagePreviews((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          if (next.length >= 3) {
+            URL.revokeObjectURL(localUrl);
+            return next;
+          }
+          next.push({ localUrl, isPdf, previewError: false });
+          return next;
+        });
+
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post('/api/uploads/compliance', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (response.data?.url) {
           setModifiedImages((prev) => {
             if (prev.length >= 3) return prev;
             return [...prev, response.data.url];
@@ -135,7 +178,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
         }
       }
     } catch (error) {
-      console.error('Modified vehicle image upload failed', error);
+      console.error('Image upload failed', error);
     } finally {
       setUploading(false);
       if (event.target) {
@@ -546,6 +589,21 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
               onChange={handleModifiedImageUpload}
             />
           </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            component="label"
+            disabled={uploading}
+          >
+            Take Photo
+            <input
+              hidden
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleModifiedImageUpload}
+            />
+          </Button>
           {(caravanComplianceLocalPreviewUrl || caravanComplianceImage) &&
             (caravanCompliancePreviewError ? (
               <Typography
@@ -808,10 +866,103 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
                           <input
                             hidden
                             type="file"
+                            multiple
                             accept="image/*,application/pdf"
                             onChange={handleModifiedImageUpload}
                           />
                         </Button>
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          component="label"
+                          disabled={uploading || modifiedImages.length >= 3}
+                          sx={{ ml: 2 }}
+                        >
+                          Take Photo
+                          <input
+                            hidden
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleModifiedImageUpload}
+                          />
+                        </Button>
+                        {modifiedImagePreviews.length > 0 && (
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                            {modifiedImagePreviews.map((p, idx) =>
+                              p?.previewError ? (
+                                <Typography
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={idx}
+                                  variant="caption"
+                                  sx={{ display: 'block', cursor: 'pointer' }}
+                                  onClick={() =>
+                                    window.open(
+                                      modifiedImages[idx] || p.localUrl,
+                                      '_blank',
+                                      'noopener,noreferrer'
+                                    )}
+                                >
+                                  Preview unavailable (open file)
+                                </Typography>
+                              ) : p?.isPdf ? (
+                                <Typography
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={idx}
+                                  variant="caption"
+                                  sx={{ display: 'block', cursor: 'pointer' }}
+                                  onClick={() => {
+                                    setModifiedPreviewIndex(idx);
+                                    setModifiedPreviewOpen(true);
+                                  }}
+                                >
+                                  PDF selected
+                                </Typography>
+                              ) : (
+                                <Box
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={idx}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => {
+                                    setModifiedPreviewIndex(idx);
+                                    setModifiedPreviewOpen(true);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setModifiedPreviewIndex(idx);
+                                      setModifiedPreviewOpen(true);
+                                    }
+                                  }}
+                                  sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'grey.400',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    flexShrink: 0,
+                                  }}
+                                  title="Click to preview"
+                                >
+                                  <Box
+                                    component="img"
+                                    src={p.localUrl || modifiedImages[idx]}
+                                    alt="Modified compliance plate preview"
+                                    onError={() =>
+                                      setModifiedImagePreviews((prev) =>
+                                        (Array.isArray(prev) ? prev : []).map((x, i) =>
+                                          i === idx ? { ...x, previewError: true } : x
+                                        ))
+                                    }
+                                    sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                  />
+                                </Box>
+                              )
+                            )}
+                          </Box>
+                        )}
                         {modifiedImages.length > 0 && (
                           <Typography
                             variant="caption"
@@ -832,6 +983,44 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
                     Confirm Data is Correct
                   </Button>
                 </Box>
+
+                <Dialog
+                  open={modifiedPreviewOpen}
+                  onClose={() => setModifiedPreviewOpen(false)}
+                  maxWidth="md"
+                  fullWidth
+                >
+                  <DialogContent sx={{ p: 0 }}>
+                    {modifiedImagePreviews[modifiedPreviewIndex]?.isPdf ||
+                    modifiedImagePreviews[modifiedPreviewIndex]?.previewError ? (
+                      <Box
+                        component="iframe"
+                        src={
+                          modifiedImages[modifiedPreviewIndex] ||
+                          modifiedImagePreviews[modifiedPreviewIndex]?.localUrl
+                        }
+                        title="Modified compliance plate"
+                        sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
+                      />
+                    ) : (
+                      <Box
+                        component="img"
+                        src={
+                          modifiedImagePreviews[modifiedPreviewIndex]?.localUrl ||
+                          modifiedImages[modifiedPreviewIndex]
+                        }
+                        alt="Modified compliance plate"
+                        onError={() =>
+                          setModifiedImagePreviews((prev) =>
+                            (Array.isArray(prev) ? prev : []).map((x, i) =>
+                              i === modifiedPreviewIndex ? { ...x, previewError: true } : x
+                            ))
+                        }
+                        sx={{ width: '100%', height: 'auto', display: 'block' }}
+                      />
+                    )}
+                  </DialogContent>
+                </Dialog>
               </>
             )}
 

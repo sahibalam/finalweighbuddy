@@ -79,13 +79,36 @@ router.get('/by-plate/:plate', async (req, res) => {
     
     if (registryEntry) {
       console.log('✅ Vehicle found in registry:', registryEntry.numberPlate);
+
+      // Merge VIN/description from latest weigh history if available.
+      // (Registry master records intentionally do not contain per-plate VIN/description.)
+      let historyVin = '';
+      let historyDescription = '';
+      try {
+        const Weigh = require('../models/Weigh');
+        const weighEntry = await Weigh.findOne({
+          'vehicleData.numberPlate': plate.toUpperCase(),
+          ...(state && { 'vehicleData.state': state.toUpperCase() })
+        }).sort({ createdAt: -1 });
+        historyVin = weighEntry?.vehicleData?.vin || '';
+        historyDescription = weighEntry?.vehicleData?.description || '';
+      } catch (e) {
+        console.warn('Failed to merge vehicle VIN/description from weigh history:', e.message);
+      }
+
       return res.json({
         success: true,
         found: true,
         data: {
           numberPlate: registryEntry.numberPlate,
           state: registryEntry.state,
-          masterVehicle: registryEntry.masterVehicleId,
+          masterVehicle: {
+            ...(registryEntry.masterVehicleId?.toObject
+              ? registryEntry.masterVehicleId.toObject()
+              : registryEntry.masterVehicleId),
+            vin: historyVin || registryEntry.masterVehicleId?.vin || '',
+            description: historyDescription || registryEntry.masterVehicleId?.description || ''
+          },
           source: 'registry'
         }
       });

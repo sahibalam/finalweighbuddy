@@ -585,6 +585,16 @@ const NewWeigh = () => {
         caravanId: selectedCaravan._id,
         vehicleNumberPlate: formData.vehicleNumberPlate,
         caravanNumberPlate: formData.caravanNumberPlate,
+        vehicleDescription: [selectedVehicle.year, selectedVehicle.make, selectedVehicle.model, selectedVehicle.variant]
+          .filter(Boolean)
+          .map(String)
+          .join(' '),
+        vehicleVin: '',
+        caravanDescription: [selectedCaravan.year, selectedCaravan.make, selectedCaravan.model]
+          .filter(Boolean)
+          .map(String)
+          .join(' '),
+        caravanVin: '',
         weights: {
           frontAxle: parseFloat(formData.weights.frontAxle) || 0,
           rearAxle: parseFloat(formData.weights.rearAxle) || 0,

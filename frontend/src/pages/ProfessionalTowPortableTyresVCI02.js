@@ -19,7 +19,6 @@ const ProfessionalTowPortableTyresVCI02 = () => {
   const [rearRight, setRearRight] = useState('');
   const [middleLeft, setMiddleLeft] = useState('');
   const [middleRight, setMiddleRight] = useState('');
-  const [tbm, setTbm] = useState('');
 
   const handleContinue = () => {
     const safeNum = (v) => (v != null && v !== '' ? Number(v) || 0 : 0);
@@ -37,7 +36,7 @@ const ProfessionalTowPortableTyresVCI02 = () => {
           unhitchedFrontAxle: frontUnhitched,
           gvmUnhitched,
         },
-        towBallMass: tbm ? Number(tbm) : null,
+        towBallMass: null,
         preWeigh,
       },
     });
@@ -139,19 +138,6 @@ const ProfessionalTowPortableTyresVCI02 = () => {
               )}
             </Grid>
           </Grid>
-
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Towball Weigh
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-            <TextField
-              label="TBM"
-              value={tbm}
-              onChange={(e) => setTbm(e.target.value)}
-              sx={{ width: 180 }}
-            />
-            <Typography>kg</Typography>
-          </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
             <Button variant="contained" onClick={handleContinue}>

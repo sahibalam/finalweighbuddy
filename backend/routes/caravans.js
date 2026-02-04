@@ -92,13 +92,35 @@ router.get('/by-plate/:plate', async (req, res) => {
     
     if (registryEntry) {
       console.log('✅ Caravan found in registry:', registryEntry.numberPlate);
+
+      // Merge VIN/description from latest weigh history if available.
+      let historyVin = '';
+      let historyDescription = '';
+      try {
+        const Weigh = require('../models/Weigh');
+        const weighEntry = await Weigh.findOne({
+          'caravanData.numberPlate': plate.toUpperCase(),
+          ...(state && { 'caravanData.state': state.toUpperCase() })
+        }).sort({ createdAt: -1 });
+        historyVin = weighEntry?.caravanData?.vin || '';
+        historyDescription = weighEntry?.caravanData?.description || '';
+      } catch (e) {
+        console.warn('Failed to merge caravan VIN/description from weigh history:', e.message);
+      }
+
       return res.json({
         success: true,
         found: true,
         data: {
           numberPlate: registryEntry.numberPlate,
           state: registryEntry.state,
-          masterCaravan: registryEntry.masterCaravanId,
+          masterCaravan: {
+            ...(registryEntry.masterCaravanId?.toObject
+              ? registryEntry.masterCaravanId.toObject()
+              : registryEntry.masterCaravanId),
+            vin: historyVin || registryEntry.masterCaravanId?.vin || '',
+            description: historyDescription || registryEntry.masterCaravanId?.description || ''
+          },
           source: 'registry'
         }
       });
