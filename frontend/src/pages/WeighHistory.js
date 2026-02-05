@@ -112,6 +112,10 @@ const WeighHistory = () => {
     const c = weigh?.caravanData || {};
     const w = weigh?.weights || {};
     const raw = w?.raw || {};
+    // Professional flows store compliance under `compliance`, DIY flows store
+    // it under `complianceResults`. Use whichever exists.
+    const compliance = weigh?.compliance || weigh?.complianceResults || {};
+    const vehComp = compliance.vehicle || {};
 
     const safeNum = (val) => {
       if (val == null || val === '') return null;
@@ -131,13 +135,20 @@ const WeighHistory = () => {
         weigh?.caravan
       );
 
-    const weighingSelection = hasCaravan ? 'tow_vehicle_and_caravan' : 'vehicle_only';
+    // Prefer the original DIY weighingSelection when persisted with the
+    // normalized weights payload so the embedded results component can
+    // exactly mirror the original flow.
+    const weighingSelection =
+      w.diyWeighingSelection || (hasCaravan ? 'tow_vehicle_and_caravan' : 'vehicle_only');
     const axleWeighRaw = raw?.axleWeigh || null;
 
     // If methodSelection wasn't persisted on older/newer records, infer it.
     // Defaulting to Portable Scales is incorrect for in-ground axle flows and
     // causes the embedded results component to read the wrong axle keys.
-    let methodSelection = w?.methodSelection || weigh?.methodSelection || '';
+    // For DIY flows that saved diyMethodSelection, always prefer that value
+    // so the dialog mirrors the original Weigh Results screen exactly.
+    let methodSelection =
+      w?.diyMethodSelection || w?.methodSelection || weigh?.methodSelection || '';
 
     const goWeighData = raw?.goweighData;
     const looksLikeGoWeigh = Boolean(goWeighData);
@@ -393,8 +404,11 @@ const WeighHistory = () => {
       state: v.state || weigh?.vehicleRegistryId?.state || weigh?.vehicleState || '',
       description,
       vin: v.vin || '',
-      frontAxleCapacity: v.fawr || v.frontAxleCapacity || '',
-      rearAxleCapacity: v.rawr || v.rearAxleCapacity || '',
+      // Prefer capacities saved on vehicleData; if missing (common for some DIY flows),
+      // fall back to compliance.vehicle.frontAxle/rearAxle.limit so the history modal
+      // mirrors the original results screen instead of showing 0.
+      frontAxleCapacity: v.fawr || v.frontAxleCapacity || vehComp.frontAxle?.limit || '',
+      rearAxleCapacity: v.rawr || v.rearAxleCapacity || vehComp.rearAxle?.limit || '',
       gvmCapacity: v.gvm || '',
       gcmCapacity: v.gcm || '',
       btcCapacity: v.btc || '',
@@ -423,6 +437,11 @@ const WeighHistory = () => {
       notes: weigh?.notes || '',
 
       axleWeigh: axleWeigh,
+      // DIY caravan-only portable tyres uses `tyreWeigh.rightTowBallWeight` to compute TBM/ATM.
+      // Persisting and forwarding this ensures the history modal mirrors the results screen.
+      tyreWeigh: raw?.tyreWeigh || null,
+      // Some flows persist an explicit towBallMass in weights.raw; forward it as well.
+      towBallMassOverride: safeNum(raw?.towBallMass),
       vci01: raw.vci01 || null,
       vci02: raw.vci02 || null
     };

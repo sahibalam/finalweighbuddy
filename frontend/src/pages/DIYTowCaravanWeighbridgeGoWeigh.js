@@ -47,6 +47,12 @@ const DIYTowCaravanWeighbridgeGoWeigh = () => {
       }
     };
 
+    try {
+      window.sessionStorage.setItem('weighbuddy_diy_tow_goweigh', JSON.stringify(goweighData));
+    } catch (e) {
+      // ignore storage errors
+    }
+
     navigate('/diy-weigh', {
       state: {
         ...state,

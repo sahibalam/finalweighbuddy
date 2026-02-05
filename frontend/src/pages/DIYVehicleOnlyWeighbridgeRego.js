@@ -83,11 +83,10 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
         }
       });
     } catch (err) {
-      console.error('Error looking up vehicle by plate:', err);
-
       // If the backend explicitly reports a 404 (vehicle not found), allow the
       // user to proceed to the manual entry screen with a warning.
       if (err.response?.status === 404) {
+        console.warn('Vehicle not found by plate (404):', rego, state);
         setError('Vehicle not found in database or Info-Agent. Please fill details manually on the next screen.');
 
         navigate('/vehicle-only-weighbridge-confirm', {
@@ -107,6 +106,7 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
           }
         });
       } else {
+        console.error('Error looking up vehicle by plate:', err);
         const message = err.response?.data?.message || 'Failed to lookup vehicle. Please try again or enter details manually.';
         setError(message);
       }

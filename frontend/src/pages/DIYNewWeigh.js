@@ -131,6 +131,61 @@ const DIYNewWeigh = () => {
         setTyreWeigh(location.state.tyreWeigh);
       }
 
+      // DIY Tow Vehicle + Caravan portable scales (individual tyre weights) flow:
+      // When coming from the VCI screens we may jump directly to payment/report.
+      // Populate weightsData for DIYComplianceReport so measured values don't show as 0.
+      if (location.state.vci01 || location.state.vci02 || location.state.tyreWeigh) {
+        const safeNum = (v) => (v != null && v !== '' ? Number(v) || 0 : 0);
+
+        const vci01 = location.state.vci01 || null;
+        const vci02 = location.state.vci02 || null;
+        const hitchWeigh = vci01?.hitchWeigh || null;
+        const unhitchedWeigh = vci02?.unhitchedWeigh || null;
+
+        const hitchedFront = hitchWeigh
+          ? safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight)
+          : 0;
+        const hitchedRear = hitchWeigh
+          ? safeNum(hitchWeigh.rearLeft) + safeNum(hitchWeigh.rearRight)
+          : 0;
+        const gvmHitchedPortable = hitchedFront + hitchedRear;
+
+        const unhitchedFront = unhitchedWeigh
+          ? safeNum(unhitchedWeigh.frontLeft) + safeNum(unhitchedWeigh.frontRight)
+          : 0;
+        const unhitchedRear = unhitchedWeigh
+          ? safeNum(unhitchedWeigh.rearLeft) + safeNum(unhitchedWeigh.rearRight)
+          : 0;
+        const gvmUnhitchedPortable = unhitchedFront + unhitchedRear;
+
+        const t = location.state.tyreWeigh || null;
+        const gtmPortable = t
+          ? (
+              t.axleConfig === 'Single Axle'
+                ? safeNum(t.single?.left) + safeNum(t.single?.right)
+                : t.axleConfig === 'Dual Axle'
+                  ? safeNum(t.dual?.frontLeft) + safeNum(t.dual?.frontRight) + safeNum(t.dual?.rearLeft) + safeNum(t.dual?.rearRight)
+                  : safeNum(t.triple?.frontLeft) + safeNum(t.triple?.frontRight) + safeNum(t.triple?.middleLeft) + safeNum(t.triple?.middleRight) + safeNum(t.triple?.rearLeft) + safeNum(t.triple?.rearRight)
+            )
+          : 0;
+
+        const towBallWeightPortable =
+          gvmHitchedPortable > 0 && gvmUnhitchedPortable > 0
+            ? Math.max(0, gvmHitchedPortable - gvmUnhitchedPortable)
+            : 0;
+
+        // Only set if it looks like we're in the tow+caravan portable flow and values exist.
+        if (gvmHitchedPortable > 0 || gvmUnhitchedPortable > 0 || gtmPortable > 0) {
+          setWeightsData((prev) => ({
+            ...prev,
+            combinedTotal: gvmHitchedPortable,
+            vehicleOnlyTotal: gvmUnhitchedPortable,
+            caravanOnlyTotal: gtmPortable,
+            towBallWeight: towBallWeightPortable
+          }));
+        }
+      }
+
       // If coming from the Vehicle Only Weighbridge Axle screen with a request
       // to start directly at the payment step, jump the stepper to the
       // "Report & Payment" step (currently the last step in the flow).

@@ -36,6 +36,30 @@ const DIYCaravanOnlyConfirm = () => {
   const [complianceLocalPreviewIsPdf, setComplianceLocalPreviewIsPdf] = useState(false);
 
   useEffect(() => {
+    const c = baseState.caravanFromLookup || {};
+    if (!c || Object.keys(c).length === 0) return;
+
+    if (!make && c.make) setMake(String(c.make));
+    if (!model && c.model) setModel(String(c.model));
+    if (!year && c.year != null) setYear(String(c.year));
+
+    if (!gtm && c.gtm != null) setGtm(String(c.gtm));
+    if (!atm && c.atm != null) setAtm(String(c.atm));
+
+    if (!axleGroups && (c.axleCapacity != null || c.axleGroupLoading != null)) {
+      setAxleGroups(String(c.axleCapacity != null ? c.axleCapacity : c.axleGroupLoading));
+    }
+
+    if (!tare && (c.tare != null || c.tareMass != null)) {
+      setTare(String(c.tare != null ? c.tare : c.tareMass));
+    }
+
+    if ((!vin || String(vin).trim() === '') && c.vin) {
+      setVin(String(c.vin).toUpperCase());
+    }
+  }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, tare, vin]);
+
+  useEffect(() => {
     setCompliancePreviewError(false);
   }, [complianceImage]);
 

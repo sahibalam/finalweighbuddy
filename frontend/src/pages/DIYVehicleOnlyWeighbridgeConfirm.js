@@ -8,7 +8,9 @@ import {
   Button,
   Grid,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Dialog,
+  DialogContent
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -31,6 +33,9 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
   const [passengersRear, setPassengersRear] = useState('');
   const [hasModifications, setHasModifications] = useState(false);
   const [modifiedImages, setModifiedImages] = useState([]);
+  const [modifiedImagePreviews, setModifiedImagePreviews] = useState([]);
+  const [modifiedPreviewOpen, setModifiedPreviewOpen] = useState(false);
+  const [modifiedPreviewIndex, setModifiedPreviewIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const methodSelection = location.state?.methodSelection || '';
   const weighingSelection = location.state?.weighingSelection || '';
@@ -94,28 +99,56 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    return () => {
+      setModifiedImagePreviews((prev) => {
+        (Array.isArray(prev) ? prev : []).forEach((p) => {
+          if (p?.localUrl) URL.revokeObjectURL(p.localUrl);
+        });
+        return prev;
+      });
+    };
+  }, []);
+
   const handleModifiedImageUpload = async (event) => {
-    if (modifiedImages.length >= 3) {
-      return;
-    }
-
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
       setUploading(true);
-      const response = await axios.post('/api/uploads/compliance', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
 
-      if (response.data?.url) {
-        setModifiedImages((prev) => {
-          if (prev.length >= 3) return prev;
-          return [...prev, response.data.url];
+      if (modifiedImages.length >= 3) return;
+      const fileList = event.target.files;
+      if (!fileList || fileList.length === 0) return;
+
+      const remainingSlots = Math.max(0, 3 - modifiedImages.length);
+      const files = Array.from(fileList).slice(0, remainingSlots);
+
+      for (const file of files) {
+        const isPdf =
+          String(file.type).toLowerCase() === 'application/pdf' ||
+          String(file.name || '').toLowerCase().endsWith('.pdf');
+
+        const localUrl = URL.createObjectURL(file);
+        setModifiedImagePreviews((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          if (next.length >= 3) {
+            URL.revokeObjectURL(localUrl);
+            return next;
+          }
+          next.push({ localUrl, isPdf, previewError: false });
+          return next;
         });
+
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post('/api/uploads/compliance', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        if (response.data?.url) {
+          setModifiedImages((prev) => {
+            if (prev.length >= 3) return prev;
+            return [...prev, response.data.url];
+          });
+        }
       }
     } catch (error) {
       console.error('Modified vehicle image upload failed', error);
@@ -135,8 +168,11 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
     // Front/Rear/GVM from the four-tyre inputs using:
     //   Front Axle Unhitched + Rear Axle Unhitched = GVM Unhitched.
 
+    const preWeigh = location.state?.preWeigh || null;
+    const notes = location.state?.notes || '';
     const axleWeigh = location.state?.axleWeigh || null;
     const tyreWeigh = location.state?.tyreWeigh || null;
+    const goweighData = location.state?.goweighData || null;
     const vci01 = location.state?.vci01 || null;
     const vci02 = location.state?.vci02 || null;
 
@@ -180,6 +216,11 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
       modifiedImages,
       methodSelection,
       weighingSelection,
+      preWeigh,
+      axleWeigh,
+      tyreWeigh,
+      goweighData,
+      notes,
       vci01,
       vci02
     };
@@ -436,10 +477,107 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                     <input
                       hidden
                       type="file"
+                      multiple
                       accept="image/*,application/pdf"
                       onChange={handleModifiedImageUpload}
                     />
                   </Button>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    component="label"
+                    disabled={uploading || modifiedImages.length >= 3}
+                    sx={{ ml: 2 }}
+                  >
+                    Take Photo
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleModifiedImageUpload}
+                    />
+                  </Button>
+                  {modifiedImagePreviews.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                      {modifiedImagePreviews.map((p, idx) =>
+                        p?.previewError ? (
+                          <Typography
+                            // eslint-disable-next-line react/no-array-index-key
+                            key={idx}
+                            variant="caption"
+                            sx={{ display: 'block', cursor: 'pointer' }}
+                            onClick={() =>
+                              window.open(
+                                modifiedImages[idx] || p.localUrl,
+                                '_blank',
+                                'noopener,noreferrer'
+                              )}
+                          >
+                            Preview unavailable (open file)
+                          </Typography>
+                        ) : p?.isPdf ? (
+                          <Typography
+                            // eslint-disable-next-line react/no-array-index-key
+                            key={idx}
+                            variant="caption"
+                            sx={{ display: 'block', cursor: 'pointer' }}
+                            onClick={() => {
+                              setModifiedPreviewIndex(idx);
+                              setModifiedPreviewOpen(true);
+                            }}
+                          >
+                            PDF selected
+                          </Typography>
+                        ) : (
+                          <Box
+                            // eslint-disable-next-line react/no-array-index-key
+                            key={idx}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setModifiedPreviewIndex(idx);
+                              setModifiedPreviewOpen(true);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                setModifiedPreviewIndex(idx);
+                                setModifiedPreviewOpen(true);
+                              }
+                            }}
+                            sx={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'grey.400',
+                              overflow: 'hidden',
+                              cursor: 'pointer',
+                              flexShrink: 0
+                            }}
+                            title="Click to preview"
+                          >
+                            <Box
+                              component="img"
+                              src={p.localUrl || modifiedImages[idx]}
+                              alt="Modified compliance plate preview"
+                              onError={() =>
+                                setModifiedImagePreviews((prev) =>
+                                  (Array.isArray(prev) ? prev : []).map((x, i) =>
+                                    i === idx ? { ...x, previewError: true } : x
+                                  ))}
+                              sx={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                display: 'block'
+                              }}
+                            />
+                          </Box>
+                        )
+                      )}
+                    </Box>
+                  )}
                   {modifiedImages.length > 0 && (
                     <Typography
                       variant="caption"
@@ -459,6 +597,43 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
               Confirm Data is Correct
             </Button>
           </Box>
+
+          <Dialog
+            open={modifiedPreviewOpen}
+            onClose={() => setModifiedPreviewOpen(false)}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogContent sx={{ p: 0 }}>
+              {modifiedImagePreviews[modifiedPreviewIndex]?.isPdf ||
+              modifiedImagePreviews[modifiedPreviewIndex]?.previewError ? (
+                <Box
+                  component="iframe"
+                  src={
+                    modifiedImages[modifiedPreviewIndex] ||
+                    modifiedImagePreviews[modifiedPreviewIndex]?.localUrl
+                  }
+                  title="Modified compliance plate"
+                  sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
+                />
+              ) : (
+                <Box
+                  component="img"
+                  src={
+                    modifiedImagePreviews[modifiedPreviewIndex]?.localUrl ||
+                    modifiedImages[modifiedPreviewIndex]
+                  }
+                  alt="Modified compliance plate"
+                  onError={() =>
+                    setModifiedImagePreviews((prev) =>
+                      (Array.isArray(prev) ? prev : []).map((x, i) =>
+                        i === modifiedPreviewIndex ? { ...x, previewError: true } : x
+                      ))}
+                  sx={{ width: '100%', height: 'auto', display: 'block' }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Footer */}
           <Box sx={{ mt: 2, textAlign: 'center' }}>

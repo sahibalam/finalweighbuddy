@@ -30,13 +30,28 @@ const DIYTowCaravanPortableTyresVCI02 = () => {
       }
     };
 
-    navigate('/diy-weigh', {
-      state: {
-        ...baseState,
-        vci02,
-        startAtPayment: true
-      }
-    });
+    try {
+      window.sessionStorage.setItem('weighbuddy_diy_portable_tow_vci02', JSON.stringify(vci02));
+    } catch (e) {
+      // ignore storage errors
+    }
+
+    if (baseState?.returnToResults) {
+      navigate('/vehicle-only-weighbridge-results', {
+        state: {
+          ...baseState,
+          vci02
+        }
+      });
+    } else {
+      navigate('/diy-weigh', {
+        state: {
+          ...baseState,
+          vci02,
+          startAtPayment: true
+        }
+      });
+    }
   };
 
   return (

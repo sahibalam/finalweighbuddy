@@ -50,6 +50,12 @@ const DIYTowCaravanPortableTyresVCI01 = () => {
           : null
     };
 
+    try {
+      window.sessionStorage.setItem('weighbuddy_diy_portable_tow_vci01', JSON.stringify(vci01));
+    } catch (e) {
+      // ignore storage errors
+    }
+
     navigate('/tow-caravan-portable-tyres-vci02', {
       state: {
         ...baseState,

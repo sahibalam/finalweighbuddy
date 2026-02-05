@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { StripeProvider } from './contexts/StripeContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -9,7 +9,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AccountTypeSelection from './pages/AccountTypeSelection';
 import Dashboard from './pages/Dashboard';
-import NewWeigh from './pages/NewWeigh';
 import ProfessionalWeighStart from './pages/ProfessionalWeighStart';
 import ProfessionalClientStart from './pages/ProfessionalClientStart';
 import ProfessionalVehicleOnlyStart from './pages/ProfessionalVehicleOnlyStart';
@@ -68,6 +67,7 @@ import AboutUs from './pages/AboutUs';
 import ContactUs from './pages/ContactUs';
 import SubscriptionManagement from './pages/SubscriptionManagement';
 import PaymentHistory from './pages/PaymentHistory';
+import DIYTowCaravanAboveGroundWeights from './pages/DIYTowCaravanAboveGroundWeights';
 
 function App() {
 
@@ -243,7 +243,13 @@ function App() {
               </Layout>
             </PrivateRoute>
           } />
-
+<Route path="/tow-caravan-weighbridge-above-ground-weights" element={
+  <PrivateRoute>
+    <Layout>
+      <DIYTowCaravanAboveGroundWeights />
+    </Layout>
+  </PrivateRoute>
+} />
           <Route path="/vehicle-only-weighbridge-axle" element={
             <PrivateRoute>
               <Layout>
