@@ -698,70 +698,18 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         gcmMeasured = gtmMeasured + gvmHitchedPortable;
       }
     }
-  } else if (
-    weighingSelection === 'tow_vehicle_and_caravan' &&
-    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
-    axleWeigh
-  ) {
-    // Professional Tow Vehicle + Caravan portable scales flow.
-    // 1) Always use GVM Unhitched (and when available, individual front/rear unhitched axles)
-    //    derived from individual tyre loads on the VCI02 screen.
-    //    ProfessionalTowPortableTyresVCI02 stores front axle under `unhitchedFrontAxle`.
-    gvmUnhitched = safeNum(axleWeigh.gvmUnhitched);
 
-    // Use unhitchedFrontAxle from axleWeigh and derive rear as GVM - front.
-    unhitchedFrontAxle = safeNum(axleWeigh.unhitchedFrontAxle);
-    if (unhitchedFrontAxle > 0 && gvmUnhitched > 0) {
-      unhitchedRearAxle = gvmUnhitched - unhitchedFrontAxle;
-    } else {
-      unhitchedRearAxle = 0;
-    }
-
-    // 2) Use VCI01 hitch readings to derive GVM Hitched (for GCM) when available.
-    const vci01 = resolvedState?.vci01 || null;
-    const hitchWeigh = vci01?.hitchWeigh || null;
-    const hitchWdhOffWeigh = vci01?.hitchWdhOffWeigh || null;
-    const hasWdh = vci01?.hasWdh;
-
-    let gvmHitchedPortable = 0;
-    if (hitchWeigh) {
-      const hitchedFront = safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight);
-      const hitchedRear = safeNum(hitchWeigh.rearLeft) + safeNum(hitchWeigh.rearRight);
-      gvmHitchedPortable = hitchedFront + hitchedRear;
-
-      // Persist detailed axle values for Compliance Summary / Additional Information sections
-      hitchedFrontAxle = hitchedFront;
-      hitchedRearAxle = hitchedRear;
-    }
-
-    // 3) TBM: prefer explicit towBallMass override if provided, otherwise derive from GVM Hitched vs Unhitched.
-    if (resolvedState && resolvedState.towBallMass != null) {
-      tbm = safeNum(resolvedState.towBallMass);
-    } else if (hitchWeigh) {
-      if (hasWdh && hitchWdhOffWeigh) {
-        // With WDH: use the GVM with WDH released.
-        const wdhOffFront = safeNum(hitchWdhOffWeigh.frontLeft) + safeNum(hitchWdhOffWeigh.frontRight);
-        const wdhOffRear = safeNum(hitchWdhOffWeigh.rearLeft) + safeNum(hitchWdhOffWeigh.rearRight);
-        const gvmHitchWdhReleasePortable = wdhOffFront + wdhOffRear;
-        tbm = gvmHitchWdhReleasePortable - gvmUnhitched;
-      } else {
-        // Without WDH: GVM Hitched - GVM Unhitched = TBM.
-        tbm = gvmHitchedPortable - gvmUnhitched;
+    // Fallback: professional portable flow does not provide `tyreWeigh`.
+    // In that case, the caravan GTM is already computed earlier and stored in axleWeigh.trailerGtm.
+    if (gtmMeasured <= 0 && axleWeigh?.trailerGtm != null) {
+      gtmMeasured = safeNum(axleWeigh.trailerGtm);
+      if (gtmMeasured > 0) {
+        // GTM + TBM = ATM
+        atmMeasured = gtmMeasured + tbm;
+        // GCM = GTM + GVM Hitched
+        gcmMeasured = gtmMeasured + gvmHitchedPortable;
       }
     }
-
-    // 4) Always use the caravan GTM from the Professional GTM/ATM screen as measured GTM.
-    gtmMeasured = safeNum(axleWeigh.trailerGtm);
-
-    if (gtmMeasured > 0) {
-      // GTM + TBM = ATM
-      atmMeasured = gtmMeasured + tbm;
-      // GCM = GTM + GVM Hitched
-      gcmMeasured = gtmMeasured + gvmHitchedPortable;
-    }
-
-    // Use the portable-scales hitched GVM for Compliance Summary / advisory rows
-    gvmHitched = gvmHitchedPortable;
   } else if (resolvedState && resolvedState.towBallMass != null) {
     // For non in-ground flows that provide an explicit towBallMass (e.g. professional portable scales),
     // use that value directly as measured TBM.
