@@ -9,6 +9,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AccountTypeSelection from './pages/AccountTypeSelection';
 import Dashboard from './pages/Dashboard';
+import FleetDashboard from './pages/FleetDashboard';
+import FleetStaffManagement from './pages/FleetStaffManagement';
+import FleetAssetManagement from './pages/FleetAssetManagement';
 import ProfessionalWeighStart from './pages/ProfessionalWeighStart';
 import ProfessionalClientStart from './pages/ProfessionalClientStart';
 import ProfessionalVehicleOnlyStart from './pages/ProfessionalVehicleOnlyStart';
@@ -88,6 +91,46 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/fleet" element={
+            <PrivateRoute>
+              <Layout>
+                <FleetDashboard />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/fleet/staff" element={
+            <PrivateRoute>
+              <Layout>
+                <FleetStaffManagement />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/fleet/assets" element={
+            <PrivateRoute>
+              <Layout>
+                <FleetAssetManagement />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/fleet/weigh-history" element={
+            <PrivateRoute>
+              <Layout>
+                <WeighHistory />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/fleet/payment-history" element={
+            <PrivateRoute>
+              <Layout>
+                <PaymentHistory />
               </Layout>
             </PrivateRoute>
           } />

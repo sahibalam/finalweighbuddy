@@ -18,6 +18,7 @@ const subscriptionRoutes = require('./routes/subscriptions');
 const reportRoutes = require('./routes/reports');
 const uploadRoutes = require('./routes/uploads');
 const submissionRoutes = require('./routes/submissions');
+const fleetStaffRoutes = require('./routes/fleetStaff');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -70,6 +71,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/caravans', caravanRoutes);
 app.use('/api/weighs', weighRoutes);
+app.use('/api/fleet', fleetStaffRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes);

@@ -51,6 +51,8 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isFleetManagerSection = user?.userType === 'fleet' && location.pathname.startsWith('/fleet');
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -116,6 +118,36 @@ const Layout = ({ children }) => {
           text: 'Caravan Search',
           icon: <LocalShipping />,
           path: '/caravan-search'
+        }
+      ];
+    }
+
+    if (user?.userType === 'fleet' && isFleetManagerSection) {
+      return [
+        {
+          text: 'Weigh History',
+          icon: <History />,
+          path: '/fleet/weigh-history'
+        },
+        {
+          text: 'Payment History',
+          icon: <Payments />,
+          path: '/fleet/payment-history'
+        },
+        {
+          text: 'Staff Management',
+          icon: <People />,
+          path: '/fleet/staff'
+        },
+        {
+          text: 'Asset Management',
+          icon: <Assignment />,
+          path: '/fleet/assets'
+        },
+        {
+          text: 'New Weigh',
+          icon: <Add />,
+          path: '/new-weigh'
         }
       ];
     }
@@ -230,7 +262,9 @@ const Layout = ({ children }) => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {user?.userType === 'diy' ? 'WeighBuddy Compliance Check' : 'Caravan Compliance Check'}
+            {user?.userType === 'diy' || user?.userType === 'fleet'
+              ? 'WeighBuddy Compliance Check'
+              : 'Caravan Compliance Check'}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ mr: 2 }}>

@@ -29,21 +29,26 @@ const userSchema = new mongoose.Schema({
   },
   postcode: {
     type: String,
-    // Postcode is required only for professional users; optional for DIY/admin
+    // Postcode is required for professional and fleet users; optional for DIY/admin
     required: function () {
-      return this.userType === 'professional';
+      return this.userType === 'professional' || this.userType === 'fleet';
     },
     trim: true
   },
   userType: {
     type: String,
-    enum: ['professional', 'diy', 'admin'],
+    enum: ['professional', 'fleet', 'diy', 'admin'],
     default: 'diy'
+  },
+  fleetOwnerUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
   },
   businessName: {
     type: String,
     trim: true,
-    required: function() { return this.userType === 'professional'; }
+    required: function() { return this.userType === 'professional' || this.userType === 'fleet'; }
   },
   subscription: {
     type: {

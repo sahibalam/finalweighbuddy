@@ -59,6 +59,8 @@ const Login = () => {
 
       if (loggedInUser?.userType === 'professional') {
         navigate('/professional-clients');
+      } else if (loggedInUser?.userType === 'fleet') {
+        navigate('/fleet');
       } else {
         navigate('/dashboard');
       }

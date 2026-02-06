@@ -65,4 +65,5 @@ async function createDiyClientFromProfessional({ firstName, lastName, email, pho
 
 module.exports = {
   createDiyClientFromProfessional,
+  sendDiyWelcomeEmail,
 };

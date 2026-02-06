@@ -8,6 +8,13 @@ const weighSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'User reference is required']
   },
+
+  // Fleet ownership (for company-scoped history)
+  fleetOwnerUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
+  },
   
   // Vehicle and Caravan registry references
   vehicleRegistryId: {
@@ -311,6 +318,7 @@ const weighSchema = new mongoose.Schema({
 
 // Indexes for efficient querying
 weighSchema.index({ userId: 1, createdAt: -1 });
+weighSchema.index({ fleetOwnerUserId: 1, createdAt: -1 });
 weighSchema.index({ vehicleRegistryId: 1 });
 weighSchema.index({ caravanRegistryId: 1 });
 weighSchema.index({ status: 1 });

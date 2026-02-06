@@ -9,10 +9,12 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = {}) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const loadPersistedResultsState = () => {
     try {
@@ -47,6 +49,47 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       }
     }
   }, [hasLocationState, location.state, overrideState]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (embedded) return;
+    if (user?.userType !== 'fleet') return;
+
+    let cancelled = false;
+
+    const sendFleetStaffCredentialsEmail = async () => {
+      try {
+        const raw = window.sessionStorage.getItem('weighbuddy_fleet_new_staff_credentials');
+        if (!raw) return;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.sent) return;
+        if (!parsed.email || !parsed.password) return;
+
+        await axios.post('/api/fleet/staff/send-credentials', {
+          email: parsed.email,
+          firstName: parsed.firstName,
+          password: parsed.password,
+        });
+
+        if (cancelled) return;
+
+        window.sessionStorage.setItem(
+          'weighbuddy_fleet_new_staff_credentials',
+          JSON.stringify({ ...parsed, sent: true })
+        );
+      } catch (e) {
+        // If email fails (SMTP not configured, etc.), do not block results UI.
+        // Keep sent=false so a later attempt can resend.
+      }
+    };
+
+    sendFleetStaffCredentialsEmail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [embedded, user?.userType]);
 
   const {
     rego = '',

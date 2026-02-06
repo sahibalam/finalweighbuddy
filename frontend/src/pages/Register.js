@@ -202,6 +202,8 @@ const Register = () => {
       // Mirror Login.js behavior: professionals go to professional-clients, others to dashboard
       if (formData.userType === 'professional') {
         navigate('/professional-clients');
+      } else if (formData.userType === 'fleet') {
+        navigate('/fleet');
       } else {
         navigate('/dashboard');
       }
@@ -319,17 +321,33 @@ const Register = () => {
 
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <TextField
+              <FormControl
+                fullWidth
                 margin="normal"
                 required
-                fullWidth
-                name="stateField"
-                label="State"
-                value={formData.stateField}
-                onChange={handleChange}
                 error={!!errors.stateField}
-                helperText={errors.stateField}
-              />
+              >
+                <InputLabel id="register-state-label">State</InputLabel>
+                <Select
+                  labelId="register-state-label"
+                  label="State"
+                  name="stateField"
+                  value={formData.stateField}
+                  onChange={handleChange}
+                >
+                  <MenuItem value="NSW">NSW</MenuItem>
+                  <MenuItem value="VIC">VIC</MenuItem>
+                  <MenuItem value="QLD">QLD</MenuItem>
+                  <MenuItem value="SA">SA</MenuItem>
+                  <MenuItem value="WA">WA</MenuItem>
+                  <MenuItem value="TAS">TAS</MenuItem>
+                  <MenuItem value="ACT">ACT</MenuItem>
+                  <MenuItem value="NT">NT</MenuItem>
+                </Select>
+                {errors.stateField ? (
+                  <FormHelperText>{errors.stateField}</FormHelperText>
+                ) : null}
+              </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField

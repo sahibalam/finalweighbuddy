@@ -70,6 +70,8 @@ const Dashboard = () => {
   useEffect(() => {
     if (user?.userType === 'admin') {
       navigate('/admin/overview');
+    } else if (user?.userType === 'fleet') {
+      navigate('/fleet');
     } else if (user?.userType === 'diy') {
       navigate('/new-weigh');
     }

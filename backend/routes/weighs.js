@@ -188,6 +188,12 @@ router.post('/', protect, checkSubscription, [
     // Create weigh entry
     const weigh = new Weigh({
       userId: req.user.id,
+      fleetOwnerUserId:
+        req.user.userType === 'fleet'
+          ? req.user.id
+          : req.user.fleetOwnerUserId
+            ? req.user.fleetOwnerUserId
+            : undefined,
       customerName,
       customerPhone,
       customerEmail,
@@ -575,14 +581,28 @@ router.get('/', protect, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const startIndex = (page - 1) * limit;
 
-    const weighs = await Weigh.find({ userId: req.user.id })
+    const weighsQuery =
+      req.user.userType === 'fleet'
+        ? {
+            $or: [
+              { fleetOwnerUserId: req.user.id },
+              // Backwards compatibility for older fleet weighs created before
+              // fleetOwnerUserId existed.
+              { userId: req.user.id },
+            ],
+          }
+        : req.user.fleetOwnerUserId
+          ? { userId: req.user.id }
+          : { userId: req.user.id };
+
+    const weighs = await Weigh.find(weighsQuery)
       .populate('vehicleRegistryId', 'numberPlate state')
       .populate('caravanRegistryId', 'numberPlate state')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(startIndex);
 
-    const total = await Weigh.countDocuments({ userId: req.user.id });
+    const total = await Weigh.countDocuments(weighsQuery);
 
     res.json({
       success: true,
@@ -715,9 +735,22 @@ router.get('/:id', protect, async (req, res) => {
       });
     }
 
-    // Check if user owns this weigh entry or is admin
-    console.log('GET /api/weighs/:id ownership check', { weighUserId: weigh.userId?._id?.toString?.() || weigh.userId?.toString?.(), requesterId: req.user?.id, requesterType: req.user?.userType });
-    if ((weigh.userId?._id?.toString?.() || weigh.userId?.toString?.()) !== req.user.id && req.user.userType !== 'admin') {
+    // Check if user owns this weigh entry, is admin, or (fleet manager) owns the company
+    const weighUserId = weigh.userId?._id?.toString?.() || weigh.userId?.toString?.();
+    const weighFleetOwnerId = weigh.fleetOwnerUserId?.toString?.() || null;
+    console.log('GET /api/weighs/:id ownership check', {
+      weighUserId,
+      weighFleetOwnerId,
+      requesterId: req.user?.id,
+      requesterType: req.user?.userType,
+      requesterFleetOwnerUserId: req.user?.fleetOwnerUserId?.toString?.() || null
+    });
+
+    const isDirectOwner = weighUserId === req.user.id;
+    const isAdmin = req.user.userType === 'admin';
+    const isFleetCompanyOwner = req.user.userType === 'fleet' && weighFleetOwnerId && weighFleetOwnerId === req.user.id;
+
+    if (!isDirectOwner && !isAdmin && !isFleetCompanyOwner) {
       console.log('GET /api/weighs/:id unauthorized', { id: req.params.id, requesterId: req.user?.id });
       return res.status(403).json({
         success: false,
