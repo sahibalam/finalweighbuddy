@@ -49,6 +49,7 @@ router.post('/', protect, checkSubscription, [
       customerName,
       customerPhone,
       customerEmail,
+      clientUserId,
       vehicleId,
       caravanId,
       vehicleNumberPlate,
@@ -101,6 +102,24 @@ router.post('/', protect, checkSubscription, [
         success: false,
         message: 'Caravan not found'
       });
+    }
+
+    let validatedClientUserId = undefined;
+    if (req.user.userType === 'professional' && clientUserId) {
+      const client = await User.findOne({
+        _id: clientUserId,
+        userType: 'diy',
+        professionalOwnerUserId: req.user.id,
+      });
+
+      if (!client) {
+        return res.status(403).json({
+          success: false,
+          message: 'Client not found or not associated with this professional account',
+        });
+      }
+
+      validatedClientUserId = client._id;
     }
 
     // Vehicle compliance (DIY: simplified checks without individual axle weights)
@@ -188,6 +207,7 @@ router.post('/', protect, checkSubscription, [
     // Create weigh entry
     const weigh = new Weigh({
       userId: req.user.id,
+      clientUserId: validatedClientUserId,
       fleetOwnerUserId:
         req.user.userType === 'fleet'
           ? req.user.id
@@ -591,8 +611,10 @@ router.get('/', protect, async (req, res) => {
               { userId: req.user.id },
             ],
           }
-        : req.user.fleetOwnerUserId
-          ? { userId: req.user.id }
+        : req.user.userType === 'diy' && !req.user.fleetOwnerUserId
+          ? {
+              $or: [{ userId: req.user.id }, { clientUserId: req.user.id }],
+            }
           : { userId: req.user.id };
 
     const weighs = await Weigh.find(weighsQuery)
@@ -738,19 +760,22 @@ router.get('/:id', protect, async (req, res) => {
     // Check if user owns this weigh entry, is admin, or (fleet manager) owns the company
     const weighUserId = weigh.userId?._id?.toString?.() || weigh.userId?.toString?.();
     const weighFleetOwnerId = weigh.fleetOwnerUserId?.toString?.() || null;
+    const weighClientUserId = weigh.clientUserId?.toString?.() || null;
     console.log('GET /api/weighs/:id ownership check', {
       weighUserId,
       weighFleetOwnerId,
+      weighClientUserId,
       requesterId: req.user?.id,
       requesterType: req.user?.userType,
       requesterFleetOwnerUserId: req.user?.fleetOwnerUserId?.toString?.() || null
     });
 
     const isDirectOwner = weighUserId === req.user.id;
+    const isClientOwner = weighClientUserId && weighClientUserId === req.user.id;
     const isAdmin = req.user.userType === 'admin';
     const isFleetCompanyOwner = req.user.userType === 'fleet' && weighFleetOwnerId && weighFleetOwnerId === req.user.id;
 
-    if (!isDirectOwner && !isAdmin && !isFleetCompanyOwner) {
+    if (!isDirectOwner && !isClientOwner && !isAdmin && !isFleetCompanyOwner) {
       console.log('GET /api/weighs/:id unauthorized', { id: req.params.id, requesterId: req.user?.id });
       return res.status(403).json({
         success: false,
@@ -780,7 +805,8 @@ router.get('/:id/report', protect, async (req, res) => {
     const weigh = await Weigh.findById(req.params.id)
       .populate('vehicleRegistryId')
       .populate('caravanRegistryId')
-      .populate('userId', 'name email userType');
+      .populate('userId', 'name email userType')
+      .populate('clientUserId', 'name email userType');
 
     if (!weigh) {
       console.log('GET /api/weighs/:id/report not found', { id: req.params.id });
@@ -790,9 +816,25 @@ router.get('/:id/report', protect, async (req, res) => {
       });
     }
 
-    // Check if user owns this weigh entry or is admin
-    console.log('GET /api/weighs/:id/report ownership check', { weighUserId: weigh.userId?._id?.toString?.() || weigh.userId?.toString?.(), requesterId: req.user?.id, requesterType: req.user?.userType });
-    if ((weigh.userId?._id?.toString?.() || weigh.userId?.toString?.()) !== req.user.id && req.user.userType !== 'admin') {
+    // Check if user owns this weigh entry, is the linked client, is admin, or (fleet manager) owns the company
+    const weighUserId = weigh.userId?._id?.toString?.() || weigh.userId?.toString?.();
+    const weighFleetOwnerId = weigh.fleetOwnerUserId?.toString?.() || null;
+    const weighClientUserId = weigh.clientUserId?.toString?.() || null;
+
+    const isDirectOwner = weighUserId === req.user.id;
+    const isClientOwner = weighClientUserId && weighClientUserId === req.user.id;
+    const isAdmin = req.user.userType === 'admin';
+    const isFleetCompanyOwner = req.user.userType === 'fleet' && weighFleetOwnerId && weighFleetOwnerId === req.user.id;
+
+    console.log('GET /api/weighs/:id/report ownership check', {
+      weighUserId,
+      weighFleetOwnerId,
+      weighClientUserId,
+      requesterId: req.user?.id,
+      requesterType: req.user?.userType,
+    });
+
+    if (!isDirectOwner && !isClientOwner && !isAdmin && !isFleetCompanyOwner) {
       console.log('GET /api/weighs/:id/report unauthorized', { id: req.params.id, requesterId: req.user?.id });
       return res.status(403).json({
         success: false,
@@ -810,6 +852,27 @@ router.get('/:id/report', protect, async (req, res) => {
 
     // Pipe PDF to response
     doc.pipe(res);
+
+    // Header attribution (who generated it + who it is for)
+    const generatedByLabel = weigh.userId
+      ? `${weigh.userId.name || '-'} (${weigh.userId.email || '-'})`
+      : '-';
+    const generatedByType = weigh.userId?.userType || '-';
+
+    const reportForLabel = weigh.clientUserId
+      ? `${weigh.clientUserId.name || '-'} (${weigh.clientUserId.email || '-'})`
+      : `${weigh.customerName || '-'} (${weigh.customerEmail || '-'})`;
+    const reportForType = weigh.clientUserId?.userType || 'customer';
+
+    doc.save();
+    doc.fillColor('#111');
+    doc.fontSize(10).text('WeighBuddy • Caravan Compliance Report', 18, 12, { align: 'left' });
+    doc.fontSize(8);
+    doc.text(`Generated by: ${generatedByLabel} [${generatedByType}]`, 18, 28, { align: 'left' });
+    doc.text(`Report for: ${reportForLabel} [${reportForType}]`, 18, 40, { align: 'left' });
+    doc.text(`Report ID: ${weigh._id}`, 560, 28, { align: 'left' });
+    doc.text(`Date: ${new Date(weigh.createdAt).toLocaleDateString()}`, 560, 40, { align: 'left' });
+    doc.restore();
 
     const w = weigh.weights || {};
     const vd = weigh.vehicleData || weigh.vehicle || {};

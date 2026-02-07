@@ -25,6 +25,7 @@ import {
   LocalShipping as LocalShippingIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const ProfessionalClientStart = () => {
   const [clientMode, setClientMode] = useState('new');
@@ -36,16 +37,20 @@ const ProfessionalClientStart = () => {
     password: '',
     notes: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (field) => (event) => {
     setClientForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+
     if (clientMode === 'new') {
+      setIsSubmitting(true);
       try {
         const payload = {
           firstName: clientForm.firstName,
@@ -53,13 +58,29 @@ const ProfessionalClientStart = () => {
           email: clientForm.email,
           phone: clientForm.phone,
           password: clientForm.password,
-          notes: clientForm.notes,
         };
 
-        localStorage.setItem('professionalClientDraft', JSON.stringify(payload));
+        const res = await axios.post('/api/auth/create-diy-client-from-professional', payload);
+        const diyClientUserId = res?.data?.diyClientUserId;
+
+        const draft = {
+          firstName: clientForm.firstName,
+          lastName: clientForm.lastName,
+          email: clientForm.email,
+          phone: clientForm.phone,
+          notes: clientForm.notes,
+          diyClientUserId,
+        };
+
+        localStorage.setItem('professionalClientDraft', JSON.stringify(draft));
       } catch (err) {
-        console.error('Failed to persist client draft locally', err);
+        console.error('Failed to create DIY client from professional flow', err);
+        const msg = err?.response?.data?.message || err?.message || 'Failed to create client';
+        alert(msg);
+        setIsSubmitting(false);
+        return;
       }
+      setIsSubmitting(false);
     }
 
     navigate('/professional-weigh-start');
@@ -185,7 +206,7 @@ const ProfessionalClientStart = () => {
                   )}
 
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-                    <Button type="submit" variant="contained">
+                    <Button type="submit" variant="contained" disabled={isSubmitting}>
                       Continue
                     </Button>
                   </Box>

@@ -9,6 +9,13 @@ const weighSchema = new mongoose.Schema({
     required: [true, 'User reference is required']
   },
 
+  // DIY client association (for professional-created compliance checks)
+  clientUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+  },
+
   // Fleet ownership (for company-scoped history)
   fleetOwnerUserId: {
     type: mongoose.Schema.Types.ObjectId,

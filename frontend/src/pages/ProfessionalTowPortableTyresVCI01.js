@@ -107,7 +107,6 @@ const ProfessionalTowPortableTyresVCI01 = () => {
               >
                 <MenuItem value="SINGLE">Single Axle</MenuItem>
                 <MenuItem value="DUAL">Dual Axle</MenuItem>
-                <MenuItem value="TRIPLE">Triple Axle</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -169,7 +168,7 @@ const ProfessionalTowPortableTyresVCI01 = () => {
                   <Typography>kg</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
+                  <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
                   <TextField sx={{ width: 140, mr: 1 }} />
                   <Typography>kg</Typography>
                 </Box>
@@ -262,7 +261,7 @@ const ProfessionalTowPortableTyresVCI01 = () => {
                       <Typography>kg</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
+                      <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
                       <TextField sx={{ width: 140, mr: 1 }} />
                       <Typography>kg</Typography>
                     </Box>

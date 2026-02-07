@@ -34,7 +34,7 @@ async function sendDiyWelcomeEmail({ email, firstName, password }) {
   });
 }
 
-async function createDiyClientFromProfessional({ firstName, lastName, email, phone, password }) {
+async function createDiyClientFromProfessional({ firstName, lastName, email, phone, password, professionalOwnerUserId }) {
   if (!email || !password) {
     throw new Error('Email and password are required to create DIY client');
   }
@@ -54,6 +54,7 @@ async function createDiyClientFromProfessional({ firstName, lastName, email, pho
     phone,
     password,
     userType: 'diy',
+    professionalOwnerUserId,
   });
 
   await user.save();

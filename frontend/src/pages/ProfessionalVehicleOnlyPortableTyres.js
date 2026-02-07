@@ -228,7 +228,6 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
           >
             <MenuItem value="single">Single Axle</MenuItem>
             <MenuItem value="dual">Dual Axle</MenuItem>
-            <MenuItem value="triple">Triple Axle</MenuItem>
           </Select>
         </FormControl>
       </Box>

@@ -3,7 +3,7 @@ const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { createDiyClientFromProfessional } = require('../services/professionalClientService');
 
 const router = express.Router();
@@ -348,10 +348,12 @@ router.post('/sync-weigh-count', protect, async (req, res) => {
 
 // @desc    Create DIY client from professional flow and send welcome email
 // @route   POST /api/auth/create-diy-client-from-professional
-// @access  Public (called from authenticated professional UI but does not require DIY auth)
+// @access  Private (professional)
 const professionalClientService = require('../services/professionalClientService');
 router.post(
   '/create-diy-client-from-professional',
+  protect,
+  authorize('professional'),
   [
     body('firstName', 'First name is required').not().isEmpty(),
     body('lastName', 'Last name is required').not().isEmpty(),
@@ -374,12 +376,14 @@ router.post(
         email,
         phone,
         password,
+        professionalOwnerUserId: req.user.id,
       });
 
       return res.status(201).json({
         success: true,
         created: result.created,
         emailSent: result.emailSent,
+        diyClientUserId: result?.user?._id,
       });
     } catch (error) {
       console.error('Error creating DIY client from professional flow:', error);

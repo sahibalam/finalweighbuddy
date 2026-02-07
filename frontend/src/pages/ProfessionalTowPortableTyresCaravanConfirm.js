@@ -190,10 +190,20 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
 
       // Customer details: for professional flow we save under the logged-in pro user
       // and use placeholders if client details are not in state.
+      let diyClientUserId = null;
+      try {
+        const draftRaw = localStorage.getItem('professionalClientDraft');
+        const draft = draftRaw ? JSON.parse(draftRaw) : null;
+        diyClientUserId = draft?.diyClientUserId || null;
+      } catch (e) {
+        diyClientUserId = null;
+      }
+
       const payload = {
         customerName: baseState.customerName || 'Professional Client',
         customerPhone: baseState.customerPhone || 'N/A',
         customerEmail: baseState.customerEmail || 'unknown@example.com',
+        clientUserId: diyClientUserId,
         vehicleId,
         caravanId,
         vehicleNumberPlate: baseState.rego || '',

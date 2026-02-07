@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const AXLE_OPTIONS = ['Single Axle', 'Dual Axle', 'Triple Axle'];
+const AXLE_OPTIONS = ['Single Axle', 'Dual Axle'];
 
 const DIYCaravanOnlyPortableTyres = () => {
   const navigate = useNavigate();

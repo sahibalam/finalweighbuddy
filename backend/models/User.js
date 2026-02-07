@@ -40,6 +40,11 @@ const userSchema = new mongoose.Schema({
     enum: ['professional', 'fleet', 'diy', 'admin'],
     default: 'diy'
   },
+  professionalOwnerUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+  },
   fleetOwnerUserId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
