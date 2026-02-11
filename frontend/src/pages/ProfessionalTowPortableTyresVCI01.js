@@ -32,7 +32,7 @@ const ProfessionalTowPortableTyresVCI01 = () => {
   const [rearRightWdhOff, setRearRightWdhOff] = useState('');
 
   // Dropdown options to mirror wireframe (Single / Dual / Triple Axle)
-  const [axleConfig, setAxleConfig] = useState('DUAL');
+  const [axleConfig, setAxleConfig] = useState('SINGLE');
 
   const handleContinue = () => {
     const baseState = location.state || {};
@@ -154,24 +154,16 @@ const ProfessionalTowPortableTyresVCI01 = () => {
           </Box>
 
           {axleConfig === 'DUAL' && (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                mb: 2,
-              }}
-            >
-              <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
-                  <TextField sx={{ width: 140, mr: 1 }} />
-                  <Typography>kg</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
-                  <TextField sx={{ width: 140, mr: 1 }} />
-                  <Typography>kg</Typography>
-                </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
+                <TextField sx={{ width: 140, mr: 1 }} />
+                <Typography>kg</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
+                <TextField sx={{ width: 140, mr: 1 }} />
+                <Typography>kg</Typography>
               </Box>
             </Box>
           )}
@@ -247,24 +239,16 @@ const ProfessionalTowPortableTyresVCI01 = () => {
               </Box>
 
               {axleConfig === 'DUAL' && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    mb: 2,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
-                      <TextField sx={{ width: 140, mr: 1 }} />
-                      <Typography>kg</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
-                      <TextField sx={{ width: 140, mr: 1 }} />
-                      <Typography>kg</Typography>
-                    </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
+                    <TextField sx={{ width: 140, mr: 1 }} />
+                    <Typography>kg</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
+                    <TextField sx={{ width: 140, mr: 1 }} />
+                    <Typography>kg</Typography>
                   </Box>
                 </Box>
               )}

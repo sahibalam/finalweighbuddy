@@ -32,11 +32,12 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
     // Vehicle only: use these tyre loads as the unhitched front/rear axle totals
     if (weighingSelection === 'vehicle_only') {
       const frontAxleUnhitched = safeNum(weights.frontLeft) + safeNum(weights.frontRight);
+      const rearAxleUnhitchedBase = safeNum(weights.rearLeft) + safeNum(weights.rearRight);
+      const rearAxleUnhitchedMiddle = safeNum(weights.middleLeft) + safeNum(weights.middleRight);
       const rearAxleUnhitched =
-        safeNum(weights.rearLeft) +
-        safeNum(weights.rearRight) +
-        safeNum(weights.middleLeft) +
-        safeNum(weights.middleRight);
+        axleConfig === 'dual'
+          ? rearAxleUnhitchedBase + rearAxleUnhitchedMiddle
+          : rearAxleUnhitchedBase;
 
       const axleWeigh = {
         frontAxleUnhitched,
@@ -120,6 +121,21 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         Portable Scales - Individual Tyre Weights
       </Typography>
 
+      <Box sx={{ maxWidth: 220, mb: 3 }}>
+        <FormControl fullWidth size="small">
+          <InputLabel id="axle-config-label">How many axles?</InputLabel>
+          <Select
+            labelId="axle-config-label"
+            label="How many axles?"
+            value={axleConfig}
+            onChange={(e) => setAxleConfig(e.target.value)}
+          >
+            <MenuItem value="single">Single Axle</MenuItem>
+            <MenuItem value="dual">Dual Axle</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
       <Typography
         variant="h5"
         sx={{ textAlign: 'center', mb: 4, fontWeight: 'bold' }}
@@ -175,33 +191,35 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         variant="body2"
         sx={{ textAlign: 'center', mb: 2 }}
       >
-        Note: If your tow vehicle has a dual rear axle, enter middle axle below.
+        Note: If your tow vehicle has a dual rear axle, select Dual Axle above and enter the middle axle below.
       </Typography>
 
-      <Grid container spacing={3} justifyContent="center" sx={{ mb: 4 }}>
-        <Grid item xs={12} md={5}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <TextField
-              label="Middle Left Tyre"
-              value={weights.middleLeft}
-              onChange={handleChange('middleLeft')}
-              sx={{ width: '70%' }}
-            />
-            <Typography variant="body1">kg</Typography>
-          </Box>
+      {axleConfig === 'dual' && (
+        <Grid container spacing={3} justifyContent="center" sx={{ mb: 4 }}>
+          <Grid item xs={12} md={5}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <TextField
+                label="Middle Left Tyre"
+                value={weights.middleLeft}
+                onChange={handleChange('middleLeft')}
+                sx={{ width: '70%' }}
+              />
+              <Typography variant="body1">kg</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <TextField
+                label="Middle Right Tyre"
+                value={weights.middleRight}
+                onChange={handleChange('middleRight')}
+                sx={{ width: '70%' }}
+              />
+              <Typography variant="body1">kg</Typography>
+            </Box>
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={5}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <TextField
-              label="Middle Right Tyre"
-              value={weights.middleRight}
-              onChange={handleChange('middleRight')}
-              sx={{ width: '70%' }}
-            />
-            <Typography variant="body1">kg</Typography>
-          </Box>
-        </Grid>
-      </Grid>
+      )}
     </>
   );
 

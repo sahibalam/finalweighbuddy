@@ -31,7 +31,6 @@ import VehicleRegistration from '../components/VehicleRegistration';
 import DIYWeightMeasurement from '../components/DIYWeightMeasurement';
 import DIYComplianceReport from '../components/DIYComplianceReport';
 import ReportPreviewAndPayment from '../components/ReportPreviewAndPayment';
-import CustomerResponsibilityDisclaimer from '../components/CustomerResponsibilityDisclaimer';
 
 const DIYNewWeigh = () => {
   const navigate = useNavigate();
@@ -45,7 +44,6 @@ const DIYNewWeigh = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Weighing method state
@@ -663,17 +661,12 @@ const DIYNewWeigh = () => {
         <CircularProgress color="inherit" />
       </Backdrop>
       
-      {/* Customer Responsibility Disclaimer */}
-      <CustomerResponsibilityDisclaimer
-        open={showDisclaimer}
-        onClose={() => setShowDisclaimer(false)}
-      />
-      
       {/* Exit Confirmation Dialog */}
-      <Dialog open={showExitConfirm} onClose={cancelExit} maxWidth="sm" fullWidth>
-        <DialogTitle>Exit Weigh Process?</DialogTitle>
+      <Dialog open={showExitConfirm} onClose={() => setShowExitConfirm(false)}>
+        <DialogTitle>Confirm Exit</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to exit? Your progress will be lost.</Typography>
+          <Typography>
+Are you sure you want to exit? Your progress will be lost.</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={cancelExit} color="primary">
