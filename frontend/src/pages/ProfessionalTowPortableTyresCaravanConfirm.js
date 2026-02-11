@@ -36,6 +36,18 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
   const [complianceLocalPreviewIsPdf, setComplianceLocalPreviewIsPdf] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const resolveComplianceUrl = (url) => {
+    if (!url) return '';
+    const raw = String(url);
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+    if (raw.startsWith('/uploads/')) {
+      const base = axios?.defaults?.baseURL ? String(axios.defaults.baseURL).replace(/\/$/, '') : '';
+      return base ? `${base}${raw}` : raw;
+    }
+    return raw;
+  };
 
   useEffect(() => {
     const c = baseState.caravanFromLookup || {};
@@ -55,7 +67,15 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
     if ((!vin || String(vin).trim() === '') && c.vin) {
       setVin(String(c.vin).toUpperCase());
     }
-  }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, vin]);
+
+    if (!complianceImage && c.complianceImage) {
+      const url = String(c.complianceImage);
+      setComplianceLocalPreviewUrl('');
+      setComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
+      setCompliancePreviewError(false);
+      setComplianceImage(url);
+    }
+  }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, vin, complianceImage, complianceLocalPreviewUrl]);
 
   useEffect(() => {
     setCompliancePreviewError(false);
@@ -115,6 +135,28 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
   };
 
   const handleConfirm = async () => {
+    const nextErrors = {};
+    const isEmpty = (v) => String(v || '').trim() === '';
+
+    if (isEmpty(rego)) nextErrors.rego = 'Rego Number is required';
+    if (isEmpty(state)) nextErrors.state = 'State is required';
+    if (isEmpty(make)) nextErrors.make = 'Make is required';
+    if (isEmpty(model)) nextErrors.model = 'Model is required';
+    if (isEmpty(year)) nextErrors.year = 'Year is required';
+
+    // VIN optional
+    // GTM optional
+    // Axle Group Loadings optional
+
+    if (isEmpty(atm)) nextErrors.atm = 'Aggregate Trailer Mass (ATM) is required';
+    if (isEmpty(tare)) nextErrors.tare = 'Tare Mass Weight is required';
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      window.alert('Please fill all required fields before continuing.');
+      return;
+    }
+
     if (saving) return;
     setSaving(true);
 
@@ -214,6 +256,8 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
         caravanState: state || '',
         caravanDescription: [year, make, model].filter(Boolean).map(String).join(' '),
         caravanVin: vin || '',
+        caravanComplianceImage: complianceImage || '',
+        caravanTare: tare,
         weights: {
           frontAxle: hitchedFront,
           rearAxle: hitchedRear,
@@ -311,40 +355,55 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
               <TextField
                 fullWidth
                 label="Rego Number"
+                required
                 value={rego}
                 onChange={(e) => setRego(e.target.value)}
+                error={Boolean(fieldErrors.rego)}
+                helperText={fieldErrors.rego || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="State"
+                required
                 value={state}
                 onChange={(e) => setState(e.target.value)}
+                error={Boolean(fieldErrors.state)}
+                helperText={fieldErrors.state || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Make"
+                required
                 value={make}
                 onChange={(e) => setMake(e.target.value)}
+                error={Boolean(fieldErrors.make)}
+                helperText={fieldErrors.make || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Model"
+                required
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
+                error={Boolean(fieldErrors.model)}
+                helperText={fieldErrors.model || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Year"
+                required
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
+                error={Boolean(fieldErrors.year)}
+                helperText={fieldErrors.year || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -367,8 +426,11 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
               <TextField
                 fullWidth
                 label="Aggregate Trailer Mass (ATM)"
+                required
                 value={atm}
                 onChange={(e) => setAtm(e.target.value)}
+                error={Boolean(fieldErrors.atm)}
+                helperText={fieldErrors.atm || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -383,8 +445,11 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
               <TextField
                 fullWidth
                 label="Tare Mass Weight"
+                required
                 value={tare}
                 onChange={(e) => setTare(e.target.value)}
+                error={Boolean(fieldErrors.tare)}
+                helperText={fieldErrors.tare || ''}
               />
             </Grid>
           </Grid>
@@ -449,7 +514,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
                       sx={{ display: 'block', cursor: 'pointer' }}
                       onClick={() =>
                         window.open(
-                          complianceImage || complianceLocalPreviewUrl,
+                          resolveComplianceUrl(complianceImage) || complianceLocalPreviewUrl,
                           '_blank',
                           'noopener,noreferrer'
                         )}
@@ -483,7 +548,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
                     >
                       <Box
                         component="img"
-                        src={complianceLocalPreviewUrl || complianceImage}
+                        src={complianceLocalPreviewUrl || resolveComplianceUrl(complianceImage)}
                         alt="Caravan compliance plate preview"
                         onError={() => setCompliancePreviewError(true)}
                         sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -510,14 +575,14 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
                 compliancePreviewError) ? (
                 <Box
                   component="iframe"
-                  src={complianceImage || complianceLocalPreviewUrl}
+                  src={resolveComplianceUrl(complianceImage) || complianceLocalPreviewUrl}
                   title="Caravan compliance plate"
                   sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
                 />
               ) : (
                 <Box
                   component="img"
-                  src={complianceLocalPreviewUrl || complianceImage}
+                  src={complianceLocalPreviewUrl || resolveComplianceUrl(complianceImage)}
                   alt="Caravan compliance plate"
                   onError={() => setCompliancePreviewError(true)}
                   sx={{ width: '100%', height: 'auto', display: 'block' }}

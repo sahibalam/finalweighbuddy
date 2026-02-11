@@ -11,6 +11,7 @@ import {
   DialogContent
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const DIYCaravanOnlyConfirm = () => {
   const navigate = useNavigate();
@@ -29,11 +30,24 @@ const DIYCaravanOnlyConfirm = () => {
   const [atm, setAtm] = useState('');
   const [axleGroups, setAxleGroups] = useState('');
   const [tare, setTare] = useState('');
-  const [complianceImage, setComplianceImage] = useState('');
-  const [compliancePreviewOpen, setCompliancePreviewOpen] = useState(false);
-  const [compliancePreviewError, setCompliancePreviewError] = useState(false);
-  const [complianceLocalPreviewUrl, setComplianceLocalPreviewUrl] = useState('');
-  const [complianceLocalPreviewIsPdf, setComplianceLocalPreviewIsPdf] = useState(false);
+  const [caravanComplianceImage, setCaravanComplianceImage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [caravanCompliancePreviewOpen, setCaravanCompliancePreviewOpen] = useState(false);
+  const [caravanCompliancePreviewError, setCaravanCompliancePreviewError] = useState(false);
+  const [caravanComplianceLocalPreviewUrl, setCaravanComplianceLocalPreviewUrl] = useState('');
+  const [caravanComplianceLocalPreviewIsPdf, setCaravanComplianceLocalPreviewIsPdf] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const resolveComplianceUrl = (url) => {
+    if (!url) return '';
+    const raw = String(url);
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+    if (raw.startsWith('/uploads/')) {
+      const base = axios?.defaults?.baseURL ? String(axios.defaults.baseURL).replace(/\/$/, '') : '';
+      return base ? `${base}${raw}` : raw;
+    }
+    return raw;
+  };
 
   useEffect(() => {
     const c = baseState.caravanFromLookup || {};
@@ -60,18 +74,40 @@ const DIYCaravanOnlyConfirm = () => {
   }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, tare, vin]);
 
   useEffect(() => {
-    setCompliancePreviewError(false);
-  }, [complianceImage]);
+    setCaravanCompliancePreviewError(false);
+  }, [caravanComplianceImage]);
 
   useEffect(() => {
     return () => {
-      if (complianceLocalPreviewUrl) {
-        URL.revokeObjectURL(complianceLocalPreviewUrl);
+      if (caravanComplianceLocalPreviewUrl) {
+        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
       }
     };
-  }, [complianceLocalPreviewUrl]);
+  }, [caravanComplianceLocalPreviewUrl]);
 
   const handleConfirm = () => {
+    const nextErrors = {};
+    const isEmpty = (v) => String(v || '').trim() === '';
+
+    if (isEmpty(rego)) nextErrors.rego = 'Rego Number is required';
+    if (isEmpty(state)) nextErrors.state = 'State is required';
+    if (isEmpty(make)) nextErrors.make = 'Make is required';
+    if (isEmpty(model)) nextErrors.model = 'Model is required';
+    if (isEmpty(year)) nextErrors.year = 'Year is required';
+
+    // VIN optional
+    // GTM optional
+    // Axle Group Loadings optional
+
+    if (isEmpty(atm)) nextErrors.atm = 'Aggregate Trailer Mass (ATM) is required';
+    if (isEmpty(tare)) nextErrors.tare = 'Tare Mass Weight is required';
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      window.alert('Please fill all required fields before continuing.');
+      return;
+    }
+
     navigate('/vehicle-only-weighbridge-results', {
       state: {
         ...baseState,
@@ -86,7 +122,7 @@ const DIYCaravanOnlyConfirm = () => {
           atm,
           axleGroups,
           tare,
-          complianceImage
+          caravanComplianceImage
         }
       }
     });
@@ -136,40 +172,55 @@ const DIYCaravanOnlyConfirm = () => {
               <TextField
                 fullWidth
                 label="Rego Number"
+                required
                 value={rego}
                 onChange={(e) => setRego(e.target.value)}
+                error={Boolean(fieldErrors.rego)}
+                helperText={fieldErrors.rego || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="State"
+                required
                 value={state}
                 onChange={(e) => setState(e.target.value)}
+                error={Boolean(fieldErrors.state)}
+                helperText={fieldErrors.state || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Make"
+                required
                 value={make}
                 onChange={(e) => setMake(e.target.value)}
+                error={Boolean(fieldErrors.make)}
+                helperText={fieldErrors.make || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Model"
+                required
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
+                error={Boolean(fieldErrors.model)}
+                helperText={fieldErrors.model || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Year"
+                required
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
+                error={Boolean(fieldErrors.year)}
+                helperText={fieldErrors.year || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -192,8 +243,11 @@ const DIYCaravanOnlyConfirm = () => {
               <TextField
                 fullWidth
                 label="Aggregate Trailer Mass (ATM)"
+                required
                 value={atm}
                 onChange={(e) => setAtm(e.target.value)}
+                error={Boolean(fieldErrors.atm)}
+                helperText={fieldErrors.atm || ''}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -208,8 +262,11 @@ const DIYCaravanOnlyConfirm = () => {
               <TextField
                 fullWidth
                 label="Tare Mass Weight"
+                required
                 value={tare}
                 onChange={(e) => setTare(e.target.value)}
+                error={Boolean(fieldErrors.tare)}
+                helperText={fieldErrors.tare || ''}
               />
             </Grid>
           </Grid>
@@ -253,23 +310,23 @@ const DIYCaravanOnlyConfirm = () => {
                       String(file.type).toLowerCase() === 'application/pdf' ||
                       String(file.name || '').toLowerCase().endsWith('.pdf');
 
-                    setComplianceLocalPreviewIsPdf(isPdf);
-                    setCompliancePreviewError(false);
+                    setCaravanComplianceLocalPreviewIsPdf(isPdf);
+                    setCaravanCompliancePreviewError(false);
 
                     if (!isPdf) {
-                      if (complianceLocalPreviewUrl) {
-                        URL.revokeObjectURL(complianceLocalPreviewUrl);
+                      if (caravanComplianceLocalPreviewUrl) {
+                        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
                       }
                       const url = URL.createObjectURL(file);
-                      setComplianceLocalPreviewUrl(url);
-                      setComplianceImage(url);
+                      setCaravanComplianceLocalPreviewUrl(url);
+                      setCaravanComplianceImage(url);
                     } else {
-                      if (complianceLocalPreviewUrl) {
-                        URL.revokeObjectURL(complianceLocalPreviewUrl);
+                      if (caravanComplianceLocalPreviewUrl) {
+                        URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
                       }
-                      setComplianceLocalPreviewUrl('');
+                      setCaravanComplianceLocalPreviewUrl('');
                       const url = URL.createObjectURL(file);
-                      setComplianceImage(url);
+                      setCaravanComplianceImage(url);
                     }
                   }}
                 />
@@ -289,34 +346,35 @@ const DIYCaravanOnlyConfirm = () => {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    setComplianceLocalPreviewIsPdf(false);
-                    setCompliancePreviewError(false);
+                    setCaravanComplianceLocalPreviewIsPdf(false);
+                    setCaravanCompliancePreviewError(false);
 
-                    if (complianceLocalPreviewUrl) {
-                      URL.revokeObjectURL(complianceLocalPreviewUrl);
+                    if (caravanComplianceLocalPreviewUrl) {
+                      URL.revokeObjectURL(caravanComplianceLocalPreviewUrl);
                     }
                     const url = URL.createObjectURL(file);
-                    setComplianceLocalPreviewUrl(url);
-                    setComplianceImage(url);
+                    setCaravanComplianceLocalPreviewUrl(url);
+                    setCaravanComplianceImage(url);
                   }}
                 />
               </Button>
-              {(complianceLocalPreviewUrl || complianceImage) && (
+              {(caravanComplianceLocalPreviewUrl || caravanComplianceImage) && (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, ml: 2 }}>
-                  {compliancePreviewError ? (
+                  {caravanCompliancePreviewError ? (
                     <Typography
                       variant="caption"
                       sx={{ display: 'block', cursor: 'pointer' }}
                       onClick={() =>
                         window.open(
-                          complianceImage || complianceLocalPreviewUrl,
+                          resolveComplianceUrl(caravanComplianceImage) || caravanComplianceLocalPreviewUrl,
                           '_blank',
                           'noopener,noreferrer'
                         )}
                     >
                       Preview unavailable (open file)
                     </Typography>
-                  ) : complianceLocalPreviewIsPdf ? (
+                  ) : (caravanComplianceLocalPreviewIsPdf ||
+                    String(caravanComplianceImage).toLowerCase().endsWith('.pdf')) ? (
                     <Typography variant="caption" sx={{ display: 'block' }}>
                       Compliance plate PDF selected
                     </Typography>
@@ -324,9 +382,9 @@ const DIYCaravanOnlyConfirm = () => {
                     <Box
                       role="button"
                       tabIndex={0}
-                      onClick={() => setCompliancePreviewOpen(true)}
+                      onClick={() => setCaravanCompliancePreviewOpen(true)}
                       onKeyDown={(ev) => {
-                        if (ev.key === 'Enter' || ev.key === ' ') setCompliancePreviewOpen(true);
+                        if (ev.key === 'Enter' || ev.key === ' ') setCaravanCompliancePreviewOpen(true);
                       }}
                       sx={{
                         width: 56,
@@ -342,9 +400,9 @@ const DIYCaravanOnlyConfirm = () => {
                     >
                       <Box
                         component="img"
-                        src={complianceLocalPreviewUrl || complianceImage}
+                        src={caravanComplianceLocalPreviewUrl || resolveComplianceUrl(caravanComplianceImage)}
                         alt="Caravan compliance plate preview"
-                        onError={() => setCompliancePreviewError(true)}
+                        onError={() => setCaravanCompliancePreviewError(true)}
                         sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
                     </Box>
@@ -362,25 +420,27 @@ const DIYCaravanOnlyConfirm = () => {
           </Box>
 
           <Dialog
-            open={compliancePreviewOpen}
-            onClose={() => setCompliancePreviewOpen(false)}
+            open={caravanCompliancePreviewOpen}
+            onClose={() => setCaravanCompliancePreviewOpen(false)}
             maxWidth="md"
             fullWidth
           >
             <DialogContent sx={{ p: 0 }}>
-              {(complianceLocalPreviewIsPdf || compliancePreviewError) ? (
+              {(caravanComplianceLocalPreviewIsPdf ||
+                String(caravanComplianceImage).toLowerCase().endsWith('.pdf') ||
+                caravanCompliancePreviewError) ? (
                 <Box
                   component="iframe"
-                  src={complianceImage || complianceLocalPreviewUrl}
+                  src={resolveComplianceUrl(caravanComplianceImage) || caravanComplianceLocalPreviewUrl}
                   title="Caravan compliance plate"
                   sx={{ width: '100%', height: '80vh', border: 0, display: 'block' }}
                 />
               ) : (
                 <Box
                   component="img"
-                  src={complianceLocalPreviewUrl || complianceImage}
+                  src={caravanComplianceLocalPreviewUrl || resolveComplianceUrl(caravanComplianceImage)}
                   alt="Caravan compliance plate"
-                  onError={() => setCompliancePreviewError(true)}
+                  onError={() => setCaravanCompliancePreviewError(true)}
                   sx={{ width: '100%', height: 'auto', display: 'block' }}
                 />
               )}

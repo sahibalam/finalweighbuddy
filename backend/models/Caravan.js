@@ -27,12 +27,12 @@ const caravanSchema = new mongoose.Schema({
   },
   gtm: {
     type: Number,
-    required: [true, 'Gross Trailer Mass (GTM) is required'],
+    required: false,
     min: [0, 'GTM must be positive']
   },
   axleCapacity: {
     type: Number,
-    required: [true, 'Axle Group Capacity is required'],
+    required: false,
     min: [0, 'Axle capacity must be positive']
   },
   numberOfAxles: {

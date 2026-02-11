@@ -23,7 +23,13 @@ router.post('/', protect, checkSubscription, [
   body('vehicleId', 'Vehicle ID is required').not().isEmpty(),
   body('caravanId', 'Caravan ID is required').not().isEmpty(),
   body('vehicleNumberPlate', 'Vehicle number plate is required').not().isEmpty(),
+  body('vehicleState', 'Vehicle state is required').not().isEmpty(),
+  body('vehicleDescription', 'Vehicle description is required').not().isEmpty(),
   body('caravanNumberPlate', 'Caravan number plate is required').not().isEmpty(),
+  body('caravanState').optional({ nullable: true, checkFalsy: true }).isString(),
+  body('caravanDescription').optional({ nullable: true, checkFalsy: true }).isString(),
+  body('caravanComplianceImage').optional({ nullable: true, checkFalsy: true }).isString(),
+  body('caravanTare').optional({ nullable: true, checkFalsy: true }),
   body('weights.frontAxle', 'Front axle weight is required').isNumeric(),
   body('weights.rearAxle', 'Rear axle weight is required').isNumeric(),
   body('weights.totalVehicle', 'Total vehicle weight is required').isNumeric(),
@@ -32,7 +38,7 @@ router.post('/', protect, checkSubscription, [
   body('weights.grossCombination', 'Gross combination weight is required').isNumeric(),
   body('weights.tbm', 'Tow ball mass is required').isNumeric()
 ], async (req, res) => {
-  console.log('🔍 Weigh entry creation request received');
+  console.log(' Weigh entry creation request received');
   console.log('User:', req.user.email);
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   
@@ -60,6 +66,8 @@ router.post('/', protect, checkSubscription, [
       caravanState,
       caravanDescription,
       caravanVin,
+      caravanComplianceImage,
+      caravanTare,
       weights,
       preWeigh,
       notes,
@@ -242,11 +250,18 @@ router.post('/', protect, checkSubscription, [
         description: caravanDescription || caravan.description || '',
         numberPlate: caravanNumberPlate,
         state: caravanState || caravan.state || '',
-        vin: caravanVin || ''
+        vin: caravanVin || '',
+        complianceImage: caravanComplianceImage || '',
+        tare:
+          caravanTare != null && caravanTare !== ''
+            ? Number(caravanTare) || 0
+            : (caravan.tare != null
+                ? caravan.tare
+                : (caravan.tareMass != null ? caravan.tareMass : undefined))
       },
       weights,
       preWeigh,
-      notes,
+      notes: notes || '',
       complianceResults: {
         vehicle: vehicleCompliance,
         caravan: caravanCompliance,
@@ -333,6 +348,76 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
     const frontUnhitched = Number(vehicleSummary.frontUnhitched) || 0;
     const rearUnhitched = Number(vehicleSummary.rearUnhitched) || 0;
 
+    // Confirm Caravan/Trailer Details rules (registered caravan flows):
+    // all required except GTM, VIN, Axle Group Loadings.
+    if (caravanSummary && typeof caravanSummary === 'object') {
+      const isEmpty = (v) => String(v || '').trim() === '';
+
+      if (isEmpty(caravanSummary.rego)) {
+        return res.status(400).json({ success: false, message: 'Caravan rego is required' });
+      }
+      if (isEmpty(caravanSummary.state)) {
+        return res.status(400).json({ success: false, message: 'Caravan state is required' });
+      }
+      if (isEmpty(caravanSummary.make)) {
+        return res.status(400).json({ success: false, message: 'Caravan make is required' });
+      }
+      if (isEmpty(caravanSummary.model)) {
+        return res.status(400).json({ success: false, message: 'Caravan model is required' });
+      }
+      if (isEmpty(caravanSummary.year)) {
+        return res.status(400).json({ success: false, message: 'Caravan year is required' });
+      }
+
+      if (caravanSummary.atm == null || String(caravanSummary.atm).trim() === '') {
+        return res.status(400).json({ success: false, message: 'Caravan ATM is required' });
+      }
+      if (caravanSummary.tare == null || String(caravanSummary.tare).trim() === '') {
+        return res.status(400).json({ success: false, message: 'Caravan tare is required' });
+      }
+    }
+
+    // Confirm Vehicle screen fields should always be present for vehicle flows.
+    // VIN is optional; caravan-only registered flows may send an empty vehicleSummary.
+    if (totalUnhitched > 0) {
+      const isEmpty = (v) => String(v || '').trim() === '';
+
+      if (isEmpty(vehicleSummary.rego)) {
+        return res.status(400).json({ success: false, message: 'Vehicle rego is required' });
+      }
+      if (isEmpty(vehicleSummary.state)) {
+        return res.status(400).json({ success: false, message: 'Vehicle state is required' });
+      }
+      if (isEmpty(vehicleSummary.description)) {
+        return res.status(400).json({ success: false, message: 'Vehicle description is required' });
+      }
+
+      // Capacities are required on the Confirm Vehicle screen.
+      if (vehicleSummary.fawr == null || Number(vehicleSummary.fawr) <= 0) {
+        return res.status(400).json({ success: false, message: 'Front axle loading (FAWR) is required' });
+      }
+      if (vehicleSummary.rawr == null || Number(vehicleSummary.rawr) <= 0) {
+        return res.status(400).json({ success: false, message: 'Rear axle loading (RAWR) is required' });
+      }
+      if (vehicleSummary.gvm == null || Number(vehicleSummary.gvm) <= 0) {
+        return res.status(400).json({ success: false, message: 'Gross Vehicle Mass (GVM) is required' });
+      }
+
+      // Tow-vehicle flows should also include tow capacities.
+      const isTowFlow = normalizedWeights && Number(normalizedWeights.totalCaravan) > 0;
+      if (isTowFlow) {
+        if (vehicleSummary.gcm == null || Number(vehicleSummary.gcm) <= 0) {
+          return res.status(400).json({ success: false, message: 'Gross Combination Mass (GCM) is required' });
+        }
+        if (vehicleSummary.btc == null || Number(vehicleSummary.btc) <= 0) {
+          return res.status(400).json({ success: false, message: 'Braked Towing Capacity (BTC) is required' });
+        }
+        if (vehicleSummary.tbm == null || Number(vehicleSummary.tbm) <= 0) {
+          return res.status(400).json({ success: false, message: 'Tow Ball Mass (TBM) is required' });
+        }
+      }
+    }
+
     // Basic customer details from the authenticated DIY user
     const customerName = req.user.name || 'DIY User';
     const customerEmail = req.user.email || 'unknown@example.com';
@@ -386,6 +471,7 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
               gtm: caravanSummary.gtm,
               axleGroups: caravanSummary.axleGroups,
               tare: caravanSummary.tare,
+              complianceImage: caravanSummary.complianceImage,
               tbmMeasured: caravanSummary.tbmMeasured,
               gtmMeasured: caravanSummary.gtmMeasured,
               atmMeasured: caravanSummary.atmMeasured,

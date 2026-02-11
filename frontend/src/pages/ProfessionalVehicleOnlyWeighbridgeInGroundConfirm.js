@@ -18,6 +18,7 @@ import axios from 'axios';
 const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [fieldErrors, setFieldErrors] = useState({});
   const [rego, setRego] = useState('');
   const [state, setState] = useState('');
   const [description, setDescription] = useState('');
@@ -57,6 +58,11 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   useEffect(() => {
     const stateData = location.state || {};
     const vehicle = stateData.vehicleFromLookup || {};
+    const caravan = stateData.caravanFromLookup || {};
+
+    console.log('🧭 confirm hydration (in-ground) state caravanFromLookup:', stateData.caravanFromLookup);
+    console.log('🧭 confirm hydration (in-ground) resolved caravan.complianceImage:', caravan?.complianceImage);
+    console.log('🧭 confirm hydration (in-ground) weighingSelection:', stateData.weighingSelection);
 
     if (stateData.rego) setRego(String(stateData.rego).toUpperCase());
     if (stateData.state) setState(String(stateData.state).toUpperCase());
@@ -81,7 +87,114 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
     if (vehicle.gcm != null) setGcm(String(vehicle.gcm));
     if (vehicle.btc != null) setBtc(String(vehicle.btc));
     if (vehicle.tbm != null) setTbm(String(vehicle.tbm));
-  }, [location.state]);
+
+    if (weighingSelection === 'caravan_only_registered') {
+      if (!caravanMake && caravan.make) setCaravanMake(String(caravan.make));
+      if (!caravanModel && caravan.model) setCaravanModel(String(caravan.model));
+      if (!caravanYear && caravan.year != null) setCaravanYear(String(caravan.year));
+
+      if (!caravanGtm && caravan.gtm != null) setCaravanGtm(String(caravan.gtm));
+      if (!caravanAtm && caravan.atm != null) setCaravanAtm(String(caravan.atm));
+
+      if (!caravanAxleGroups && (caravan.axleCapacity != null || caravan.axleGroupLoading != null)) {
+        setCaravanAxleGroups(String(caravan.axleCapacity != null ? caravan.axleCapacity : caravan.axleGroupLoading));
+      }
+
+      if (!caravanTare && (caravan.tare != null || caravan.tareMass != null)) {
+        setCaravanTare(String(caravan.tare != null ? caravan.tare : caravan.tareMass));
+      }
+
+      if (caravan.vin && (!stateData.vin || String(stateData.vin).trim() === '')) {
+        setVin(String(caravan.vin).toUpperCase());
+      }
+
+      if (!caravanComplianceImage && caravan.complianceImage) {
+        const url = String(caravan.complianceImage);
+
+        console.log('✅ prefill complianceImage (in-ground)', url);
+        setCaravanComplianceLocalPreviewUrl('');
+        setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
+        setCaravanCompliancePreviewError(false);
+        setCaravanComplianceImage(url);
+      }
+    }
+  }, [
+    location.state,
+    caravanAtm,
+    caravanAxleGroups,
+    caravanComplianceImage,
+    caravanGtm,
+    caravanMake,
+    caravanModel,
+    caravanTare,
+    caravanYear,
+    weighingSelection,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCaravanIfMissing = async () => {
+      try {
+        const stateData = location.state || {};
+        const regoToLookup = stateData.rego || rego;
+        const stateToLookup = stateData.state || state;
+
+        if (weighingSelection !== 'caravan_only_registered') return;
+        if (!regoToLookup) return;
+        if (location.state?.caravanFromLookup) return;
+
+        console.log('🌐 fallback caravan lookup (in-ground confirm)', {
+          rego: regoToLookup,
+          state: stateToLookup,
+        });
+        const response = await axios.get(`/api/caravans/by-plate/${encodeURIComponent(regoToLookup)}`, {
+          params: stateToLookup ? { state: stateToLookup } : {},
+        });
+
+        console.log('🌐 fallback caravan lookup response (in-ground confirm)', response.data);
+
+        const foundCaravan = response.data?.data?.masterCaravan || null;
+        if (!foundCaravan || cancelled) return;
+
+        if (!caravanMake && foundCaravan.make) setCaravanMake(String(foundCaravan.make));
+        if (!caravanModel && foundCaravan.model) setCaravanModel(String(foundCaravan.model));
+        if (!caravanYear && foundCaravan.year != null) setCaravanYear(String(foundCaravan.year));
+        if (!caravanAtm && (foundCaravan.atm != null || foundCaravan.atmCapacity != null)) {
+          setCaravanAtm(String(foundCaravan.atm != null ? foundCaravan.atm : foundCaravan.atmCapacity));
+        }
+        if (!caravanGtm && (foundCaravan.gtm != null || foundCaravan.gtmCapacity != null)) {
+          setCaravanGtm(String(foundCaravan.gtm != null ? foundCaravan.gtm : foundCaravan.gtmCapacity));
+        }
+        if (!caravanAxleGroups && (foundCaravan.axleCapacity != null || foundCaravan.axleGroupLoading != null)) {
+          setCaravanAxleGroups(
+            String(foundCaravan.axleCapacity != null ? foundCaravan.axleCapacity : foundCaravan.axleGroupLoading)
+          );
+        }
+        if (!caravanTare && (foundCaravan.tare != null || foundCaravan.tareMass != null)) {
+          setCaravanTare(String(foundCaravan.tare != null ? foundCaravan.tare : foundCaravan.tareMass));
+        }
+        if (!vin && foundCaravan.vin) setVin(String(foundCaravan.vin).toUpperCase());
+
+        if (!caravanComplianceImage && foundCaravan.complianceImage) {
+          const url = String(foundCaravan.complianceImage);
+          console.log('✅ prefill complianceImage via fallback (in-ground)', url);
+          setCaravanComplianceLocalPreviewUrl('');
+          setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
+          setCaravanCompliancePreviewError(false);
+          setCaravanComplianceImage(url);
+        }
+      } catch (error) {
+        console.error('Fallback caravan lookup failed (in-ground confirm):', error?.response?.data || error);
+      }
+    };
+
+    fetchCaravanIfMissing();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [weighingSelection, rego, state, location.state, caravanMake, caravanModel, caravanYear, caravanAtm, caravanGtm, caravanAxleGroups, caravanTare, vin, caravanComplianceImage]);
 
   useEffect(() => {
     setCaravanCompliancePreviewError(false);
@@ -94,6 +207,56 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
       }
     };
   }, [caravanComplianceLocalPreviewUrl]);
+
+  const validateVehicleConfirm = () => {
+    const nextErrors = {};
+    const isEmpty = (v) => String(v || '').trim() === '';
+
+    if (weighingSelection === 'caravan_only_registered') {
+      setFieldErrors({});
+      return true;
+    }
+
+    if (isEmpty(rego)) nextErrors.rego = 'Rego Number is required';
+    if (isEmpty(state)) nextErrors.state = 'State is required';
+    if (isEmpty(description)) nextErrors.description = 'Vehicle Description is required';
+
+    // VIN optional
+
+    if (isEmpty(frontAxleLoading)) nextErrors.frontAxleLoading = 'Front Axle Loading is required';
+    if (isEmpty(rearAxleLoading)) nextErrors.rearAxleLoading = 'Rear Axle Loading is required';
+    if (isEmpty(gvm)) nextErrors.gvm = 'Gross Vehicle Mass (GVM) is required';
+
+    if (weighingSelection === 'tow_vehicle_and_caravan') {
+      if (isEmpty(gcm)) nextErrors.gcm = 'Gross Combination Mass (GCM) is required';
+      if (isEmpty(btc)) nextErrors.btc = 'Braked Towing Capacity (BTC) is required';
+      if (isEmpty(tbm)) nextErrors.tbm = 'Tow Ball Mass (TBM) is required';
+    }
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const validateCaravanConfirm = () => {
+    const nextErrors = {};
+    const isEmpty = (v) => String(v || '').trim() === '';
+
+    if (isEmpty(rego)) nextErrors.rego = 'Rego Number is required';
+    if (isEmpty(state)) nextErrors.state = 'State is required';
+    if (isEmpty(caravanMake)) nextErrors.caravanMake = 'Make is required';
+    if (isEmpty(caravanModel)) nextErrors.caravanModel = 'Model is required';
+    if (isEmpty(caravanYear)) nextErrors.caravanYear = 'Year is required';
+
+    // VIN optional
+    // GTM optional
+    // Axle Group Loadings optional
+
+    if (isEmpty(caravanAtm)) nextErrors.caravanAtm = 'Aggregate Trailer Mass (ATM) is required';
+    if (isEmpty(caravanTare)) nextErrors.caravanTare = 'Tare Mass Weight is required';
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   useEffect(() => {
     return () => {
@@ -188,6 +351,16 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   };
 
   const handleConfirm = () => {
+    if (weighingSelection === 'caravan_only_registered') {
+      if (!validateCaravanConfirm()) {
+        window.alert('Please fill all required fields before continuing.');
+        return;
+      }
+    } else if (!validateVehicleConfirm()) {
+      window.alert('Please fill all required fields before continuing.');
+      return;
+    }
+
     const pendingRaw = window.localStorage.getItem('weighbuddy_pendingClient');
     let pendingClient = null;
 
@@ -373,6 +546,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
                 model: caravanModel,
                 year: caravanYear,
                 vin,
+                complianceImage: caravanComplianceImage,
                 ...caravanCaps,
                 tbmMeasured,
                 gtmMeasured,
@@ -475,40 +649,55 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
           <TextField
             fullWidth
             label="Rego Number"
+            required
             value={rego}
             onChange={(e) => setRego(e.target.value)}
+            error={Boolean(fieldErrors.rego)}
+            helperText={fieldErrors.rego || ''}
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
             label="State"
+            required
             value={state}
             onChange={(e) => setState(e.target.value)}
+            error={Boolean(fieldErrors.state)}
+            helperText={fieldErrors.state || ''}
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
             label="Make"
+            required
             value={caravanMake}
             onChange={(e) => setCaravanMake(e.target.value)}
+            error={Boolean(fieldErrors.caravanMake)}
+            helperText={fieldErrors.caravanMake || ''}
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
             label="Model"
+            required
             value={caravanModel}
             onChange={(e) => setCaravanModel(e.target.value)}
+            error={Boolean(fieldErrors.caravanModel)}
+            helperText={fieldErrors.caravanModel || ''}
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
             label="Year"
+            required
             value={caravanYear}
             onChange={(e) => setCaravanYear(e.target.value)}
+            error={Boolean(fieldErrors.caravanYear)}
+            helperText={fieldErrors.caravanYear || ''}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -531,8 +720,11 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
           <TextField
             fullWidth
             label="Aggregate Trailer Mass (ATM)"
+            required
             value={caravanAtm}
             onChange={(e) => setCaravanAtm(e.target.value)}
+            error={Boolean(fieldErrors.caravanAtm)}
+            helperText={fieldErrors.caravanAtm || ''}
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -547,8 +739,11 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
           <TextField
             fullWidth
             label="Tare Mass Weight"
+            required
             value={caravanTare}
             onChange={(e) => setCaravanTare(e.target.value)}
+            error={Boolean(fieldErrors.caravanTare)}
+            helperText={fieldErrors.caravanTare || ''}
           />
         </Grid>
       </Grid>
@@ -738,24 +933,33 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
                     <TextField
                       fullWidth
                       label="Rego Number"
+                      required
                       value={rego}
                       onChange={(e) => setRego(e.target.value)}
+                      error={Boolean(fieldErrors.rego)}
+                      helperText={fieldErrors.rego || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="State"
+                      required
                       value={state}
                       onChange={(e) => setState(e.target.value)}
+                      error={Boolean(fieldErrors.state)}
+                      helperText={fieldErrors.state || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Vehicle Description"
+                      required
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
+                      error={Boolean(fieldErrors.description)}
+                      helperText={fieldErrors.description || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -770,48 +974,66 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
                     <TextField
                       fullWidth
                       label="Front Axle Loading"
+                      required
                       value={frontAxleLoading}
                       onChange={(e) => setFrontAxleLoading(e.target.value)}
+                      error={Boolean(fieldErrors.frontAxleLoading)}
+                      helperText={fieldErrors.frontAxleLoading || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Rear Axle Loading"
+                      required
                       value={rearAxleLoading}
                       onChange={(e) => setRearAxleLoading(e.target.value)}
+                      error={Boolean(fieldErrors.rearAxleLoading)}
+                      helperText={fieldErrors.rearAxleLoading || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Gross Vehicle Mass (GVM)"
+                      required
                       value={gvm}
                       onChange={(e) => setGvm(e.target.value)}
+                      error={Boolean(fieldErrors.gvm)}
+                      helperText={fieldErrors.gvm || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Gross Combination Mass (GCM)"
+                      required
                       value={gcm}
                       onChange={(e) => setGcm(e.target.value)}
+                      error={Boolean(fieldErrors.gcm)}
+                      helperText={fieldErrors.gcm || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Braked Towing Capacity (BTC)"
+                      required
                       value={btc}
                       onChange={(e) => setBtc(e.target.value)}
+                      error={Boolean(fieldErrors.btc)}
+                      helperText={fieldErrors.btc || ''}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Tow Ball Mass (TBM)"
+                      required
                       value={tbm}
                       onChange={(e) => setTbm(e.target.value)}
+                      error={Boolean(fieldErrors.tbm)}
+                      helperText={fieldErrors.tbm || ''}
                     />
                   </Grid>
                 </Grid>

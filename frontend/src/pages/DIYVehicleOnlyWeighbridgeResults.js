@@ -1101,6 +1101,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
               gtm: caravan.gtm,
               axleGroups: caravan.axleGroups,
               tare: caravan.tare,
+              complianceImage: caravan.complianceImage,
               atmMeasured: atmMeasured || 0,
               gtmMeasured: gtmMeasured || 0,
               tbmMeasured: tbm || 0
@@ -1165,6 +1166,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             gtm: caravan.gtm,
             axleGroups: caravan.axleGroups,
             tare: caravan.tare,
+            complianceImage: caravan.complianceImage,
             atmMeasured: caravanMeasuredAtm || 0,
             gtmMeasured: caravanMeasuredGtm || 0,
             tbmMeasured: caravanMeasuredTbm || 0,

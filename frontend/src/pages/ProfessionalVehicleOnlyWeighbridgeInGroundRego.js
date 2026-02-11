@@ -40,19 +40,42 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundRego = () => {
 
       let lookupVehicle = null;
       let lookupSource = null;
+      let lookupCaravan = null;
+      let caravanLookupSource = null;
+      let caravanMasterId = null;
 
       if (rego) {
-        const response = await axios.get(`/api/vehicles/by-plate/${encodeURIComponent(rego)}`, {
-          params: state ? { state } : {}
-        });
+        if (weighingSelection === 'caravan_only_registered') {
+          const response = await axios.get(`/api/caravans/by-plate/${encodeURIComponent(rego)}`, {
+            params: state ? { state } : {},
+          });
 
-        if (response.data?.success && response.data?.found) {
-          lookupVehicle = response.data.data?.masterVehicle || null;
-          lookupSource = response.data.data?.source || null;
+          console.log('🔎 caravan lookup response (in-ground)', response.data);
+
+          if (response.data?.success && response.data?.found) {
+            lookupCaravan = response.data.data?.masterCaravan || null;
+            caravanLookupSource = response.data.data?.source || null;
+            caravanMasterId = response.data.data?.masterCaravan?._id || null;
+
+            console.log('✅ caravanFromLookup (in-ground)', lookupCaravan);
+          }
+        } else {
+          const response = await axios.get(`/api/vehicles/by-plate/${encodeURIComponent(rego)}`, {
+            params: state ? { state } : {}
+          });
+
+          if (response.data?.success && response.data?.found) {
+            lookupVehicle = response.data.data?.masterVehicle || null;
+            lookupSource = response.data.data?.source || null;
+          }
         }
       }
 
-      if (!lookupVehicle) {
+      if (weighingSelection === 'caravan_only_registered') {
+        if (!lookupCaravan) {
+          setError('Caravan not found in database. Please fill details manually on the next screen.');
+        }
+      } else if (!lookupVehicle) {
         setError('Vehicle not found in database or Info-Agent. Please fill details manually on the next screen.');
       }
 
@@ -63,6 +86,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundRego = () => {
           vin,
           vehicleFromLookup: lookupVehicle,
           lookupSource,
+          caravanFromLookup: lookupCaravan,
+          caravanLookupSource,
+          caravanMasterId,
           axleWeigh,
           weighingSelection,
           preWeigh,
@@ -72,7 +98,11 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundRego = () => {
       console.error('Error looking up vehicle by plate (professional in-ground):', err);
 
       if (err.response?.status === 404) {
-        setError('Vehicle not found in database or Info-Agent. Please fill details manually on the next screen.');
+        setError(
+          weighingSelection === 'caravan_only_registered'
+            ? 'Caravan not found in database. Please fill details manually on the next screen.'
+            : 'Vehicle not found in database or Info-Agent. Please fill details manually on the next screen.'
+        );
         navigate('/professional-vehicle-only-weighbridge-in-ground-confirm', {
           state: {
             rego,
@@ -80,6 +110,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundRego = () => {
             vin,
             vehicleFromLookup: null,
             lookupSource: null,
+            caravanFromLookup: null,
+            caravanLookupSource: null,
+            caravanMasterId: null,
             axleWeigh,
             weighingSelection,
             preWeigh,

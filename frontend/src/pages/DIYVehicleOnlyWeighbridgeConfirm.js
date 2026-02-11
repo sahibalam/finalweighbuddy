@@ -18,6 +18,7 @@ import axios from 'axios';
 const DIYVehicleOnlyWeighbridgeConfirm = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [fieldErrors, setFieldErrors] = useState({});
   const [rego, setRego] = useState('');
   const [state, setState] = useState('');
   const [description, setDescription] = useState('');
@@ -110,6 +111,32 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
     };
   }, []);
 
+  const validate = () => {
+    const nextErrors = {};
+
+    const isEmpty = (v) => String(v || '').trim() === '';
+
+    if (isEmpty(rego)) nextErrors.rego = 'Rego Number is required';
+    if (isEmpty(state)) nextErrors.state = 'State is required';
+    if (isEmpty(description)) nextErrors.description = 'Vehicle Description is required';
+
+    // VIN is optional
+
+    if (isEmpty(frontAxleLoading)) nextErrors.frontAxleLoading = 'Front Axle Loading is required';
+    if (isEmpty(rearAxleLoading)) nextErrors.rearAxleLoading = 'Rear Axle Loading is required';
+    if (isEmpty(gvm)) nextErrors.gvm = 'Gross Vehicle Mass (GVM) is required';
+
+    // These fields are only shown/used for tow vehicle + caravan selection.
+    if (weighingSelection === 'tow_vehicle_and_caravan') {
+      if (isEmpty(gcm)) nextErrors.gcm = 'Gross Combination Mass (GCM) is required';
+      if (isEmpty(btc)) nextErrors.btc = 'Braked Towing Capacity (BTC) is required';
+      if (isEmpty(tbm)) nextErrors.tbm = 'Tow Ball Mass (TBM) is required';
+    }
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleModifiedImageUpload = async (event) => {
     try {
       setUploading(true);
@@ -161,6 +188,11 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
   };
 
   const handleConfirm = () => {
+    if (!validate()) {
+      window.alert('Please fill all required fields before continuing.');
+      return;
+    }
+
     // Navigate to the Weigh Results screen for this special flow. For the
     // Weighbridge axle method we keep the existing equation
     //   Rear = GVM - Front
@@ -277,16 +309,22 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Rego Number"
+                  required
                   value={rego}
                   onChange={(e) => setRego(e.target.value)}
+                  error={Boolean(fieldErrors.rego)}
+                  helperText={fieldErrors.rego || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="State"
+                  required
                   value={state}
                   onChange={(e) => setState(e.target.value)}
+                  error={Boolean(fieldErrors.state)}
+                  helperText={fieldErrors.state || ''}
                 />
               </Grid>
 
@@ -295,8 +333,11 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Vehicle Description"
+                  required
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  error={Boolean(fieldErrors.description)}
+                  helperText={fieldErrors.description || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -313,16 +354,22 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Front Axle Loading"
+                  required
                   value={frontAxleLoading}
                   onChange={(e) => setFrontAxleLoading(e.target.value)}
+                  error={Boolean(fieldErrors.frontAxleLoading)}
+                  helperText={fieldErrors.frontAxleLoading || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Rear Axle Loading"
+                  required
                   value={rearAxleLoading}
                   onChange={(e) => setRearAxleLoading(e.target.value)}
+                  error={Boolean(fieldErrors.rearAxleLoading)}
+                  helperText={fieldErrors.rearAxleLoading || ''}
                 />
               </Grid>
 
@@ -331,16 +378,22 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Gross Vehicle Mass (GVM)"
+                  required
                   value={gvm}
                   onChange={(e) => setGvm(e.target.value)}
+                  error={Boolean(fieldErrors.gvm)}
+                  helperText={fieldErrors.gvm || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Gross Combination Mass (GCM)"
+                  required
                   value={gcm}
                   onChange={(e) => setGcm(e.target.value)}
+                  error={Boolean(fieldErrors.gcm)}
+                  helperText={fieldErrors.gcm || ''}
                 />
               </Grid>
 
@@ -349,16 +402,22 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Braked Towing Capacity (BTC)"
+                  required
                   value={btc}
                   onChange={(e) => setBtc(e.target.value)}
+                  error={Boolean(fieldErrors.btc)}
+                  helperText={fieldErrors.btc || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Tow Ball Mass (TBM)"
+                  required
                   value={tbm}
                   onChange={(e) => setTbm(e.target.value)}
+                  error={Boolean(fieldErrors.tbm)}
+                  helperText={fieldErrors.tbm || ''}
                 />
               </Grid>
             </Grid>
@@ -368,24 +427,33 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Rego Number"
+                  required
                   value={rego}
                   onChange={(e) => setRego(e.target.value)}
+                  error={Boolean(fieldErrors.rego)}
+                  helperText={fieldErrors.rego || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="State"
+                  required
                   value={state}
                   onChange={(e) => setState(e.target.value)}
+                  error={Boolean(fieldErrors.state)}
+                  helperText={fieldErrors.state || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Vehicle Description"
+                  required
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  error={Boolean(fieldErrors.description)}
+                  helperText={fieldErrors.description || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -400,24 +468,33 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
                 <TextField
                   fullWidth
                   label="Front Axle Loading"
+                  required
                   value={frontAxleLoading}
                   onChange={(e) => setFrontAxleLoading(e.target.value)}
+                  error={Boolean(fieldErrors.frontAxleLoading)}
+                  helperText={fieldErrors.frontAxleLoading || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Rear Axle Loading"
+                  required
                   value={rearAxleLoading}
                   onChange={(e) => setRearAxleLoading(e.target.value)}
+                  error={Boolean(fieldErrors.rearAxleLoading)}
+                  helperText={fieldErrors.rearAxleLoading || ''}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Gross Vehicle Mass (GVM)"
+                  required
                   value={gvm}
                   onChange={(e) => setGvm(e.target.value)}
+                  error={Boolean(fieldErrors.gvm)}
+                  helperText={fieldErrors.gvm || ''}
                 />
               </Grid>
             </Grid>

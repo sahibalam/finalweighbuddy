@@ -88,7 +88,7 @@ app.use('/uploads', (req, res, next) => {
     return res.status(200).end();
   }
   next();
-}, express.static(path.join(__dirname, './uploads')));
+}, express.static(path.join(__dirname, '../uploads')));
 app.use('/api/admin', adminRoutes);
 
 // Serve static files from the React app build directory

@@ -681,7 +681,44 @@ const WeighHistory = () => {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <VehicleIcon sx={{ mr: 1, fontSize: 'small' }} />
-                        {weigh.vehicleData?.make} {weigh.vehicleData?.model} ({weigh.vehicleData?.numberPlate})
+                        {(() => {
+                          const v = weigh?.vehicleData || {};
+                          const rego =
+                            weigh?.vehicleNumberPlate ||
+                            v.numberPlate ||
+                            v.plate ||
+                            '';
+
+                          const isPlaceholder = (val) => {
+                            const s = String(val || '').trim().toLowerCase();
+                            if (!s) return true;
+                            return (
+                              s === 'unknown' ||
+                              s === 'base' ||
+                              s === 'n/a' ||
+                              s === 'na' ||
+                              s === 'null' ||
+                              s === 'undefined'
+                            );
+                          };
+
+                          const preferredDescription =
+                            !isPlaceholder(v.description) ? String(v.description).trim() : '';
+
+                          const descriptionParts = [v.year, v.make, v.model, v.variant]
+                            .filter((p) => !isPlaceholder(p))
+                            .map(String);
+
+                          const description =
+                            preferredDescription ||
+                            (descriptionParts.length > 0 ? descriptionParts.join(' ') : '');
+
+                          const regoLabel = String(rego || '').trim();
+                          const descLabel = String(description || '').trim();
+
+                          if (regoLabel && descLabel) return `${regoLabel} - ${descLabel}`;
+                          return regoLabel || descLabel || 'N/A';
+                        })()}
                       </Box>
                     </TableCell>
                     <TableCell>

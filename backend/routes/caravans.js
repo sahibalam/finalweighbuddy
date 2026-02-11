@@ -96,6 +96,7 @@ router.get('/by-plate/:plate', async (req, res) => {
       // Merge VIN/description from latest weigh history if available.
       let historyVin = '';
       let historyDescription = '';
+      let historyComplianceImage = '';
       try {
         const Weigh = require('../models/Weigh');
         const weighEntry = await Weigh.findOne({
@@ -104,6 +105,15 @@ router.get('/by-plate/:plate', async (req, res) => {
         }).sort({ createdAt: -1 });
         historyVin = weighEntry?.caravanData?.vin || '';
         historyDescription = weighEntry?.caravanData?.description || '';
+        historyComplianceImage = weighEntry?.caravanData?.complianceImage || '';
+
+        console.log('🔎 /api/caravans/by-plate merge from weigh history', {
+          plate: plate?.toUpperCase?.() || plate,
+          state: state?.toUpperCase?.() || state,
+          historyVin: historyVin ? '[set]' : '[empty]',
+          historyDescription: historyDescription ? '[set]' : '[empty]',
+          historyComplianceImage: historyComplianceImage ? '[set]' : '[empty]'
+        });
       } catch (e) {
         console.warn('Failed to merge caravan VIN/description from weigh history:', e.message);
       }
@@ -119,7 +129,9 @@ router.get('/by-plate/:plate', async (req, res) => {
               ? registryEntry.masterCaravanId.toObject()
               : registryEntry.masterCaravanId),
             vin: historyVin || registryEntry.masterCaravanId?.vin || '',
-            description: historyDescription || registryEntry.masterCaravanId?.description || ''
+            description: historyDescription || registryEntry.masterCaravanId?.description || '',
+            complianceImage:
+              historyComplianceImage || registryEntry.masterCaravanId?.complianceImage || ''
           },
           source: 'registry'
         }
@@ -137,6 +149,13 @@ router.get('/by-plate/:plate', async (req, res) => {
     
     if (weighEntry && weighEntry.caravanData) {
       console.log('✅ Caravan found in weigh collection:', weighEntry.caravanData.numberPlate);
+
+      console.log('🔎 /api/caravans/by-plate weigh_history complianceImage', {
+        plate: plate?.toUpperCase?.() || plate,
+        state: state?.toUpperCase?.() || state,
+        complianceImage: weighEntry?.caravanData?.complianceImage ? '[set]' : '[empty]'
+      });
+
       return res.json({
         success: true,
         found: true,
@@ -353,8 +372,8 @@ router.post('/master-upsert', protect, authorize('professional'), [
   body('model').trim().notEmpty().withMessage('Model is required'),
   body('year').isInt({ min: 1900 }).withMessage('Valid year is required'),
   body('atm').isNumeric().withMessage('ATM is required'),
-  body('gtm').isNumeric().withMessage('GTM is required'),
-  body('axleCapacity').isNumeric().withMessage('Axle group capacity is required'),
+  body('gtm').optional({ nullable: true, checkFalsy: true }).isNumeric().withMessage('GTM must be a number'),
+  body('axleCapacity').optional({ nullable: true, checkFalsy: true }).isNumeric().withMessage('Axle group capacity must be a number'),
   body('numberOfAxles').optional().isIn(['Single', 'Dual', 'Triple']).withMessage('Invalid axle count')
 ], async (req, res) => {
   try {
@@ -372,8 +391,8 @@ router.post('/master-upsert', protect, authorize('professional'), [
     const normalizedModel = String(model).trim();
     const normalizedYear = parseInt(year, 10);
     const atmNum = Number(atm) || 0;
-    const gtmNum = Number(gtm) || 0;
-    const axleCapacityNum = Number(axleCapacity) || 0;
+    const gtmNum = gtm != null && gtm !== '' ? Number(gtm) || 0 : 0;
+    const axleCapacityNum = axleCapacity != null && axleCapacity !== '' ? Number(axleCapacity) || 0 : 0;
 
     let caravan = await Caravan.findOne({
       make: new RegExp(`^${normalizedMake}$`, 'i'),
