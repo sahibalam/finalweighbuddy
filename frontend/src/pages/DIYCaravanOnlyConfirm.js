@@ -71,7 +71,15 @@ const DIYCaravanOnlyConfirm = () => {
     if ((!vin || String(vin).trim() === '') && c.vin) {
       setVin(String(c.vin).toUpperCase());
     }
-  }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, tare, vin]);
+
+    if (!caravanComplianceImage && c.complianceImage) {
+      const url = String(c.complianceImage);
+      setCaravanComplianceLocalPreviewUrl('');
+      setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
+      setCaravanCompliancePreviewError(false);
+      setCaravanComplianceImage(url);
+    }
+  }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, tare, vin, caravanComplianceImage]);
 
   useEffect(() => {
     setCaravanCompliancePreviewError(false);

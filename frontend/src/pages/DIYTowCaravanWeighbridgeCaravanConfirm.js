@@ -60,6 +60,10 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
     if (!gtm && c.gtm != null) setGtm(String(c.gtm));
     if (!atm && c.atm != null) setAtm(String(c.atm));
 
+    if (!tare && (c.tare != null || c.tareMass != null)) {
+      setTare(String(c.tare != null ? c.tare : c.tareMass));
+    }
+
     if (!axleGroups && (c.axleCapacity != null || c.axleGroupLoading != null)) {
       setAxleGroups(String(c.axleCapacity != null ? c.axleCapacity : c.axleGroupLoading));
     }
@@ -278,6 +282,7 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
           customerName: baseState.customerName || 'Professional Client',
           customerPhone: baseState.customerPhone || 'N/A',
           customerEmail: baseState.customerEmail || 'unknown@example.com',
+          clientUserId: baseState.clientUserId || null,
           vehicleId,
           caravanId,
           vehicleNumberPlate: baseState.rego || '',

@@ -60,6 +60,10 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
     if (!gtm && c.gtm != null) setGtm(String(c.gtm));
     if (!atm && c.atm != null) setAtm(String(c.atm));
 
+    if (!tare && (c.tare != null || c.tareMass != null)) {
+      setTare(String(c.tare != null ? c.tare : c.tareMass));
+    }
+
     if (!axleGroups && (c.axleCapacity != null || c.axleGroupLoading != null)) {
       setAxleGroups(String(c.axleCapacity != null ? c.axleCapacity : c.axleGroupLoading));
     }
@@ -230,21 +234,30 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
       const tbmMeasured = baseState.towBallMass != null ? safeNum(baseState.towBallMass) : 0;
       const gcmMeasured = gvmHitched + gtmMeasured;
 
-      // Customer details: for professional flow we save under the logged-in pro user
-      // and use placeholders if client details are not in state.
+      // Customer details: prefer the professionalClientDraft (actual end-customer)
+      // so the saved Weigh record persists the correct client details.
       let diyClientUserId = null;
+      let clientName = '';
+      let clientPhone = '';
+      let clientEmail = '';
       try {
         const draftRaw = localStorage.getItem('professionalClientDraft');
         const draft = draftRaw ? JSON.parse(draftRaw) : null;
         diyClientUserId = draft?.diyClientUserId || null;
+
+        const firstName = String(draft?.firstName || '').trim();
+        const lastName = String(draft?.lastName || '').trim();
+        clientName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        clientPhone = String(draft?.phone || '').trim();
+        clientEmail = String(draft?.email || '').trim();
       } catch (e) {
         diyClientUserId = null;
       }
 
       const payload = {
-        customerName: baseState.customerName || 'Professional Client',
-        customerPhone: baseState.customerPhone || 'N/A',
-        customerEmail: baseState.customerEmail || 'unknown@example.com',
+        customerName: clientName || baseState.customerName || 'Professional Client',
+        customerPhone: clientPhone || baseState.customerPhone || 'N/A',
+        customerEmail: clientEmail || baseState.customerEmail || 'unknown@example.com',
         clientUserId: diyClientUserId,
         vehicleId,
         caravanId,

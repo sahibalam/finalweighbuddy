@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+
 import {
   Box,
   Paper,
@@ -161,12 +162,16 @@ const PaymentForm = ({ onPaymentSuccess, onPaymentError, amount }) => {
 const NewWeigh = () => {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [createdWeighId, setCreatedWeighId] = useState(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  // Fleet flow: optional customer draft created from FleetStaffManagement
+  const [fleetCustomerDraft, setFleetCustomerDraft] = useState(null);
+
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [paymentAmount, setPaymentAmount] = useState(29.99);
   const [vehiclePlateImage, setVehiclePlateImage] = useState(null);
@@ -194,6 +199,71 @@ const NewWeigh = () => {
       setDownloadingReport(false);
     };
   }, []);
+
+  // Load any Fleet customer draft (created from FleetStaffManagement "Create new User")
+  // so that we can attach clientUserId to New Weigh submissions for fleet flows.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('weighbuddy_fleetCustomerDraft');
+      if (!raw) {
+        console.log('NewWeigh: no weighbuddy_fleetCustomerDraft found in localStorage');
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+
+      const fullName = String(parsed.fullName || '').trim();
+      const email = parsed.email ? String(parsed.email).trim() : '';
+      const phone = parsed.phone ? String(parsed.phone).trim() : '';
+      const clientUserId = parsed.clientUserId ? String(parsed.clientUserId).trim() : null;
+
+      if (fullName || email || phone || clientUserId) {
+        console.log('NewWeigh: loaded fleetCustomerDraft from localStorage', {
+          fullName,
+          email,
+          phone,
+          clientUserId,
+        });
+        setFleetCustomerDraft({ fullName, email, phone, clientUserId });
+      } else {
+        console.log('NewWeigh: parsed fleetCustomerDraft is effectively empty', parsed);
+      }
+    } catch (e) {
+      console.error('NewWeigh: failed to parse weighbuddy_fleetCustomerDraft from localStorage', e);
+    }
+  }, []);
+
+  // Pre-fill customer info from signed-in user (DIY only)
+  useEffect(() => {
+    if (!user) return;
+
+    // For fleet owners OR fleet staff (DIY users with fleetOwnerUserId), do
+    // not auto-fill the customer fields from the account details. The
+    // operator should enter the end client's details manually, and those
+    // values will be sent as customerName/Phone/Email.
+    if (user.userType === 'fleet' || user.fleetOwnerUserId) {
+      // Debug: log that we're intentionally NOT prefilling for fleet flows
+      // so that customerName/Phone/Email comes from the operator.
+      console.log('NewWeigh customer prefill skipped for fleet context', {
+        userType: user.userType,
+        fleetOwnerUserId: user.fleetOwnerUserId || null,
+        currentCustomerFields: {
+          customerName: formData.customerName,
+          customerEmail: formData.customerEmail,
+          customerPhone: formData.customerPhone,
+        },
+      });
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      customerName: prev.customerName || user.name || '',
+      customerEmail: prev.customerEmail || user.email || '',
+      customerPhone: prev.customerPhone || user.phone || '',
+    }));
+  }, [user]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -244,26 +314,13 @@ const NewWeigh = () => {
     'Review & Submit'
   ];
 
-  // Pre-fill customer info from signed-in user (DIY)
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        customerName: prev.customerName || user.name || '',
-        customerEmail: prev.customerEmail || user.email || '',
-        customerPhone: prev.customerPhone || user.phone || ''
-      }));
-    }
-  }, [user]);
-
-
   // Search vehicles
   const searchVehicles = async (query) => {
     if (query.length < 2) {
       setVehicleResults([]);
       return;
     }
-    
+
     try {
       console.log('Searching vehicles for:', query);
       const response = await axios.get(`/api/vehicles/search?make=${query}`);
@@ -576,11 +633,23 @@ const NewWeigh = () => {
 
       console.log('✅ All validations passed');
 
+      // Debug current fleetCustomerDraft + user context before building payload
+      console.log('NewWeigh: clientUserId wiring debug (before payload build)', {
+        userDebug: {
+          id: user?.id || null,
+          email: user?.email || null,
+          userType: user?.userType || null,
+          fleetOwnerUserId: user?.fleetOwnerUserId || null,
+        },
+        fleetCustomerDraft,
+      });
+
       // Construct weigh data without circular references
       const weighData = {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
         customerEmail: formData.customerEmail,
+
         vehicleId: selectedVehicle._id,
         caravanId: selectedCaravan._id,
         vehicleNumberPlate: formData.vehicleNumberPlate,
@@ -607,11 +676,30 @@ const NewWeigh = () => {
           tbm: parseFloat(formData.weights.tbm) || 0
         },
         notes: formData.notes,
-        ...(clientPayment ? { payment: clientPayment } : {})
+        ...(clientPayment ? { payment: clientPayment } : {}),
+        // For fleet managers using the New Weigh flow in combination with
+        // FleetStaffManagement, attach the DIY customer's userId so that the
+        // DIY login can see this weigh in their own history via clientUserId.
+        ...(user?.userType === 'fleet' && fleetCustomerDraft?.clientUserId
+          ? { clientUserId: fleetCustomerDraft.clientUserId }
+          : {}),
       };
 
-      console.log('Submitting weigh data:', JSON.stringify(weighData, null, 2));
-      console.log('📤 Making API call to /api/weighs...');
+      console.log('NewWeigh: final weighData (including any clientUserId):', JSON.stringify(weighData, null, 2));
+      console.log('📤 Making API call to /api/weighs...', {
+        userDebug: {
+          userType: user?.userType || null,
+          fleetOwnerUserId: user?.fleetOwnerUserId || null,
+          userName: user?.name || null,
+          userPhone: user?.phone || null,
+        },
+        customerFieldsFromForm: {
+          customerName: formData.customerName,
+          customerPhone: formData.customerPhone,
+          customerEmail: formData.customerEmail,
+        },
+        clientUserIdFromDraft: fleetCustomerDraft?.clientUserId || null,
+      });
 
       const response = await axios.post('/api/weighs', weighData);
 

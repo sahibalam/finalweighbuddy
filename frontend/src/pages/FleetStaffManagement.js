@@ -30,6 +30,7 @@ const FleetStaffManagement = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -38,9 +39,10 @@ const FleetStaffManagement = () => {
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
 
   const canCreate = useMemo(() => {
-    if (!String(firstName).trim() || !String(lastName).trim() || !String(email).trim()) {
+    if (!String(firstName).trim() || !String(lastName).trim() || !String(email).trim() || !String(phone).trim()) {
       return false;
     }
 
@@ -55,7 +57,7 @@ const FleetStaffManagement = () => {
     }
 
     return true;
-  }, [confirmPassword, email, firstName, lastName, password]);
+  }, [confirmPassword, email, firstName, lastName, password, phone]);
 
   const loadStaff = async () => {
     setLoading(true);
@@ -95,16 +97,34 @@ const FleetStaffManagement = () => {
         firstName,
         lastName,
         email,
+        phone,
         ...(password ? { password } : {}),
       });
       setFirstName('');
       setLastName('');
       setEmail('');
+      setPhone('');
       setPassword('');
       setConfirmPassword('');
 
       const tempPassword = res?.data?.tempPassword;
+      const createdUserId = res?.data?.userId || null;
       try {
+        // Persist a simple fleet customer draft so the existing DIY/fleet
+        // wizard can attach these details to the next weigh result.
+        const fullName = `${String(firstName || '').trim()} ${String(lastName || '').trim()}`.trim();
+        if (fullName || email || phone) {
+          window.localStorage.setItem(
+            'weighbuddy_fleetCustomerDraft',
+            JSON.stringify({
+              fullName,
+              email: String(email || '').trim().toLowerCase(),
+              phone: String(phone || '').trim(),
+              clientUserId: createdUserId,
+            })
+          );
+        }
+
         const passwordToEmail = tempPassword || submittedPassword || '';
         if (email && passwordToEmail) {
           window.sessionStorage.setItem(
@@ -136,6 +156,7 @@ const FleetStaffManagement = () => {
     setEditFirstName(member?.firstName || '');
     setEditLastName(member?.lastName || '');
     setEditEmail(member?.email || '');
+    setEditPhone(member?.phone || '');
     setEditOpen(true);
   };
 
@@ -152,6 +173,7 @@ const FleetStaffManagement = () => {
         firstName: editFirstName,
         lastName: editLastName,
         email: editEmail,
+        phone: editPhone,
       });
       closeEdit();
       await loadStaff();
@@ -183,12 +205,21 @@ const FleetStaffManagement = () => {
         </Typography>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ mb: 4 }}>
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{
+          mb: 4,
+          maxHeight: 320,
+          overflowY: 'auto',
+        }}
+      >
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600, width: 160 }}>
                 Actions
               </TableCell>
@@ -210,6 +241,7 @@ const FleetStaffManagement = () => {
                     {member.firstName} {member.lastName}
                   </TableCell>
                   <TableCell>{member.email}</TableCell>
+                  <TableCell>{member.phone || ''}</TableCell>
                   <TableCell align="right">
                     <Button
                       variant="outlined"
@@ -258,12 +290,20 @@ const FleetStaffManagement = () => {
               onChange={(e) => setLastName(e.target.value)}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
               label="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -323,12 +363,20 @@ const FleetStaffManagement = () => {
                 onChange={(e) => setEditLastName(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Email"
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
               />
             </Grid>
           </Grid>

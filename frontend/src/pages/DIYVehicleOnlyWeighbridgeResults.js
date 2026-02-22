@@ -16,6 +16,65 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Professional flow: hydrate client details from localStorage draft created on ProfessionalClientStart
+  const [clientInfo, setClientInfo] = useState(null);
+  // Fleet flow: hydrate customer draft created from FleetStaffManagement "Create new User".
+  const [fleetCustomerDraft, setFleetCustomerDraft] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('professionalClientDraft');
+      console.log('🔎 professionalClientDraft raw in results:', raw);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      console.log('🔎 professionalClientDraft parsed in results:', parsed);
+      if (!parsed || typeof parsed !== 'object') return;
+
+      const fullName = [parsed.firstName, parsed.lastName]
+        .filter((v) => v && String(v).trim() !== '')
+        .join(' ');
+
+      const email = parsed.email ? String(parsed.email).trim() : '';
+      const phone = parsed.phone ? String(parsed.phone).trim() : '';
+
+      if (fullName || email || phone) {
+        setClientInfo({ fullName, email, phone });
+      }
+    } catch (e) {
+      // Ignore parse errors – results screen should still render for DIY flows.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('weighbuddy_fleetCustomerDraft');
+      console.log('DIYResults: fleetCustomerDraft raw from localStorage:', raw);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      console.log('DIYResults: fleetCustomerDraft parsed from localStorage:', parsed);
+      if (!parsed || typeof parsed !== 'object') return;
+
+      const fullName = String(parsed.fullName || '').trim();
+      const email = parsed.email ? String(parsed.email).trim() : '';
+      const phone = parsed.phone ? String(parsed.phone).trim() : '';
+      const clientUserId = parsed.clientUserId ? String(parsed.clientUserId).trim() : null;
+
+      if (fullName || email || phone || clientUserId) {
+        console.log('DIYResults: setting fleetCustomerDraft state with:', {
+          fullName,
+          email,
+          phone,
+          clientUserId,
+        });
+        setFleetCustomerDraft({ fullName, email, phone, clientUserId });
+      }
+    } catch (e) {
+      // Ignore parse errors; fleet flows will simply fall back to account details.
+    }
+  }, []);
+
   const loadPersistedResultsState = () => {
     try {
       const raw = window.sessionStorage.getItem('weighbuddy_lastResultsState');
@@ -107,6 +166,10 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     measuredFrontAxle = '',
     measuredRearAxle = '',
     measuredGvm = '',
+    // Customer fields for DIY/fleet flows (forwarded from history or live flows)
+    customerName = '',
+    customerPhone = '',
+    customerEmail = '',
     fuelLevel = '',
     passengersFront = '',
     passengersRear = '',
@@ -121,6 +184,34 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     alreadySaved = false,
     weighId = null
   } = resolvedState;
+
+  // For embedded history modals, always prefer the customer details coming
+  // from the weigh record (overrideState) so stale localStorage drafts from
+  // professional/fleet workflows do not leak into the history view.
+  const effectiveClient = React.useMemo(() => {
+    const name = String(customerName || '').trim();
+    const email = String(customerEmail || '').trim();
+    const phone = String(customerPhone || '').trim();
+
+    if (embedded) {
+      if (!name && !email && !phone) return null;
+      return { fullName: name, email, phone };
+    }
+
+    if (clientInfo && (clientInfo.fullName || clientInfo.email || clientInfo.phone)) {
+      return clientInfo;
+    }
+
+    if (!name && !email && !phone) {
+      return null;
+    }
+
+    return {
+      fullName: name,
+      email,
+      phone,
+    };
+  }, [clientInfo, customerName, customerEmail, customerPhone, embedded]);
 
   const resolvedFuelLevel =
     fuelLevel !== '' && fuelLevel != null
@@ -159,7 +250,14 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   const isProfessionalTowCaravanInGroundMethod =
     weighingSelection === 'tow_vehicle_and_caravan' &&
-    methodSelection === 'Weighbridge - In Ground - Individual Axle Weights';
+    (
+      methodSelection === 'Weighbridge - In Ground - Individual Axle Weights' ||
+      // Some embedded professional history entries may not persist an explicit
+      // methodSelection string, but will still carry VCI payloads. Treat these
+      // as the professional in-ground tow+caravan method so reconstruction
+      // logic can run and measured values are not left as 0 / N/A.
+      (!methodSelection && resolvedState && resolvedState.vci01)
+    );
   const isTowCaravanGoWeighMethod =
     weighingSelection === 'tow_vehicle_and_caravan' &&
     methodSelection === 'Weighbridge - goweigh';
@@ -288,12 +386,55 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     }
   }, [methodSelection, weighingSelection, resolvedState, overrideState]);
 
+  const safeNum = (v) => (v != null ? Number(v) || 0 : 0);
+
+  let gvmHitched = 0;
+  let gvmUnhitched = 0;
+  let tbm = 0;
+  let gtmMeasured = 0;
+  let atmMeasured = 0; // will be derived later from caravanAtmCapacityNum or measured values
+  let gcmMeasured = 0;
+
+  // Tow Vehicle + Caravan detailed axle values for Additional Information section
+  let hitchedFrontAxle = 0;
+  let hitchedRearAxle = 0;
+  let unhitchedFrontAxle = 0;
+  let unhitchedRearAxle = 0;
+
   // Measured (Compliance row) values
   let frontMeasured = 0;
   let rearMeasured = 0;
   let gvmMeasured = 0;
 
-  if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
+  // Overall caravan / combination measured values that may be supplied
+  // directly from history (e.g. via PDF-style calculations) instead of
+  // recomputed here. These are especially important for embedded
+  // professional tow+caravan in-ground flows.
+  const atmMeasuredOverall = resolvedState?.atmMeasuredOverall ?? null;
+  const gtmMeasuredOverall = resolvedState?.gtmMeasuredOverall ?? null;
+  const gcmMeasuredOverall = resolvedState?.gcmMeasuredOverall ?? null;
+
+  if (
+    embedded &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    !resolvedState?.vci01 &&
+    !resolvedState?.vci02
+  ) {
+    // Embedded history for portable tow+caravan without full VCI data.
+    // In this case we cannot safely recompute from tyre-level readings,
+    // so fall back to the persisted axle totals supplied via
+    // measuredFrontAxle / measuredRearAxle / measuredGvm.
+    frontMeasured = Number(measuredFrontAxle) || 0;
+    rearMeasured = Number(measuredRearAxle) || 0;
+    gvmMeasured = Number(measuredGvm) || (frontMeasured + rearMeasured);
+
+    if (gvmMeasured > 0) {
+      gvmHitched = gvmMeasured;
+      hitchedFrontAxle = frontMeasured;
+      hitchedRearAxle = rearMeasured || Math.max(0, gvmMeasured - frontMeasured);
+    }
+  } else if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
     // For portable scales, we treat measuredFrontAxle and measuredRearAxle
     // as the front and rear axle totals, and GVM is their sum.
     frontMeasured = Number(measuredFrontAxle) || 0;
@@ -325,7 +466,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // Caravan capacity values (if provided via caravan confirm screen)
   const caravanAtmCapacityNum = caravan.atm ? Number(caravan.atm) || 0 : 0;
   const caravanGtmCapacityNum = caravan.gtm ? Number(caravan.gtm) || 0 : 0;
-  const caravanAxleCapacityNum = caravan.axleGroups ? Number(caravan.axleGroups) || 0 : 0;
+  const caravanAxleGroupCapacityNum = caravan.axleGroups ? Number(caravan.axleGroups) || 0 : 0;
 
   // For caravan-only flows, derive a TBM capacity from ATM - GTM when both are provided
   // on the Confirm Caravan/Trailer Details screen. This gives a meaningful "Compliance"
@@ -339,6 +480,55 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   let caravanMeasuredGtm = 0;
   let caravanMeasuredAtm = 0;
   let caravanMeasuredTbm = 0;
+
+  // Embedded tow+caravan portable history may only persist caravanData
+  // measured fields (atmMeasured/gtmMeasured/tbmMeasured) instead of the
+  // raw tyre/axle payloads used in live DIY flows. When those values are
+  // present on the incoming caravan object, use them to seed the caravan
+  // measured metrics and the shared ATM/GTM/TBM variables so the Caravan /
+  // Trailer section does not show 0 in the Measured column.
+  if (
+    embedded &&
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights'
+  ) {
+    const caravanAtmMeasured = caravan && caravan.atmMeasured != null
+      ? Number(caravan.atmMeasured) || 0
+      : 0;
+    const caravanGtmMeasured = caravan && caravan.gtmMeasured != null
+      ? Number(caravan.gtmMeasured) || 0
+      : 0;
+    const caravanTbmMeasured = caravan && caravan.tbmMeasured != null
+      ? Number(caravan.tbmMeasured) || 0
+      : 0;
+
+    if (caravanGtmMeasured > 0) {
+      caravanMeasuredGtm = caravanGtmMeasured;
+      gtmMeasured = caravanGtmMeasured;
+    }
+    if (caravanAtmMeasured > 0) {
+      caravanMeasuredAtm = caravanAtmMeasured;
+      atmMeasured = caravanAtmMeasured;
+    }
+    if (caravanTbmMeasured > 0) {
+      caravanMeasuredTbm = caravanTbmMeasured;
+      tbm = caravanTbmMeasured;
+    }
+  }
+
+  // When we have both a tow-vehicle GVM and caravan GTM measured for an
+  // embedded tow+caravan portable history record but no explicit GCM,
+  // derive GCM as GVM Hitched + GTM so the GCM measured column is not 0.
+  if (
+    embedded &&
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights'
+  ) {
+    const baseGvmForGcm = gvmHitched > 0 ? gvmHitched : gvmMeasured;
+    if (gcmMeasured === 0 && baseGvmForGcm > 0 && gtmMeasured > 0) {
+      gcmMeasured = baseGvmForGcm + gtmMeasured;
+    }
+  }
 
   if (weighingSelection === 'caravan_only_registered') {
     // Portable Scales - derive GTM from individual tyre loads
@@ -444,21 +634,6 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     }
   }
 
-  const safeNum = (v) => (v != null ? Number(v) || 0 : 0);
-
-  let gvmHitched = 0;
-  let gvmUnhitched = 0;
-  let tbm = 0;
-  let gtmMeasured = 0;
-  let atmMeasured = caravanAtmCapacityNum; // default ATM uses caravan ATM rating
-  let gcmMeasured = 0;
-
-  // Tow Vehicle + Caravan detailed axle values for Additional Information section
-  let hitchedFrontAxle = 0;
-  let hitchedRearAxle = 0;
-  let unhitchedFrontAxle = 0;
-  let unhitchedRearAxle = 0;
-
   if (isTowCaravanInGroundMethod && axleWeigh) {
     // Weighbridge - In Ground tow+caravan flow using DIYTowCaravanWeighbridgeInGround +
     // DIYTowCaravanUnhitchedWeighbridgeAxle
@@ -503,6 +678,84 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
     // GCM = GTM + GVM Hitched
     gcmMeasured = gtmMeasured + gvmHitched;
+  } else if (
+    // Embedded DIY history for Weighbridge - In Ground tow+caravan
+    // where axleWeigh is not available. Reconstruct measured values from
+    // persisted weights/compliance that were mapped into resolvedState.
+    embedded &&
+    isTowCaravanInGroundMethod &&
+    !axleWeigh
+  ) {
+    const resolvedCaravan = resolvedState && resolvedState.caravan ? resolvedState.caravan : {};
+
+    const measuredFrontFromState = safeNum(resolvedState && resolvedState.measuredFrontAxle);
+    const measuredRearFromState = safeNum(resolvedState && resolvedState.measuredRearAxle);
+    const measuredGvmFromState = safeNum(resolvedState && resolvedState.measuredGvm);
+
+    // Tow Vehicle Hitched: prefer explicit front/rear from state, otherwise
+    // fall back to total GVM.
+    hitchedFrontAxle = measuredFrontFromState || 0;
+    hitchedRearAxle =
+      measuredRearFromState != null
+        ? measuredRearFromState
+        : measuredGvmFromState != null && measuredFrontFromState != null
+          ? measuredGvmFromState - measuredFrontFromState
+          : 0;
+
+    gvmHitched =
+      measuredGvmFromState != null && measuredGvmFromState > 0
+        ? measuredGvmFromState
+        : hitchedFrontAxle + hitchedRearAxle;
+
+    // Tow Vehicle Unhitched: use persisted unhitched values when present,
+    // otherwise fall back to hitched values so the UI shows something
+    // meaningful instead of 0 / N/A.
+    const unhitchedGvmFromState = safeNum(resolvedState && resolvedState.unhitchedGvm);
+    const unhitchedFrontFromState = safeNum(resolvedState && resolvedState.unhitchedFrontAxle);
+    const unhitchedRearFromState = safeNum(resolvedState && resolvedState.unhitchedRearAxle);
+
+    unhitchedFrontAxle = unhitchedFrontFromState || hitchedFrontAxle;
+    unhitchedRearAxle =
+      unhitchedRearFromState != null
+        ? unhitchedRearFromState
+        : unhitchedGvmFromState != null && unhitchedFrontAxle != null
+          ? unhitchedGvmFromState - unhitchedFrontAxle
+          : hitchedRearAxle;
+
+    gvmUnhitched =
+      unhitchedGvmFromState != null && unhitchedGvmFromState > 0
+        ? unhitchedGvmFromState
+        : unhitchedFrontAxle + unhitchedRearAxle;
+
+    // Caravan / trailer measured values from persisted caravanData.
+    let caravanGtmFromState = safeNum(resolvedCaravan && resolvedCaravan.gtmMeasured);
+    let caravanAtmFromState = safeNum(resolvedCaravan && resolvedCaravan.atmMeasured);
+    const tbmFromState = safeNum(resolvedState && resolvedState.towBallMass);
+
+    // Prefer explicit ATM/GTM from state; derive missing ones when possible.
+    if (caravanAtmFromState == null && caravanGtmFromState != null && tbmFromState != null) {
+      caravanAtmFromState = caravanGtmFromState + tbmFromState;
+    }
+    if (caravanGtmFromState == null && caravanAtmFromState != null && tbmFromState != null) {
+      caravanGtmFromState = caravanAtmFromState - tbmFromState;
+    }
+
+    gtmMeasured = caravanGtmFromState || 0;
+    atmMeasured = caravanAtmFromState || 0;
+    if (tbmFromState != null && tbmFromState > 0) {
+      tbm = tbmFromState;
+    } else if (atmMeasured > 0 && gtmMeasured > 0) {
+      tbm = atmMeasured - gtmMeasured;
+    }
+
+    // GCM: for in-ground DIY tow+caravan, this matches the detailed
+    // report behaviour: vehicle GVM (unhitched) + caravan ATM.
+    if (!gcmMeasured || gcmMeasured <= 0) {
+      const baseVehicleGvm = gvmUnhitched || gvmHitched || measuredGvmFromState || 0;
+      if (baseVehicleGvm > 0 && atmMeasured > 0) {
+        gcmMeasured = baseVehicleGvm + atmMeasured;
+      }
+    }
   } else if (isProfessionalTowCaravanInGroundMethod && axleWeigh) {
     // Professional Weighbridge - In Ground tow+caravan flow using
     // ProfessionalVehicleOnlyWeighbridgeInGround (hitched) +
@@ -547,6 +800,83 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
     // GCM = GTM + GVM Hitched
     gcmMeasured = gtmMeasured + gvmHitched;
+  } else if (
+    // Embedded professional tow+caravan in-ground history without
+    // the original axleWeigh payload. Reconstruct measured values from
+    // compliance/weights that were mapped onto resolvedState in history.
+    embedded &&
+    isProfessionalTowCaravanInGroundMethod &&
+    !axleWeigh
+  ) {
+    const resolvedCaravan = resolvedState && resolvedState.caravan ? resolvedState.caravan : {};
+
+    const measuredFrontFromState = safeNum(resolvedState && resolvedState.measuredFrontAxle);
+    const measuredRearFromState = safeNum(resolvedState && resolvedState.measuredRearAxle);
+    const measuredGvmFromState = safeNum(resolvedState && resolvedState.measuredGvm);
+
+    // Tow Vehicle Hitched
+    hitchedFrontAxle = measuredFrontFromState || 0;
+    hitchedRearAxle =
+      measuredRearFromState != null
+        ? measuredRearFromState
+        : measuredGvmFromState != null && measuredFrontFromState != null
+          ? measuredGvmFromState - measuredFrontFromState
+          : 0;
+
+    gvmHitched =
+      measuredGvmFromState != null && measuredGvmFromState > 0
+        ? measuredGvmFromState
+        : hitchedFrontAxle + hitchedRearAxle;
+
+    // Tow Vehicle Unhitched
+    const unhitchedGvmFromState = safeNum(resolvedState && resolvedState.unhitchedGvm);
+    const unhitchedFrontFromState = safeNum(resolvedState && resolvedState.unhitchedFrontAxle);
+    const unhitchedRearFromState = safeNum(resolvedState && resolvedState.unhitchedRearAxle);
+
+    unhitchedFrontAxle = unhitchedFrontFromState || hitchedFrontAxle;
+    unhitchedRearAxle =
+      unhitchedRearFromState != null
+        ? unhitchedRearFromState
+        : unhitchedGvmFromState != null && unhitchedFrontAxle != null
+          ? unhitchedGvmFromState - unhitchedFrontAxle
+          : hitchedRearAxle;
+
+    gvmUnhitched =
+      unhitchedGvmFromState != null && unhitchedGvmFromState > 0
+        ? unhitchedGvmFromState
+        : unhitchedFrontAxle + unhitchedRearAxle;
+
+    // Caravan / trailer measured values from compliance / caravanData
+    let caravanGtmFromState = safeNum(resolvedCaravan && resolvedCaravan.gtmMeasured);
+    let caravanAtmFromState = safeNum(resolvedCaravan && resolvedCaravan.atmMeasured);
+    let tbmFromState = safeNum(resolvedCaravan && resolvedCaravan.tbmMeasured);
+    if (tbmFromState == null || tbmFromState === 0) {
+      tbmFromState = safeNum(resolvedState && resolvedState.towBallMass);
+    }
+
+    if (caravanAtmFromState == null && caravanGtmFromState != null && tbmFromState != null) {
+      caravanAtmFromState = caravanGtmFromState + tbmFromState;
+    }
+    if (caravanGtmFromState == null && caravanAtmFromState != null && tbmFromState != null) {
+      caravanGtmFromState = caravanAtmFromState - tbmFromState;
+    }
+
+    gtmMeasured = caravanGtmFromState || 0;
+    atmMeasured = caravanAtmFromState || 0;
+    if (tbmFromState != null && tbmFromState > 0) {
+      tbm = tbmFromState;
+    } else if (atmMeasured > 0 && gtmMeasured > 0) {
+      tbm = atmMeasured - gtmMeasured;
+    }
+
+    // GCM: align with professional detailed report – vehicle GVM
+    // (unhitched) + caravan ATM.
+    if (!gcmMeasured || gcmMeasured <= 0) {
+      const baseVehicleGvm = gvmUnhitched || gvmHitched || measuredGvmFromState || 0;
+      if (baseVehicleGvm > 0 && atmMeasured > 0) {
+        gcmMeasured = baseVehicleGvm + atmMeasured;
+      }
+    }
   } else if (isTowCaravanGoWeighMethod && resolvedGoweighData) {
     // Tow Vehicle + Caravan GoWeigh method using dedicated GoWeigh screen inputs.
     const first = resolvedGoweighData.firstWeigh || {};
@@ -759,9 +1089,95 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     tbm = safeNum(resolvedState.towBallMass);
   }
 
-  const hasTowVehicleHitchedMeasured =
+  let hasTowVehicleHitchedMeasured =
     weighingSelection === 'tow_vehicle_and_caravan' &&
     (gvmHitched > 0 || hitchedFrontAxle > 0 || hitchedRearAxle > 0);
+
+  // Embedded history for tow+caravan (especially professional in-ground)
+  // often persists only measured axle totals and total vehicle weight.
+  // Hydrate the "Tow Vehicle Hitched" fields from the persisted values so
+  // the GVM/Front/Rear rows do not show '-' or 0.
+  if (embedded && weighingSelection === 'tow_vehicle_and_caravan') {
+    if (gvmHitched <= 0) {
+      const gvmFromState = safeNum(resolvedState && resolvedState.measuredGvm);
+      if (gvmFromState != null && gvmFromState > 0) {
+        gvmHitched = gvmFromState;
+      }
+    }
+    if (hitchedFrontAxle <= 0) {
+      const frontFromState = safeNum(resolvedState && resolvedState.measuredFrontAxle);
+      if (frontFromState != null && frontFromState > 0) {
+        hitchedFrontAxle = frontFromState;
+      }
+    }
+    if (hitchedRearAxle <= 0) {
+      const rearFromState = safeNum(resolvedState && resolvedState.measuredRearAxle);
+      if (rearFromState != null && rearFromState > 0) {
+        hitchedRearAxle = rearFromState;
+      }
+    }
+
+    // Recompute after hydration so the UI rows render measured values.
+    hasTowVehicleHitchedMeasured =
+      (gvmHitched > 0 || hitchedFrontAxle > 0 || hitchedRearAxle > 0);
+  }
+
+  // Embedded tow+caravan portable history entries may only have a single GVM
+  // and axle totals persisted (frontMeasured/rearMeasured/gvmMeasured) rather
+  // than detailed hitched/unhitched readings. In that case, mirror those
+  // measured values into the "hitched" fields so the Tow Vehicle Hitched rows
+  // do not show blank/N/A measured columns.
+  if (
+    embedded &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
+    weighingSelection === 'tow_vehicle_and_caravan'
+  ) {
+    if (gvmMeasured > 0) {
+      gvmHitched = gvmMeasured;
+    }
+    if (frontMeasured > 0) {
+      hitchedFrontAxle = frontMeasured;
+    }
+    if (rearMeasured > 0) {
+      hitchedRearAxle = rearMeasured;
+    }
+  }
+
+  // Embedded tow+caravan portable history: if we have unhitched values on the
+  // resolved state but local unhitched variables are still zero (because there
+  // was no live unhitched session in this component), hydrate them so the
+  // "Tow Vehicle Unhitched" section shows correct measured values.
+  if (
+    embedded &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    gvmUnhitched === 0 &&
+    resolvedState &&
+    resolvedState.unhitchedGvm > 0
+  ) {
+    gvmUnhitched = Number(resolvedState.unhitchedGvm) || 0;
+    unhitchedFrontAxle = Number(resolvedState.unhitchedFrontAxle) || 0;
+    unhitchedRearAxle = Number(resolvedState.unhitchedRearAxle) || 0;
+  }
+
+  // Embedded tow+caravan professional / in-ground history entries may also
+  // persist unhitched totals without a portable-method marker. Hydrate the
+  // unhitched fields for any embedded tow+caravan record when available.
+  if (
+    embedded &&
+    weighingSelection === 'tow_vehicle_and_caravan' &&
+    gvmUnhitched === 0 &&
+    resolvedState &&
+    Number(resolvedState.unhitchedGvm) > 0
+  ) {
+    gvmUnhitched = Number(resolvedState.unhitchedGvm) || 0;
+    if (unhitchedFrontAxle === 0) {
+      unhitchedFrontAxle = Number(resolvedState.unhitchedFrontAxle) || 0;
+    }
+    if (unhitchedRearAxle === 0) {
+      unhitchedRearAxle = Number(resolvedState.unhitchedRearAxle) || 0;
+    }
+  }
 
   const isPortableTowCaravanMethod =
     weighingSelection === 'tow_vehicle_and_caravan' &&
@@ -783,9 +1199,74 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     (weighingSelection === 'tow_vehicle_and_caravan' &&
       methodSelection === 'Portable Scales - Individual Tyre Weights');
 
-  // For tow vehicle + caravan methods, the GVM row is labelled "GVM Unhitched",
-  // so the measured value should always be the unhitched GVM when available.
-  const effectiveGvmForCapacity = weighingSelection === 'tow_vehicle_and_caravan' ? gvmUnhitched : gvmMeasured;
+  // For tow vehicle + caravan methods, the GVM row is labelled "GVM Unhitched".
+  // Prefer the true unhitched GVM when available; if it's missing (e.g. embedded
+  // portable history that only persisted a single GVM), fall back to the
+  // measured GVM so the row does not show 0.
+  const effectiveGvmForCapacity =
+    weighingSelection === 'tow_vehicle_and_caravan'
+      ? (gvmUnhitched > 0 ? gvmUnhitched : gvmMeasured)
+      : gvmMeasured;
+
+  // FINAL embedded tow+caravan history fallbacks: run as late as possible,
+  // immediately before rendering/debug logs, so no later initialization
+  // (e.g. caravan-only measured variable resets) can overwrite these.
+  if (embedded && weighingSelection === 'tow_vehicle_and_caravan') {
+    if (atmMeasuredOverall != null) {
+      atmMeasured = Number(atmMeasuredOverall) || 0;
+    }
+    if (gtmMeasuredOverall != null) {
+      gtmMeasured = Number(gtmMeasuredOverall) || 0;
+    }
+    if (gcmMeasuredOverall != null) {
+      gcmMeasured = Number(gcmMeasuredOverall) || 0;
+    }
+
+    // Derive TBM deterministically from ATM and GTM when both
+    // are present for embedded history.
+    if (atmMeasured > 0 && gtmMeasured > 0) {
+      tbm = atmMeasured - gtmMeasured;
+    }
+  }
+
+  // Debug: inspect measured values feeding the Compliance / Measured columns
+  // eslint-disable-next-line no-console
+  console.log('DIYResults measured debug', {
+    embedded,
+    methodSelection,
+    weighingSelection,
+    measuredFrontAxle,
+    measuredRearAxle,
+    measuredGvm,
+    frontMeasured,
+    rearMeasured,
+    gvmMeasured,
+    gvmHitched,
+    gvmUnhitched,
+    effectiveGvmForCapacity,
+    atmMeasured,
+    gtmMeasured,
+    gcmMeasured,
+    tbm,
+    atmMeasuredOverall,
+    gtmMeasuredOverall,
+    gcmMeasuredOverall,
+  });
+
+  // eslint-disable-next-line no-console
+  console.log('DIYResults unhitched debug', {
+    embedded,
+    methodSelection,
+    weighingSelection,
+    unhitchedGvm: gvmUnhitched,
+    unhitchedFrontAxle,
+    unhitchedRearAxle,
+    fromState: {
+      unhitchedGvm: resolvedState.unhitchedGvm,
+      unhitchedFrontAxle: resolvedState.unhitchedFrontAxle,
+      unhitchedRearAxle: resolvedState.unhitchedRearAxle,
+    },
+  });
 
   // Advisory-only percentages for Tow Vehicle + Caravan methods
   const vanToCarRatioPct =
@@ -835,158 +1316,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const caravanState = hasCaravanDetails ? (caravan.state || 'N/A') : 'N/A';
   // Detailed caravan capacity fields are not currently shown in the UI
 
-  // Auto-save DIY tow+caravan results to Weigh History when Weigh Results first loads.
-  const [autoSaved, setAutoSaved] = useState(alreadySaved || Boolean(weighId));
-
-  useEffect(() => {
-    if (autoSaved) return;
-    // Only consider auto-save behaviour for pure vehicle-only DIY flows.
-    if (weighingSelection !== 'vehicle_only') return;
-
-    let cancelled = false;
-
-    const saveWeigh = async () => {
-      try {
-        // Build a payload compatible with /api/weighs/diy-vehicle-only.
-        // This DIY endpoint does not require vehicleId/caravanId or
-        // customer details; it stores a light summary and optional
-        // normalized weights for history.
-
-        const normalizedWeights = {
-          frontAxle: hitchedFrontAxle || 0,
-          rearAxle: hitchedRearAxle || 0,
-          totalVehicle: gvmUnhitched || 0,
-          frontAxleGroup: 0,
-          rearAxleGroup: 0,
-          totalCaravan: gtmMeasured || atmMeasured || 0,
-          grossCombination: gcmMeasured || 0,
-          tbm: tbm || 0,
-          vehicleOnlyFrontAxle: unhitchedFrontAxle || 0,
-          vehicleOnlyRearAxle: unhitchedRearAxle || 0,
-          weightsType: 'diy_tow_caravan',
-          diyMethodSelection: methodSelection,
-          diyWeighingSelection: weighingSelection,
-          raw: {
-            axleWeigh: axleWeigh || null,
-            goweighData: goweighData || null
-          }
-        };
-
-        const vehicleSummary = {
-          description,
-          rego,
-          state,
-          vin,
-          // Capacity references where available
-          gvm: gvmCapacityNum || undefined,
-          gcm: gcmCapacityNum || undefined,
-          btc: btcCapacityNum || undefined,
-          tbm: tbmCapacityNum || undefined,
-          // Measured unhitched values from this DIY tow+caravan session
-          gvmUnhitched,
-          frontUnhitched: unhitchedFrontAxle || 0,
-          rearUnhitched: unhitchedRearAxle || 0
-        };
-
-        const caravanSummary = hasCaravanDetails
-          ? {
-              description: (caravan.make || caravan.model)
-                ? `${caravan.make || ''} ${caravan.model || ''}`.trim()
-                : '',
-              rego: caravan.rego || '',
-              state: caravan.state || '',
-              vin: caravan.vin || '',
-              make: caravan.make,
-              model: caravan.model,
-              year: caravan.year,
-              atm: caravan.atm,
-              gtm: caravan.gtm,
-              axleGroups: caravan.axleGroups,
-              tare: caravan.tare,
-              // Measured caravan metrics from this session
-              atmMeasured: atmMeasured || 0,
-              gtmMeasured: gtmMeasured || 0,
-              tbmMeasured: tbm || 0
-            }
-          : null;
-
-        const payload = {
-          vehicleSummary,
-          caravanSummary,
-          weights: normalizedWeights,
-          preWeigh: preWeigh || {},
-          notes: ''
-        };
-
-        const response = await axios.post('/api/weighs/diy-vehicle-only', payload);
-        if (cancelled) return;
-
-        const newWeighId = response?.data?.weighId || null;
-
-        setAutoSaved(true);
-
-        // Persist flags into sessionStorage so a refresh does not re-create
-        // another history entry. We keep the key consistent with existing
-        // DIY results persistence logic.
-        try {
-          const existingRaw =
-            typeof window !== 'undefined'
-              ? window.sessionStorage.getItem('weighbuddy_diy_vehicle_results_state')
-              : null;
-          const existingState = existingRaw ? JSON.parse(existingRaw) : {};
-          const merged = {
-            ...existingState,
-            alreadySaved: true,
-            weighId: newWeighId
-          };
-          if (typeof window !== 'undefined') {
-            window.sessionStorage.setItem(
-              'weighbuddy_diy_vehicle_results_state',
-              JSON.stringify(merged)
-            );
-          }
-        } catch (e) {
-          // Ignore persistence errors
-        }
-      } catch (err) {
-        // Log but do not block the UI; user can still finish manually if needed.
-        // eslint-disable-next-line no-console
-        console.error('Failed to auto-save DIY tow+caravan weigh:', err);
-      }
-    };
-
-    saveWeigh();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    autoSaved,
-    axleWeigh,
-    btcCapacityNum,
-    caravan,
-    description,
-    gcmCapacityNum,
-    goweighData,
-    gvmCapacityNum,
-    gvmUnhitched,
-    hasCaravanDetails,
-    hitchedFrontAxle,
-    hitchedRearAxle,
-    methodSelection,
-    preWeigh,
-    rego,
-    state,
-    tbm,
-    tbmCapacityNum,
-    unhitchedFrontAxle,
-    unhitchedRearAxle,
-    vin,
-    weighingSelection,
-    gtmMeasured,
-    atmMeasured,
-    gcmMeasured
-  ]);
+  // Auto-save has been disabled for vehicle-only results.
+  // Vehicle-only history records are created only when the user clicks Finish.
+  const [autoSaved] = useState(alreadySaved || Boolean(weighId));
 
   const handleDownloadReport = async () => {
     try {
@@ -1040,6 +1372,21 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   const handleFinish = async () => {
     try {
+      // For fleet users using the legacy DIY wizard, prefer any explicit
+      // Fleet Staff customer draft details when saving to history.
+      let outgoingCustomer = null;
+      if (user?.userType === 'fleet' && fleetCustomerDraft) {
+        const fullName = String(fleetCustomerDraft.fullName || '').trim();
+        const email = String(fleetCustomerDraft.email || '').trim();
+        const phone = String(fleetCustomerDraft.phone || '').trim();
+        const clientUserId = fleetCustomerDraft.clientUserId
+          ? String(fleetCustomerDraft.clientUserId).trim()
+          : null;
+        if (fullName || email || phone || clientUserId) {
+          outgoingCustomer = { fullName, email, phone, clientUserId };
+        }
+      }
+
       if (weighingSelection === 'tow_vehicle_and_caravan') {
         // DIY tow vehicle + caravan: save a full record including caravan
         // summary and normalized weights so it appears in Weigh History.
@@ -1108,7 +1455,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             }
           : null;
 
-        await axios.post('/api/weighs/diy-vehicle-only', {
+        const payload = {
           vehicleSummary,
           caravanSummary,
           weights: normalizedWeights,
@@ -1117,8 +1464,29 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             passengersFront: Number(resolvedPassengersFront) || 0,
             passengersRear: Number(resolvedPassengersRear) || 0
           },
-          modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : []
+          modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+          ...(outgoingCustomer
+            ? {
+                customerName: outgoingCustomer.fullName,
+                customerEmail: outgoingCustomer.email,
+                customerPhone: outgoingCustomer.phone,
+                clientUserId: outgoingCustomer.clientUserId || undefined,
+              }
+            : {}),
+        };
+
+        console.log('DIYResults handleFinish tow+caravan: posting payload to /api/weighs/diy-vehicle-only', {
+          userDebug: {
+            id: user?.id || null,
+            email: user?.email || null,
+            userType: user?.userType || null,
+            fleetOwnerUserId: user?.fleetOwnerUserId || null,
+          },
+          outgoingCustomer,
+          payload,
         });
+
+        await axios.post('/api/weighs/diy-vehicle-only', payload);
       } else if (weighingSelection === 'caravan_only_registered') {
         // DIY caravan-only (registered): save caravan details + measured values so history modal mirrors results.
 
@@ -1141,7 +1509,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           }
         };
 
-        await axios.post('/api/weighs/diy-vehicle-only', {
+        const payload = {
           // Vehicle summary is required by the endpoint; for caravan-only it is empty/zero.
           vehicleSummary: {
             description: '',
@@ -1173,8 +1541,29 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           },
           weights: normalizedWeights,
           preWeigh: preWeigh || {},
-          modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : []
+          modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+          ...(outgoingCustomer
+            ? {
+                customerName: outgoingCustomer.fullName,
+                customerEmail: outgoingCustomer.email,
+                customerPhone: outgoingCustomer.phone,
+                clientUserId: outgoingCustomer.clientUserId || undefined,
+              }
+            : {}),
+        };
+
+        console.log('DIYResults handleFinish caravan-only: posting payload to /api/weighs/diy-vehicle-only', {
+          userDebug: {
+            id: user?.id || null,
+            email: user?.email || null,
+            userType: user?.userType || null,
+            fleetOwnerUserId: user?.fleetOwnerUserId || null,
+          },
+          outgoingCustomer,
+          payload,
         });
+
+        await axios.post('/api/weighs/diy-vehicle-only', payload);
       } else {
         // Existing DIY vehicle-only behaviour
         const normalizedWeights = {
@@ -1194,7 +1583,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           }
         };
 
-        await axios.post('/api/weighs/diy-vehicle-only', {
+        const payload = {
           vehicleSummary: {
             description,
             rego,
@@ -1220,8 +1609,29 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             passengersFront: Number(resolvedPassengersFront) || 0,
             passengersRear: Number(resolvedPassengersRear) || 0
           },
-          modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : []
+          modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
+          ...(outgoingCustomer
+            ? {
+                customerName: outgoingCustomer.fullName,
+                customerEmail: outgoingCustomer.email,
+                customerPhone: outgoingCustomer.phone,
+                clientUserId: outgoingCustomer.clientUserId || undefined,
+              }
+            : {}),
+        };
+
+        console.log('DIYResults handleFinish vehicle-only: posting payload to /api/weighs/diy-vehicle-only', {
+          userDebug: {
+            id: user?.id || null,
+            email: user?.email || null,
+            userType: user?.userType || null,
+            fleetOwnerUserId: user?.fleetOwnerUserId || null,
+          },
+          outgoingCustomer,
+          payload,
         });
+
+        await axios.post('/api/weighs/diy-vehicle-only', payload);
       }
 
       navigate('/dashboard');
@@ -1251,19 +1661,70 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             flexDirection: 'column'
           }}
         >
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {headingLabel}
-          </Typography>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            {methodLabel}
-          </Typography>
-
-          <Typography
-            variant="h5"
-            sx={{ fontWeight: 'bold', mb: 4 }}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 4,
+              gap: 2,
+              // Keep the header text and client details on the same row on
+              // most screens; allow wrapping only on the smallest widths.
+              flexWrap: { xs: 'wrap', sm: 'nowrap' }
+            }}
           >
-            Weigh Results
-          </Typography>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Typography variant="h6" sx={{ mb: 0.5 }}>
+                {headingLabel}
+              </Typography>
+              <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                {methodLabel}
+              </Typography>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 'bold' }}
+              >
+                Weigh Results
+              </Typography>
+            </Box>
+
+            {effectiveClient && (
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 1,
+                  bgcolor: 'grey.50',
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  minWidth: 260,
+                  maxWidth: 360,
+                  ml: { xs: 0, md: 2 }
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 'bold', mb: 1, textAlign: 'right' }}
+                >
+                  Client Details
+                </Typography>
+                {effectiveClient.fullName && (
+                  <Typography variant="body2" sx={{ textAlign: 'right' }}>
+                    {effectiveClient.fullName}
+                  </Typography>
+                )}
+                {effectiveClient.email && (
+                  <Typography variant="body2" sx={{ textAlign: 'right' }}>
+                    {effectiveClient.email}
+                  </Typography>
+                )}
+                {effectiveClient.phone && (
+                  <Typography variant="body2" sx={{ textAlign: 'right' }}>
+                    {effectiveClient.phone}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
 
           {/* Simple summary card showing Vehicle (left) and Caravan/Trailer (right) */}
           <Paper sx={{ p: 3, mb: 3 }}>
@@ -1740,7 +2201,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                     <Typography variant="body2">Axle Group Loading</Typography>
                   </Grid>
                   <Grid item xs={2}>
-                    <Typography variant="body2">{caravanAxleCapacityNum} kg</Typography>
+                    <Typography variant="body2">{caravanAxleGroupCapacityNum} kg</Typography>
                   </Grid>
                   <Grid item xs={2}>
                     <Typography variant="body2">
@@ -1759,7 +2220,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         ? 'Not complete'
                         : isPortableTowCaravanMethod && !hasPortableTowCaravanMeasuredInputs
                           ? 'N/A'
-                          : `${caravanAxleCapacityNum - (gtmMeasured || atmMeasured)} kg`}
+                          : `${caravanAxleGroupCapacityNum - (gtmMeasured || atmMeasured)} kg`}
                     </Typography>
                   </Grid>
                   <Grid item xs={2}>
@@ -1767,19 +2228,19 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                       variant="body2"
                       color={
                         (!isPortableTowCaravanMethod || hasPortableTowCaravanMeasuredInputs) &&
-                        caravanAxleCapacityNum !== 0 &&
-                        (gtmMeasured || atmMeasured) > caravanAxleCapacityNum
+                        caravanAxleGroupCapacityNum !== 0 &&
+                        (gtmMeasured || atmMeasured) > caravanAxleGroupCapacityNum
                           ? 'error'
                           : 'success.main'
                       }
                     >
                       {isTowCaravanAboveGroundSingleCell
                         ? 'N/A'
-                        : caravanAxleCapacityNum === 0
+                        : caravanAxleGroupCapacityNum === 0
                           ? 'N/A'
                           : isPortableTowCaravanMethod && !hasPortableTowCaravanMeasuredInputs
                             ? 'N/A'
-                            : (gtmMeasured || atmMeasured) <= caravanAxleCapacityNum
+                            : (gtmMeasured || atmMeasured) <= caravanAxleGroupCapacityNum
                               ? 'OK'
                               : 'OVER'}
                     </Typography>
@@ -2102,7 +2563,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">
-                              {caravanAxleCapacityNum ? `${caravanAxleCapacityNum} kg` : 'N/A'}
+                              {caravanAxleGroupCapacityNum ? `${caravanAxleGroupCapacityNum} kg` : 'N/A'}
                             </Typography>
                           </Grid>
                           <Grid item xs={2}>
@@ -2477,7 +2938,33 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
               ) : (
                 <React.Fragment>
                   <Typography variant="body2" sx={{ mb: 1 }}>
-                    Additional Information : Fuel {resolvedFuelLevel !== '' ? `${resolvedFuelLevel}%` : 'N/A'}, Passengers Front {resolvedPassengersFront || 0}, Passengers Rear {resolvedPassengersRear || 0}
+                    {(() => {
+                      const base = `Additional Information : Fuel ${
+                        resolvedFuelLevel !== '' ? `${resolvedFuelLevel}%` : 'N/A'
+                      }, Passengers Front ${resolvedPassengersFront || 0}, Passengers Rear ${
+                        resolvedPassengersRear || 0
+                      }`;
+
+                      const hasTowball =
+                        preWeigh && preWeigh.towballHeightMm != null && preWeigh.towballHeightMm !== '';
+                      const hasAirbag =
+                        preWeigh && preWeigh.airbagPressurePsi != null && preWeigh.airbagPressurePsi !== '';
+
+                      if (!hasTowball && !hasAirbag) {
+                        // DIY flows (and any others without these values) show only fuel/passengers.
+                        return base;
+                      }
+
+                      const parts = [base];
+                      if (hasTowball) {
+                        parts.push(`Tow Ball Height ${preWeigh.towballHeightMm} mm`);
+                      }
+                      if (hasAirbag) {
+                        parts.push(`Air Bag Pressure ${preWeigh.airbagPressurePsi} psi`);
+                      }
+
+                      return parts.join(', ');
+                    })()}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 1 }}>
                     Additional Notes: {preWeigh?.notes || 'N/A'}

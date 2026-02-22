@@ -24,6 +24,10 @@ const fleetStaffMemberSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    phone: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

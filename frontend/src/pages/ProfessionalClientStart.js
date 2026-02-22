@@ -38,10 +38,67 @@ const ProfessionalClientStart = () => {
     notes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingQuery, setExistingQuery] = useState('');
+  const [existingClient, setExistingClient] = useState(null);
+  const [existingClientError, setExistingClientError] = useState('');
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (field) => (event) => {
     setClientForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleExistingQueryChange = async (event) => {
+    const value = event.target.value;
+    setExistingQuery(value);
+    setExistingClient(null);
+    setExistingClientError('');
+
+    const query = value.trim();
+    if (!query) return;
+
+    setIsLookingUp(true);
+    try {
+      const { data } = await axios.get('/api/auth/professional-clients/lookup', {
+        params: { query }
+      });
+
+      const client = data?.client;
+      if (!client) {
+        setExistingClient(null);
+        setExistingClientError('Client not found');
+        return;
+      }
+
+      setExistingClient(client);
+      setExistingClientError('');
+
+      const nameParts = String(client.name || '').trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ');
+
+      const draft = {
+        firstName,
+        lastName,
+        email: client.email || '',
+        phone: client.phone || '',
+        notes: '',
+        diyClientUserId: client.id,
+      };
+
+      localStorage.setItem('professionalClientDraft', JSON.stringify(draft));
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        setExistingClient(null);
+        setExistingClientError('Client not found');
+      } else {
+        console.error('Failed to lookup existing client', err);
+        setExistingClient(null);
+        setExistingClientError('Error looking up client');
+      }
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -52,6 +109,29 @@ const ProfessionalClientStart = () => {
     if (clientMode === 'new') {
       setIsSubmitting(true);
       try {
+        const emailQuery = String(clientForm.email || '').trim();
+        if (emailQuery) {
+          try {
+            // See if a client with this email already exists for this professional
+            await axios.get('/api/auth/professional-clients/lookup', {
+              params: { query: emailQuery }
+            });
+
+            // If we reach here without throwing, a client already exists
+            alert('A client with this email already exists. Please choose "Existing Client" from the dropdown instead of creating a new one.');
+            setIsSubmitting(false);
+            return;
+          } catch (lookupErr) {
+            // 404 = not found, which is fine for creating a new client
+            if (lookupErr?.response?.status !== 404) {
+              console.error('Error checking for existing client by email', lookupErr);
+              alert('Could not verify whether this client already exists. Please try again.');
+              setIsSubmitting(false);
+              return;
+            }
+          }
+        }
+
         const payload = {
           firstName: clientForm.firstName,
           lastName: clientForm.lastName,
@@ -81,6 +161,14 @@ const ProfessionalClientStart = () => {
         return;
       }
       setIsSubmitting(false);
+    } else {
+      // Existing client mode: ensure we have a draft with diyClientUserId
+      const draftRaw = localStorage.getItem('professionalClientDraft');
+      const draft = draftRaw ? JSON.parse(draftRaw) : null;
+      if (!draft || !draft.diyClientUserId) {
+        alert('Please look up an existing client by email or phone before continuing.');
+        return;
+      }
     }
 
     navigate('/professional-weigh-start');
@@ -196,11 +284,22 @@ const ProfessionalClientStart = () => {
 
                   {clientMode !== 'new' && (
                     <Box sx={{ mt: 2 }}>
-                      {/* Placeholder for existing client search / selection */}
                       <TextField
                         fullWidth
                         size="small"
-                        label="Search existing client (name, email, phone)"
+                        label="Search existing client (email or phone)"
+                        value={existingQuery}
+                        onChange={handleExistingQueryChange}
+                        helperText={
+                          existingClientError
+                            ? existingClientError
+                            : existingClient
+                            ? `${existingClient.name} (${existingClient.email}, ${existingClient.phone})`
+                            : isLookingUp
+                            ? 'Looking up client...'
+                            : 'Enter email or phone number to find an existing client'
+                        }
+                        error={Boolean(existingClientError)}
                       />
                     </Box>
                   )}

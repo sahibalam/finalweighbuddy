@@ -50,11 +50,32 @@ router.post('/', protect, checkSubscription, [
     });
   }
 
+  // For fleet owners and fleet staff, when the frontend explicitly passes a
+  // clientUserId (the DIY login for the customer created from
+  // FleetStaffManagement), attach it directly so that the DIY customer can
+  // see this weigh in their own history via clientUserId-based lookups.
+  let validatedClientUserId = undefined;
+  console.log('POST /api/weighs: initial clientUserId wiring', {
+    requester: {
+      id: req.user?.id,
+      email: req.user?.email,
+      userType: req.user?.userType,
+      fleetOwnerUserId: req.user?.fleetOwnerUserId || null,
+    },
+    rawClientUserId: req.body?.clientUserId || null,
+  });
+
+  if ((req.user.userType === 'fleet' || req.user.fleetOwnerUserId) && req.body.clientUserId) {
+    validatedClientUserId = req.body.clientUserId;
+    console.log('POST /api/weighs: fleet context, adopting clientUserId from body:', validatedClientUserId);
+  }
+
   try {
     const {
       customerName,
       customerPhone,
       customerEmail,
+
       clientUserId,
       vehicleId,
       caravanId,
@@ -74,9 +95,70 @@ router.post('/', protect, checkSubscription, [
       payment: clientPayment
     } = req.body;
 
+    // Debug: log customer-related fields for professional/fleet flows so we
+    // can verify what the frontend is actually sending.
+    console.log('POST /api/weighs customer debug', {
+      requester: {
+        id: req.user?.id,
+        userType: req.user?.userType,
+        fleetOwnerUserId: req.user?.fleetOwnerUserId || null,
+      },
+      incomingCustomer: {
+        customerName,
+        customerPhone,
+        customerEmail,
+        clientUserId,
+      },
+    });
 
+    let effectiveCustomerName = customerName;
+    let effectiveCustomerPhone = customerPhone;
+    let effectiveCustomerEmail = customerEmail;
 
-    // Check if vehicle exists
+    if (req.user.userType === 'professional' && clientUserId) {
+      const client = await User.findOne({
+        _id: clientUserId,
+        userType: 'diy',
+        professionalOwnerUserId: req.user.id,
+      }).select('name email phone');
+
+      if (!client) {
+        return res.status(403).json({
+          success: false,
+          message: 'Client not found or not associated with this professional account',
+        });
+      }
+
+      validatedClientUserId = client._id;
+
+      // For professional flows with an attached DIY client, prefer the
+      // client's details for customer fields so history/reporting shows
+      // the end customer, not the professional account.
+      effectiveCustomerName = client.name || customerName || req.user.name;
+      effectiveCustomerPhone = client.phone || customerPhone || req.user.phone;
+      effectiveCustomerEmail = client.email || customerEmail || req.user.email;
+    }
+
+    // For fleet owners and fleet staff (DIY users with fleetOwnerUserId), do
+    // not fall back to the account's own details for the end-customer fields.
+    // Always prefer the explicit customerName/Phone/Email values sent in the
+    // request body when they are non-empty strings, so that the New Weigh
+    // "Customer Information" step fully controls what is stored.
+    if (req.user.userType === 'fleet' || req.user.fleetOwnerUserId) {
+      if (typeof customerName === 'string' && customerName.trim() !== '') {
+        effectiveCustomerName = customerName;
+      }
+      if (typeof customerPhone === 'string' && customerPhone.trim() !== '') {
+        effectiveCustomerPhone = customerPhone;
+      }
+      if (typeof customerEmail === 'string' && customerEmail.trim() !== '') {
+        effectiveCustomerEmail = customerEmail;
+      }
+    }
+
+    console.log('POST /api/weighs: about to create Weigh with validatedClientUserId:', validatedClientUserId);
+
+    // Look up vehicle and caravan documents
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle) {
       return res.status(404).json({
@@ -85,7 +167,6 @@ router.post('/', protect, checkSubscription, [
       });
     }
 
-    // Check if caravan exists (if provided)
     let caravan = null;
     if (caravanId) {
       caravan = await Caravan.findById(caravanId);
@@ -97,38 +178,9 @@ router.post('/', protect, checkSubscription, [
       }
     }
 
-    // Basic validation checks
-    if (!vehicle) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vehicle not found'
-      });
-    }
-
-    if (!caravan) {
-      return res.status(404).json({
-        success: false,
-        message: 'Caravan not found'
-      });
-    }
-
-    let validatedClientUserId = undefined;
-    if (req.user.userType === 'professional' && clientUserId) {
-      const client = await User.findOne({
-        _id: clientUserId,
-        userType: 'diy',
-        professionalOwnerUserId: req.user.id,
-      });
-
-      if (!client) {
-        return res.status(403).json({
-          success: false,
-          message: 'Client not found or not associated with this professional account',
-        });
-      }
-
-      validatedClientUserId = client._id;
-    }
+    // Normalize caravan identifier casing for consistent lookups
+    const normalizedCaravanNumberPlate = String(caravanNumberPlate || '').toUpperCase();
+    const normalizedCaravanState = String(caravanState || '').toUpperCase();
 
     // Vehicle compliance (DIY: simplified checks without individual axle weights)
     const vehicleCompliance = {
@@ -222,14 +274,14 @@ router.post('/', protect, checkSubscription, [
           : req.user.fleetOwnerUserId
             ? req.user.fleetOwnerUserId
             : undefined,
-      customerName,
-      customerPhone,
-      customerEmail,
+      customerName: effectiveCustomerName,
+      customerPhone: effectiveCustomerPhone,
+      customerEmail: effectiveCustomerEmail,
 
       vehicle: vehicleId,
       vehicleNumberPlate,
       caravan: caravanId,
-      caravanNumberPlate,
+      caravanNumberPlate: normalizedCaravanNumberPlate,
 
       // Required legacy fields (used by history table + schema validation)
       vehicleWeightHitched: parseFloat(weights.totalVehicle) || 0,
@@ -248,8 +300,8 @@ router.post('/', protect, checkSubscription, [
       caravanData: {
         ...caravan.toObject(),
         description: caravanDescription || caravan.description || '',
-        numberPlate: caravanNumberPlate,
-        state: caravanState || caravan.state || '',
+        numberPlate: normalizedCaravanNumberPlate,
+        state: normalizedCaravanState || caravan.state || '',
         vin: caravanVin || '',
         complianceImage: caravanComplianceImage || '',
         tare:
@@ -291,8 +343,8 @@ router.post('/', protect, checkSubscription, [
     });
 
     await weigh.save();
-    console.log('✅ Weigh entry saved successfully:', weigh._id, 'for user:', req.user.id);
-    console.log('📊 Weigh entry details:', {
+    console.log(' Weigh entry saved successfully:', weigh._id, 'for user:', req.user.id);
+    console.log(' Weigh entry details:', {
       vehicle: weigh.vehicleNumberPlate,
       caravan: weigh.caravanNumberPlate,
       status: weigh.status,
@@ -329,7 +381,6 @@ router.post('/', protect, checkSubscription, [
   }
 });
 
-// @desc    Create a simple DIY weigh entry for Vehicle Only / Weighbridge Axle flow
 // @route   POST /api/weighs/diy-vehicle-only
 // @access  Private (DIY user)
 router.post('/diy-vehicle-only', protect, async (req, res) => {
@@ -341,7 +392,11 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
       preWeigh = {},
       notes,
       payment: clientPayment = {},
-      modifiedVehicleImages = []
+      modifiedVehicleImages = [],
+      clientUserId = null,
+      customerName: incomingCustomerName = null,
+      customerEmail: incomingCustomerEmail = null,
+      customerPhone: incomingCustomerPhone = null,
     } = req.body || {};
 
     const totalUnhitched = Number(vehicleSummary.gvmUnhitched) || 0;
@@ -418,16 +473,63 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
       }
     }
 
-    // Basic customer details from the authenticated DIY user
-    const customerName = req.user.name || 'DIY User';
-    const customerEmail = req.user.email || 'unknown@example.com';
-    const customerPhone = req.user.phone || 'N/A';
+    // Resolve customer details. For professional-created DIY records with an attached
+    // client, prefer the DIY client's details so history/reporting shows the end
+    // customer (same behaviour as POST /api/weighs).
+    let effectiveCustomerName = req.user.name || 'DIY User';
+    let effectiveCustomerEmail = req.user.email || 'unknown@example.com';
+    let effectiveCustomerPhone = req.user.phone || 'N/A';
+    let validatedClientUserId = undefined;
+
+    if (req.user.userType === 'professional' && clientUserId) {
+      try {
+        const client = await User.findOne({
+          _id: clientUserId,
+          userType: 'diy',
+          professionalOwnerUserId: req.user.id,
+        }).select('name email phone');
+
+        if (client) {
+          validatedClientUserId = client._id;
+          effectiveCustomerName = client.name || effectiveCustomerName;
+          effectiveCustomerEmail = client.email || effectiveCustomerEmail;
+          effectiveCustomerPhone = client.phone || effectiveCustomerPhone;
+        }
+      } catch (lookupErr) {
+        console.error('Failed to resolve DIY client for diy-vehicle-only weigh:', lookupErr);
+      }
+    }
+
+    // For fleet owners and fleet staff using the legacy DIY wizard, when the
+    // frontend explicitly passes a clientUserId (DIY login created from
+    // FleetStaffManagement), attach it directly so the DIY customer can see
+    // this record in their own history via clientUserId-based lookups.
+    if ((req.user.userType === 'fleet' || req.user.fleetOwnerUserId) && clientUserId) {
+      validatedClientUserId = clientUserId;
+      console.log('POST /api/weighs/diy-vehicle-only: fleet context adopting clientUserId from body:', validatedClientUserId);
+    }
+
+    // For fleet owners and fleet staff using the legacy DIY wizard, prefer any
+    // explicit customer fields that were forwarded from the frontend (e.g.
+    // FleetStaffManagement "Create new User" draft) over the account details.
+    if (req.user.userType === 'fleet' || req.user.fleetOwnerUserId) {
+      if (typeof incomingCustomerName === 'string' && incomingCustomerName.trim() !== '') {
+        effectiveCustomerName = incomingCustomerName.trim();
+      }
+      if (typeof incomingCustomerEmail === 'string' && incomingCustomerEmail.trim() !== '') {
+        effectiveCustomerEmail = incomingCustomerEmail.trim();
+      }
+      if (typeof incomingCustomerPhone === 'string' && incomingCustomerPhone.trim() !== '') {
+        effectiveCustomerPhone = incomingCustomerPhone.trim();
+      }
+    }
 
     const weigh = new Weigh({
       userId: req.user.id,
-      customerName,
-      customerEmail,
-      customerPhone,
+      clientUserId: validatedClientUserId,
+      customerName: effectiveCustomerName,
+      customerEmail: effectiveCustomerEmail,
+      customerPhone: effectiveCustomerPhone,
 
       // Vehicle-only DIY flow: treat the unhitched total as both hitched
       // and unhitched so required fields are satisfied. Caravan-related
@@ -674,20 +776,20 @@ router.post('/diy-vehicle-only/report', protect, async (req, res) => {
     });
   }
 });
- 
-
-// @desc    Get all weigh entries for user
 // @route   GET /api/weighs
 // @access  Private
 router.get('/', protect, async (req, res) => {
-  console.log('🔍 GENERAL WEIGHS ROUTE HIT - User:', req.user.email);
-  console.log('🔍 Query params:', req.query);
+  console.log(' GENERAL WEIGHS ROUTE HIT - User:', req.user.email);
+  console.log(' Query params:', req.query);
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const startIndex = (page - 1) * limit;
 
-    const weighsQuery =
+    const { search, status, compliance } = req.query;
+
+    // Base ownership/visibility filter
+    const ownershipFilter =
       req.user.userType === 'fleet'
         ? {
             $or: [
@@ -697,24 +799,88 @@ router.get('/', protect, async (req, res) => {
               { userId: req.user.id },
             ],
           }
-        : req.user.userType === 'diy' && !req.user.fleetOwnerUserId
+        : req.user.userType === 'diy'
           ? {
+              // DIY users (including those created as fleet staff clients) should
+              // see both their own DIY weighs and any weighs where they are the
+              // linked clientUserId (e.g. fleet-created weighs for them).
               $or: [{ userId: req.user.id }, { clientUserId: req.user.id }],
             }
           : { userId: req.user.id };
 
+    const filters = [ownershipFilter];
+
+    // Text search across common fields (case-insensitive)
+    if (search && typeof search === 'string' && search.trim() !== '') {
+      const term = search.trim();
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+      filters.push({
+        $or: [
+          { customerName: regex },
+          { customerEmail: regex },
+          { customerPhone: regex },
+          { vehicleNumberPlate: regex },
+          { caravanNumberPlate: regex },
+        ],
+      });
+    }
+
+    // Status filter (e.g. completed, draft, archived)
+    if (status && typeof status === 'string' && status !== 'all') {
+      filters.push({ status });
+    }
+
+    // Compliance filter: compliant / non-compliant
+    if (compliance && typeof compliance === 'string' && compliance !== 'all') {
+      const isCompliant = compliance === 'compliant';
+      filters.push({
+        $or: [
+          { 'complianceResults.overallCompliant': isCompliant },
+          { 'compliance.overallCompliant': isCompliant },
+        ],
+      });
+    }
+
+    const weighsQuery = filters.length > 1 ? { $and: filters } : ownershipFilter;
+
     const weighs = await Weigh.find(weighsQuery)
       .populate('vehicleRegistryId', 'numberPlate state')
       .populate('caravanRegistryId', 'numberPlate state')
+      .populate('clientUserId', 'name email phone')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(startIndex);
 
     const total = await Weigh.countDocuments(weighsQuery);
 
+    // Normalize customer details for history consumers so that professional
+    // flows with an attached DIY client show the end-customer consistently
+    // in the table, regardless of which route created the record.
+    const normalizedWeighs = weighs.map((w) => {
+      const obj = w.toObject({ virtuals: true });
+
+      if (w.clientUserId) {
+        const client = w.clientUserId;
+        obj.customer = {
+          name: client.name || obj.customerName || 'N/A',
+          email: client.email || obj.customerEmail || 'unknown@example.com',
+          phone: client.phone || obj.customerPhone || 'N/A',
+        };
+      } else {
+        obj.customer = {
+          name: obj.customerName || 'N/A',
+          email: obj.customerEmail || 'unknown@example.com',
+          phone: obj.customerPhone || 'N/A',
+        };
+      }
+
+      return obj;
+    });
+
     res.json({
       success: true,
-      count: weighs.length,
+      count: normalizedWeighs.length,
       total,
       pagination: {
         current: page,
@@ -722,7 +888,7 @@ router.get('/', protect, async (req, res) => {
         hasNext: page * limit < total,
         hasPrev: page > 1
       },
-      weighs
+      weighs: normalizedWeighs,
     });
   } catch (error) {
     console.error(error);

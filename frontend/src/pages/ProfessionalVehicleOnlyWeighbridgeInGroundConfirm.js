@@ -96,10 +96,6 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
       if (!caravanGtm && caravan.gtm != null) setCaravanGtm(String(caravan.gtm));
       if (!caravanAtm && caravan.atm != null) setCaravanAtm(String(caravan.atm));
 
-      if (!caravanAxleGroups && (caravan.axleCapacity != null || caravan.axleGroupLoading != null)) {
-        setCaravanAxleGroups(String(caravan.axleCapacity != null ? caravan.axleCapacity : caravan.axleGroupLoading));
-      }
-
       if (!caravanTare && (caravan.tare != null || caravan.tareMass != null)) {
         setCaravanTare(String(caravan.tare != null ? caravan.tare : caravan.tareMass));
       }
@@ -107,16 +103,36 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
       if (caravan.vin && (!stateData.vin || String(stateData.vin).trim() === '')) {
         setVin(String(caravan.vin).toUpperCase());
       }
+    }
 
-      if (!caravanComplianceImage && caravan.complianceImage) {
-        const url = String(caravan.complianceImage);
+    if (
+      !caravanComplianceImage &&
+      (weighingSelection === 'caravan_only_registered' || weighingSelection === 'tow_vehicle_and_caravan') &&
+      caravan.complianceImage
+    ) {
+      const url = String(caravan.complianceImage);
 
-        console.log('✅ prefill complianceImage (in-ground)', url);
-        setCaravanComplianceLocalPreviewUrl('');
-        setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
-        setCaravanCompliancePreviewError(false);
-        setCaravanComplianceImage(url);
-      }
+      console.log('✅ prefill complianceImage (in-ground)', url);
+      setCaravanComplianceLocalPreviewUrl('');
+      setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
+      setCaravanCompliancePreviewError(false);
+      setCaravanComplianceImage(url);
+    }
+
+    // For tow_vehicle_and_caravan flows, also hydrate Axle Group Loadings
+    // from the caravan lookup so previously used caravans pre-fill this field.
+    if (
+      weighingSelection === 'tow_vehicle_and_caravan' &&
+      !caravanAxleGroups &&
+      (caravan.axleCapacity != null || caravan.axleGroupLoading != null)
+    ) {
+      setCaravanAxleGroups(
+        String(
+          caravan.axleCapacity != null
+            ? caravan.axleCapacity
+            : caravan.axleGroupLoading
+        )
+      );
     }
   }, [
     location.state,
@@ -176,7 +192,11 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
         }
         if (!vin && foundCaravan.vin) setVin(String(foundCaravan.vin).toUpperCase());
 
-        if (!caravanComplianceImage && foundCaravan.complianceImage) {
+        if (
+          !caravanComplianceImage &&
+          (weighingSelection === 'caravan_only_registered' || weighingSelection === 'tow_vehicle_and_caravan') &&
+          foundCaravan.complianceImage
+        ) {
           const url = String(foundCaravan.complianceImage);
           console.log('✅ prefill complianceImage via fallback (in-ground)', url);
           setCaravanComplianceLocalPreviewUrl('');
@@ -372,6 +392,31 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
       }
     }
 
+    // Professional client draft created from the ProfessionalClientStart screen.
+    // Contains diyClientUserId and the end-customer contact details. We forward
+    // these into the DIY vehicle-only save so history shows the real client.
+    let clientUserId = null;
+    let clientName = '';
+    let clientPhone = '';
+    let clientEmail = '';
+    try {
+      const draftRaw = window.localStorage.getItem('professionalClientDraft');
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        if (draft && draft.diyClientUserId) {
+          clientUserId = draft.diyClientUserId;
+        }
+
+        const firstName = String(draft.firstName || '').trim();
+        const lastName = String(draft.lastName || '').trim();
+        clientName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        clientPhone = String(draft.phone || '').trim();
+        clientEmail = String(draft.email || '').trim();
+      }
+    } catch (e) {
+      console.error('Failed to parse professionalClientDraft from localStorage', e);
+    }
+
     const createDiyClient = async () => {
       if (!pendingClient || pendingClient.clientType !== 'new') return;
 
@@ -412,6 +457,11 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
         passengersFront: preWeigh?.passengersFront ?? '',
         passengersRear: preWeigh?.passengersRear ?? '',
         modifiedImages,
+        // Customer context so DIY history can show the real client
+        clientUserId: clientUserId || null,
+        customerName: clientName || 'Professional Client',
+        customerPhone: clientPhone || 'N/A',
+        customerEmail: clientEmail || 'unknown@example.com',
         methodSelection: 'Weighbridge - In Ground - Individual Axle Weights',
         weighingSelection,
         axleWeigh,
@@ -473,6 +523,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
               amount: 0,
               status: 'completed',
             },
+            clientUserId: clientUserId || null,
           });
 
           return response.data?.weighId || null;
@@ -565,6 +616,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
                 amount: 0,
                 status: 'completed',
               },
+              clientUserId: clientUserId || null,
             });
 
             return response.data?.weighId || null;

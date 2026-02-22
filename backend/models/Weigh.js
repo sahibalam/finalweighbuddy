@@ -174,6 +174,26 @@ const weighSchema = new mongoose.Schema({
     notes: {
       type: String,
       trim: true
+    },
+    waterTankCount: {
+      type: Number,
+      min: [0, 'Water tank count must be non-negative'],
+    },
+    waterTankFullCount: {
+      type: Number,
+      min: [0, 'Number of full tanks must be non-negative'],
+    },
+    waterTotalLitres: {
+      type: Number,
+      min: [0, 'Total water litres must be non-negative'],
+    },
+    towballHeightMm: {
+      type: Number,
+      min: [0, 'Tow ball height must be non-negative'],
+    },
+    airbagPressurePsi: {
+      type: Number,
+      min: [0, 'Air bag pressure must be non-negative'],
     }
   },
 

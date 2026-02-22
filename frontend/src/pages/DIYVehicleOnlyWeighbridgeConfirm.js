@@ -88,6 +88,9 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
     if (vehicle.btc != null) {
       setBtc(String(vehicle.btc));
     }
+    if (vehicle.tbm != null) {
+      setTbm(String(vehicle.tbm));
+    }
 
     if (preWeigh.fuelLevel != null) {
       setFuelLevel(String(preWeigh.fuelLevel));

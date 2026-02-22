@@ -368,6 +368,34 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
       }
     }
 
+    // Professional client draft created from the ProfessionalClientStart screen.
+    // Contains diyClientUserId and the end-customer contact details. We forward
+    // these through the flow so that both the immediate GoWeigh vehicle-only
+    // save (diy-vehicle-only) and the tow+caravan branch (via
+    // /tow-caravan-weighbridge-caravan-rego -> confirm -> /api/weighs) can
+    // persist the real DIY client instead of the generic professional label.
+    let clientUserId = null;
+    let clientName = '';
+    let clientPhone = '';
+    let clientEmail = '';
+    try {
+      const draftRaw = window.localStorage.getItem('professionalClientDraft');
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        if (draft && draft.diyClientUserId) {
+          clientUserId = draft.diyClientUserId;
+        }
+
+        const firstName = String(draft.firstName || '').trim();
+        const lastName = String(draft.lastName || '').trim();
+        clientName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        clientPhone = String(draft.phone || '').trim();
+        clientEmail = String(draft.email || '').trim();
+      }
+    } catch (e) {
+      console.error('Failed to parse professionalClientDraft from localStorage', e);
+    }
+
     const createDiyClient = async () => {
       if (!pendingClient || pendingClient.clientType !== 'new') return;
 
@@ -409,6 +437,12 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
         passengersFront: preWeigh?.passengersFront ?? '',
         passengersRear: preWeigh?.passengersRear ?? '',
         modifiedImages,
+        // Push customer context through so downstream GoWeigh tow+caravan
+        // screens can call /api/weighs with the correct DIY client.
+        clientUserId: clientUserId || null,
+        customerName: clientName || 'Professional Client',
+        customerPhone: clientPhone || 'N/A',
+        customerEmail: clientEmail || 'unknown@example.com',
         methodSelection: 'Weighbridge - goweigh',
         weighingSelection,
         axleWeigh,
@@ -472,6 +506,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
               amount: 0,
               status: 'completed',
             },
+            clientUserId: clientUserId || null,
           });
 
           return response.data?.weighId || null;
@@ -552,6 +587,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
                 amount: 0,
                 status: 'completed',
               },
+              clientUserId: clientUserId || null,
             });
 
             return response.data?.weighId || null;

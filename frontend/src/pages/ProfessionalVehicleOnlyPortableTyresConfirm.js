@@ -337,6 +337,31 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       }
     }
 
+    // Professional client draft created from the ProfessionalClientStart screen.
+    // Contains diyClientUserId and the end-customer contact details. We forward
+    // these into the DIY vehicle-only save so history shows the real client.
+    let clientUserId = null;
+    let clientName = '';
+    let clientPhone = '';
+    let clientEmail = '';
+    try {
+      const draftRaw = window.localStorage.getItem('professionalClientDraft');
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        if (draft && draft.diyClientUserId) {
+          clientUserId = draft.diyClientUserId;
+        }
+
+        const firstName = String(draft.firstName || '').trim();
+        const lastName = String(draft.lastName || '').trim();
+        clientName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        clientPhone = String(draft.phone || '').trim();
+        clientEmail = String(draft.email || '').trim();
+      }
+    } catch (e) {
+      console.error('Failed to parse professionalClientDraft from localStorage', e);
+    }
+
     const createDiyClient = async () => {
       if (!pendingClient || pendingClient.clientType !== 'new') return;
 
@@ -420,6 +445,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
               amount: 0,
               status: 'completed',
             },
+            clientUserId: clientUserId || null,
           });
 
           return response.data?.weighId || null;
@@ -537,6 +563,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
                 amount: 0,
                 status: 'completed',
               },
+              clientUserId: clientUserId || null,
             });
 
             return response.data?.weighId || null;

@@ -395,4 +395,55 @@ router.post(
   }
 );
 
+// @desc    Lookup an existing DIY client for a professional by email or phone
+// @route   GET /api/auth/professional-clients/lookup?query=
+// @access  Private (professional)
+router.get(
+  '/professional-clients/lookup',
+  protect,
+  authorize('professional'),
+  async (req, res) => {
+    try {
+      const rawQuery = req.query.query;
+      const query = typeof rawQuery === 'string' ? rawQuery.trim() : '';
+
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          message: 'Query is required',
+        });
+      }
+
+      const client = await User.findOne({
+        userType: 'diy',
+        professionalOwnerUserId: req.user.id,
+        $or: [{ email: query }, { phone: query }],
+      }).select('name email phone');
+
+      if (!client) {
+        return res.status(404).json({
+          success: false,
+          message: 'Client not found',
+        });
+      }
+
+      return res.json({
+        success: true,
+        client: {
+          id: client._id,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+        },
+      });
+    } catch (error) {
+      console.error('Error looking up professional client:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to lookup client',
+      });
+    }
+  }
+);
+
 module.exports = router;

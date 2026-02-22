@@ -141,11 +141,26 @@ router.get('/by-plate/:plate', async (req, res) => {
     // If not found in registry, search in weigh collection for previously used caravans
     console.log('🔍 Caravan not found in registry, searching weigh collection...');
     const Weigh = require('../models/Weigh');
-    
-    const weighEntry = await Weigh.findOne({
-      'caravanData.numberPlate': plate.toUpperCase(),
-      ...(state && { 'caravanData.state': state.toUpperCase() })
-    }).sort({ createdAt: -1 }); // Get the most recent entry
+
+    const plateUpper = plate.toUpperCase();
+    const stateUpper = state ? state.toUpperCase() : null;
+
+    // Prefer the most recent weigh that has a compliance image set. This avoids
+    // returning an empty complianceImage when the latest weigh entry exists but
+    // did not persist the image for some reason.
+    const baseWeighQuery = {
+      'caravanData.numberPlate': new RegExp(`^${plateUpper}$`, 'i'),
+      ...(stateUpper && { 'caravanData.state': new RegExp(`^${stateUpper}$`, 'i') })
+    };
+
+    let weighEntry = await Weigh.findOne({
+      ...baseWeighQuery,
+      'caravanData.complianceImage': { $exists: true, $ne: '' },
+    }).sort({ createdAt: -1 });
+
+    if (!weighEntry) {
+      weighEntry = await Weigh.findOne(baseWeighQuery).sort({ createdAt: -1 }); // fallback to most recent entry
+    }
     
     if (weighEntry && weighEntry.caravanData) {
       console.log('✅ Caravan found in weigh collection:', weighEntry.caravanData.numberPlate);

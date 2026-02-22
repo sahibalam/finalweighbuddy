@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
 const { protect, authorize } = require('../middleware/auth');
 const VehicleSubmission = require('../models/VehicleSubmission');
 const CaravanSubmission = require('../models/CaravanSubmission');
@@ -20,23 +22,21 @@ const generateFileName = (originalName) => {
 
 const uploadToSpaces = async (file, fileName) => {
   // Save file locally for now (until DigitalOcean Spaces is implemented)
-  const fs = require('fs');
-  const path = require('path');
-  
   try {
-    // Create uploads directory if it doesn't exist
+    // Create uploads/compliance-plates directory if it doesn't exist
     const uploadDir = path.join(__dirname, '../uploads/compliance-plates');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
-    
+
     // Save file to local directory
     const filePath = path.join(uploadDir, path.basename(fileName));
     fs.writeFileSync(filePath, file.buffer);
-    
+
     console.log('File saved locally:', filePath);
-    
-    // Return local URL path (just the path relative to uploads, not including /uploads/)
+
+    // Return path relative to the /uploads static mount point
+    // This keeps compliance-plates files under the unified /uploads root
     return {
       Location: `compliance-plates/${path.basename(fileName)}`
     };
@@ -44,6 +44,22 @@ const uploadToSpaces = async (file, fileName) => {
     console.error('Error saving file locally:', error);
     throw error;
   }
+};
+
+// Helper to resolve stored compliancePlatePhoto URL/relative path to a local filesystem path
+const resolveCompliancePhotoPath = (photoValue) => {
+  if (!photoValue) return null;
+
+  // Normalize leading slash
+  let relative = photoValue.replace(/^\/+/, '');
+
+  // Strip optional "uploads/" prefix so we can join from the /uploads root
+  if (relative.startsWith('uploads/')) {
+    relative = relative.substring('uploads/'.length);
+  }
+
+  // Now relative is e.g. "compliance-plates/file.jpg" or just a filename
+  return path.join(__dirname, '../uploads', relative);
 };
 
 // Multer configuration for in-memory storage (for DigitalOcean Spaces)
@@ -674,8 +690,8 @@ router.delete('/vehicle/:id', protect, authorize('admin'), async (req, res) => {
 
     // Delete the compliance plate photo file if it exists
     if (submission.compliancePlatePhoto) {
-      const photoPath = path.join(__dirname, '../uploads/compliance-plates', submission.compliancePlatePhoto);
-      if (fs.existsSync(photoPath)) {
+      const photoPath = resolveCompliancePhotoPath(submission.compliancePlatePhoto);
+      if (photoPath && fs.existsSync(photoPath)) {
         fs.unlinkSync(photoPath);
       }
     }
@@ -710,8 +726,8 @@ router.delete('/caravan/:id', protect, authorize('admin'), async (req, res) => {
 
     // Delete the compliance plate photo file if it exists
     if (submission.compliancePlatePhoto) {
-      const photoPath = path.join(__dirname, '../uploads/compliance-plates', submission.compliancePlatePhoto);
-      if (fs.existsSync(photoPath)) {
+      const photoPath = resolveCompliancePhotoPath(submission.compliancePlatePhoto);
+      if (photoPath && fs.existsSync(photoPath)) {
         fs.unlinkSync(photoPath);
       }
     }

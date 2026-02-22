@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, TextField, Button } from '@mui/material';
+import { Box, Typography, TextField, Button, Grid } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
@@ -134,7 +134,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
 
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant="body1" sx={{ minWidth: 120 }}>
+          <Typography variant="body1" sx={{ minWidth: 120, fontSize: 14, whiteSpace: 'nowrap' }}>
             Front Axle
           </Typography>
           <TextField
@@ -147,7 +147,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant="body1" sx={{ minWidth: 120 }}>
+          <Typography variant="body1" sx={{ minWidth: 120, fontSize: 14, whiteSpace: 'nowrap' }}>
             Rear Axle
           </Typography>
           <TextField
@@ -160,7 +160,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="body1" sx={{ minWidth: 120 }}>
+          <Typography variant="body1" sx={{ minWidth: 120, fontSize: 14, whiteSpace: 'nowrap' }}>
             Car Weight
           </Typography>
           <TextField
@@ -202,36 +202,42 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
         Tow Vehicle Unhitched
       </Typography>
       <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          <Typography sx={{ minWidth: 140 }}>Front Axle Unhitched</Typography>
-          <TextField
-            label="Front Axle"
-            value={frontAxle}
-            onChange={(e) => setFrontAxle(e.target.value)}
-            sx={{ width: 220 }}
-          />
-          <Typography>kg</Typography>
-          <Typography sx={{ ml: 2 }}>Platform A</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 140 }}>Rear Axle Unhitched</Typography>
-          <TextField
-            label="Rear Axle"
-            value={rearAxle}
-            onChange={(e) => setRearAxle(e.target.value)}
-            sx={{ width: 220 }}
-          />
-          <Typography>kg</Typography>
-          <Typography sx={{ ml: 2 }}>Platform B</Typography>
-        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Front Axle Unhitched</Typography>
+              <TextField
+                label="Front Axle"
+                value={frontAxle}
+                onChange={(e) => setFrontAxle(e.target.value)}
+                sx={{ width: 160 }}
+              />
+              <Typography>kg</Typography>
+              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform A</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Rear Axle Unhitched</Typography>
+              <TextField
+                label="Rear Axle"
+                value={rearAxle}
+                onChange={(e) => setRearAxle(e.target.value)}
+                sx={{ width: 160 }}
+              />
+              <Typography>kg</Typography>
+              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform B</Typography>
+            </Box>
+          </Grid>
+        </Grid>
       </Box>
 
-      <Typography variant="body2" sx={{ mb: 1 }}>
+      <Typography variant="body2" sx={{ mb: 1, fontSize: 14, whiteSpace: 'nowrap' }}>
         Caravan/Trailer Unhitched
       </Typography>
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 140 }}>Caravan / Trailer ATM</Typography>
+          <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Caravan / Trailer ATM</Typography>
           <TextField
             label="Trailer ATM"
             value={trailerAtm}
@@ -239,7 +245,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
             sx={{ width: 220 }}
           />
           <Typography>kg</Typography>
-          <Typography sx={{ ml: 2 }}>Platform C</Typography>
+          <Typography sx={{ ml: 2, fontSize: 12, whiteSpace: 'nowrap' }}>Platform C</Typography>
         </Box>
       </Box>
 
@@ -250,36 +256,42 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
         Tow Vehicle Hitched
       </Typography>
       <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          <Typography sx={{ minWidth: 140 }}>Front Axle Hitched</Typography>
-          <TextField
-            label="Front Axle"
-            value={frontAxleHitched}
-            onChange={(e) => setFrontAxleHitched(e.target.value)}
-            sx={{ width: 220 }}
-          />
-          <Typography>kg</Typography>
-          <Typography sx={{ ml: 2 }}>Platform A</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 140 }}>Rear Axle Hitched</Typography>
-          <TextField
-            label="Rear Axle"
-            value={rearAxleHitched}
-            onChange={(e) => setRearAxleHitched(e.target.value)}
-            sx={{ width: 220 }}
-          />
-          <Typography>kg</Typography>
-          <Typography sx={{ ml: 2 }}>Platform B</Typography>
-        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Front Axle Hitched</Typography>
+              <TextField
+                label="Front Axle"
+                value={frontAxleHitched}
+                onChange={(e) => setFrontAxleHitched(e.target.value)}
+                sx={{ width: 160 }}
+              />
+              <Typography>kg</Typography>
+              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform A</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Rear Axle Hitched</Typography>
+              <TextField
+                label="Rear Axle"
+                value={rearAxleHitched}
+                onChange={(e) => setRearAxleHitched(e.target.value)}
+                sx={{ width: 160 }}
+              />
+              <Typography>kg</Typography>
+              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform B</Typography>
+            </Box>
+          </Grid>
+        </Grid>
       </Box>
 
-      <Typography variant="body2" sx={{ mb: 1 }}>
+      <Typography variant="body2" sx={{ mb: 1, fontSize: 14, whiteSpace: 'nowrap' }}>
         Caravan/Trailer Hitched
       </Typography>
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 140 }}>Caravan/Trailer GTM</Typography>
+          <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Caravan/Trailer GTM</Typography>
           <TextField
             label="Trailer GTM"
             value={trailerGtm}
@@ -287,7 +299,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
             sx={{ width: 220 }}
           />
           <Typography>kg</Typography>
-          <Typography sx={{ ml: 2 }}>Platform C</Typography>
+          <Typography sx={{ ml: 2, fontSize: 12, whiteSpace: 'nowrap' }}>Platform C</Typography>
         </Box>
       </Box>
 
@@ -296,7 +308,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
       </Typography>
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          <Typography sx={{ minWidth: 180 }}>Total Combination Weight</Typography>
+          <Typography sx={{ minWidth: 180, fontSize: 14, whiteSpace: 'nowrap' }}>Total Combination Weight</Typography>
           <TextField
             label="GCM"
             value={gcm}

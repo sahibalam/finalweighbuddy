@@ -29,6 +29,7 @@ router.post(
     body('firstName', 'First name is required').not().isEmpty(),
     body('lastName', 'Last name is required').not().isEmpty(),
     body('email', 'Please include a valid email').isEmail(),
+    body('phone', 'Phone number is required').not().isEmpty(),
     body('password').optional({ nullable: true }).isLength({ min: 6 }),
   ],
   async (req, res) => {
@@ -38,7 +39,7 @@ router.post(
     }
 
     try {
-      const { firstName, lastName, email, password } = req.body;
+      const { firstName, lastName, email, phone, password } = req.body;
 
       const normalizedEmail = String(email).trim().toLowerCase();
 
@@ -59,7 +60,7 @@ router.post(
         name: `${String(firstName).trim()} ${String(lastName).trim()}`.trim(),
         email: normalizedEmail,
         password: resolvedPassword,
-        phone: req.user.phone,
+        phone: String(phone || '').trim() || req.user.phone,
         postcode: req.user.postcode,
         userType: 'diy',
         fleetOwnerUserId: req.user.id,
@@ -71,6 +72,7 @@ router.post(
         firstName: String(firstName).trim(),
         lastName: String(lastName).trim(),
         email: normalizedEmail,
+        phone: String(phone || '').trim(),
       });
 
       res.status(201).json({
@@ -100,6 +102,7 @@ router.put(
     body('firstName', 'First name is required').not().isEmpty(),
     body('lastName', 'Last name is required').not().isEmpty(),
     body('email', 'Please include a valid email').isEmail(),
+    body('phone', 'Phone number is required').not().isEmpty(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -109,7 +112,7 @@ router.put(
 
     try {
       const { id } = req.params;
-      const { firstName, lastName, email } = req.body;
+      const { firstName, lastName, email, phone } = req.body;
 
       const staffMember = await FleetStaffMember.findOneAndUpdate(
         { _id: id, fleetOwnerUserId: req.user.id },
@@ -117,6 +120,7 @@ router.put(
           firstName: String(firstName).trim(),
           lastName: String(lastName).trim(),
           email: String(email).trim().toLowerCase(),
+          phone: String(phone || '').trim(),
         },
         { new: true }
       );
@@ -124,6 +128,18 @@ router.put(
       if (!staffMember) {
         return res.status(404).json({ success: false, message: 'Staff member not found' });
       }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      await User.findOneAndUpdate(
+        {
+          email: normalizedEmail,
+          fleetOwnerUserId: req.user.id,
+        },
+        {
+          name: `${String(firstName).trim()} ${String(lastName).trim()}`.trim(),
+          phone: String(phone || req.user.phone || '').trim(),
+        }
+      );
 
       res.json({ success: true, staffMember });
     } catch (error) {
@@ -207,5 +223,7 @@ router.post(
     }
   }
 );
+
+module.exports = router;
 
 module.exports = router;
