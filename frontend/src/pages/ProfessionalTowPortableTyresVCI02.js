@@ -34,6 +34,7 @@ const ProfessionalTowPortableTyresVCI02 = () => {
         axleWeigh: {
           ...previousAxleWeigh,
           unhitchedFrontAxle: frontUnhitched,
+          unhitchedRearAxle: rearUnhitched,
           gvmUnhitched,
         },
         towBallMass: null,
@@ -74,27 +75,54 @@ const ProfessionalTowPortableTyresVCI02 = () => {
             Disconnect Caravan/Trailer - Weigh Unhitched Tow Vehicle
           </Typography>
 
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <TextField
-                  label="Front Left Tyre"
-                  value={frontLeft}
-                  onChange={(e) => setFrontLeft(e.target.value)}
-                  sx={{ width: 180 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <TextField
-                  label="Rear Left Tyre"
-                  value={rearLeft}
-                  onChange={(e) => setRearLeft(e.target.value)}
-                  sx={{ width: 180 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              {isDualAxle && (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              columnGap: 4,
+              rowGap: 2,
+              mb: 3,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TextField
+                label="Front Left Tyre"
+                value={frontLeft}
+                onChange={(e) => setFrontLeft(e.target.value)}
+                sx={{ width: 180 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TextField
+                label="Front Right Tyre"
+                value={frontRight}
+                onChange={(e) => setFrontRight(e.target.value)}
+                sx={{ width: 180 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TextField
+                label="Rear Left Tyre"
+                value={rearLeft}
+                onChange={(e) => setRearLeft(e.target.value)}
+                sx={{ width: 180 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TextField
+                label="Rear Right Tyre"
+                value={rearRight}
+                onChange={(e) => setRearRight(e.target.value)}
+                sx={{ width: 180 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+
+            {isDualAxle && (
+              <>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <TextField
                     label="Middle Left Tyre"
@@ -104,28 +132,6 @@ const ProfessionalTowPortableTyresVCI02 = () => {
                   />
                   <Typography>kg</Typography>
                 </Box>
-              )}
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <TextField
-                  label="Front Right Tyre"
-                  value={frontRight}
-                  onChange={(e) => setFrontRight(e.target.value)}
-                  sx={{ width: 180 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <TextField
-                  label="Rear Right Tyre"
-                  value={rearRight}
-                  onChange={(e) => setRearRight(e.target.value)}
-                  sx={{ width: 180 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              {isDualAxle && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <TextField
                     label="Middle Right Tyre"
@@ -135,9 +141,9 @@ const ProfessionalTowPortableTyresVCI02 = () => {
                   />
                   <Typography>kg</Typography>
                 </Box>
-              )}
-            </Grid>
-          </Grid>
+              </>
+            )}
+          </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
             <Button variant="contained" onClick={handleContinue}>

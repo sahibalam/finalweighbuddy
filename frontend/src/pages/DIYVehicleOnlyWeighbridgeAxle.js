@@ -100,13 +100,6 @@ const DIYVehicleOnlyWeighbridgeAxle = () => {
             <Typography variant="body1">kg</Typography>
           </Box>
 
-          <Typography
-            variant="caption"
-            sx={{ mb: 4 }}
-          >
-            Note: If your vehicle has a dual rear axle, combine the individual rear-axle tyre loads and enter the total value.
-          </Typography>
-
           <Box sx={{ flexGrow: 1 }} />
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>

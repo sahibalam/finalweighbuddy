@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const AXLE_OPTIONS = ['Single Axle', 'Dual Axle'];
+const AXLE_OPTIONS = ['Single Axle', 'Dual Axle', 'Triple Axle'];
 
 const DIYCaravanOnlyPortableTyres = () => {
   const navigate = useNavigate();
@@ -126,23 +126,31 @@ const DIYCaravanOnlyPortableTyres = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Single Axle
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ minWidth: 100 }}>Left Tyre</Typography>
-                <TextField
-                  value={singleLeft}
-                  onChange={(e) => setSingleLeft(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography sx={{ minWidth: 100 }}>Right Tyre</Typography>
-                <TextField
-                  value={singleRight}
-                  onChange={(e) => setSingleRight(e.target.value)}
-                  sx={{ width: 140, mr: 1 }}
-                />
-                <Typography>kg</Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', md: 'row' },
+                  gap: 2,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ minWidth: 100 }}>Left Tyre</Typography>
+                  <TextField
+                    value={singleLeft}
+                    onChange={(e) => setSingleLeft(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ minWidth: 100 }}>Right Tyre</Typography>
+                  <TextField
+                    value={singleRight}
+                    onChange={(e) => setSingleRight(e.target.value)}
+                    sx={{ width: 140, mr: 1 }}
+                  />
+                  <Typography>kg</Typography>
+                </Box>
               </Box>
             </Box>
           )}

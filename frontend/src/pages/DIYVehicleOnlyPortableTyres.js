@@ -114,13 +114,6 @@ const DIYVehicleOnlyPortableTyres = () => {
             </Grid>
           </Grid>
 
-          <Typography
-            variant="caption"
-            sx={{ mt: 3, mb: 4 }}
-          >
-            Note: If your vehicle has a dual rear axle, combine the individual rear-axle tyre loads and enter the total value.
-          </Typography>
-
           <Box sx={{ flexGrow: 1 }} />
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>

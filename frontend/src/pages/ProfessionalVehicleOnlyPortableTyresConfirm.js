@@ -392,201 +392,55 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       const passengersFront = preWeigh?.passengersFront ?? '';
       const passengersRear = preWeigh?.passengersRear ?? '';
 
-      const saveVehicleOnlyWeigh = async () => {
-        try {
-          setSaving(true);
-
-          const capacities = {
-            fawr: frontAxleLoading !== '' ? Number(frontAxleLoading) || 0 : null,
-            rawr: rearAxleLoading !== '' ? Number(rearAxleLoading) || 0 : null,
-            gvm: gvm !== '' ? Number(gvm) || 0 : null,
-            gcm: gcm !== '' ? Number(gcm) || 0 : null,
-            btc: btc !== '' ? Number(btc) || 0 : null,
-            tbm: tbm !== '' ? Number(tbm) || 0 : null,
-          };
-
-          const normalizedWeights = {
-            methodSelection: 'Portable Scales - Individual Tyre Weights',
-            frontAxle: frontMeasured,
-            rearAxle: rearMeasured,
-            totalVehicle: gvmMeasured,
-            totalCaravan: 0,
-            grossCombination: gvmMeasured,
-            tbm: 0,
-            raw: {
-              axleWeigh: axleWeigh || null,
-              vci01: vci01 || null,
-              towBallMass: towBallMass ?? null,
-              vehicleCapacities: capacities,
-            },
-          };
-
-          const response = await axios.post('/api/weighs/diy-vehicle-only', {
-            vehicleSummary: {
-              description,
-              rego,
-              state,
-              vin,
-              gvmUnhitched: gvmMeasured,
-              frontUnhitched: frontMeasured,
-              rearUnhitched: rearMeasured,
-              ...capacities,
-            },
-            weights: normalizedWeights,
-            preWeigh: {
-              fuelLevel: fuelLevel === '' ? null : Number(fuelLevel),
-              passengersFront: Number(passengersFront) || 0,
-              passengersRear: Number(passengersRear) || 0,
-              notes: preWeigh?.notes || '',
-            },
-            modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
-            payment: {
-              method: 'direct',
-              amount: 0,
-              status: 'completed',
-            },
-            clientUserId: clientUserId || null,
-          });
-
-          return response.data?.weighId || null;
-        } catch (error) {
-          console.error('Failed to save professional vehicle-only portable tyres weigh:', error);
-          console.error('Backend response:', error?.response?.data);
-          return null;
-        } finally {
-          setSaving(false);
-        }
+      // Confirm screens should NOT save; only navigate to results.
+      // Results screen "Finish" button will perform the save.
+      const baseState = {
+        rego,
+        state,
+        description,
+        vin,
+        frontAxleCapacity: frontAxleLoading,
+        rearAxleCapacity: rearAxleLoading,
+        gvmCapacity: gvm,
+        gcmCapacity: gcm,
+        btcCapacity: btc,
+        tbmCapacity: tbm,
+        towBallMass,
+        axleWeigh,
+        vci01,
+        measuredFrontAxle: frontMeasured,
+        measuredRearAxle: rearMeasured,
+        measuredGvm: gvmMeasured,
+        fuelLevel,
+        passengersFront,
+        passengersRear,
+        modifiedImages,
+        preWeigh,
+        methodSelection: 'Portable Scales - Individual Tyre Weights',
+        weighingSelection,
+        vehicleMasterId,
+        clientUserId: clientUserId || null,
+        customerName: clientName || 'Professional Client',
+        customerPhone: clientPhone || 'N/A',
+        customerEmail: clientEmail || 'unknown@example.com',
       };
 
-      // Vehicle-only flow goes straight to results as before
+      // Vehicle-only flow goes straight to results
       if (weighingSelection === 'vehicle_only') {
-        saveVehicleOnlyWeigh().then((weighId) => {
-          navigate('/vehicle-only-weighbridge-results', {
-            state: {
-              rego,
-              state,
-              description,
-              vin,
-              frontAxleCapacity: frontAxleLoading,
-              rearAxleCapacity: rearAxleLoading,
-              gvmCapacity: gvm,
-              gcmCapacity: gcm,
-              btcCapacity: btc,
-              tbmCapacity: tbm,
-              towBallMass,
-              axleWeigh,
-              vci01,
-              measuredFrontAxle: frontMeasured,
-              measuredRearAxle: rearMeasured,
-              measuredGvm: gvmMeasured,
-              fuelLevel,
-              passengersFront,
-              passengersRear,
-              modifiedImages,
-              preWeigh,
-              methodSelection: 'Portable Scales - Individual Tyre Weights',
-              weighingSelection,
-              vehicleMasterId,
-              alreadySaved: Boolean(weighId),
-              weighId: weighId || null,
-            },
-          });
+        navigate('/vehicle-only-weighbridge-results', {
+          state: {
+            ...baseState,
+            alreadySaved: false,
+            weighId: null,
+          },
         });
         return;
       }
 
       // Caravan-only flow: send caravan details with caravan object straight to results
       if (weighingSelection === 'caravan_only_registered') {
-        const saveCaravanOnlyWeigh = async () => {
-          try {
-            setSaving(true);
-
-            const caravanCaps = {
-              atm: caravanAtm !== '' ? Number(caravanAtm) || 0 : null,
-              gtm: caravanGtm !== '' ? Number(caravanGtm) || 0 : null,
-              axleGroups: caravanAxleGroups !== '' ? Number(caravanAxleGroups) || 0 : null,
-              tare: caravanTare !== '' ? Number(caravanTare) || 0 : null,
-            };
-
-            const gtmMeasured = axleWeigh?.trailerGtm != null ? Number(axleWeigh.trailerGtm) || 0 : 0;
-            const tbmMeasured = towBallMass != null ? Number(towBallMass) || 0 : 0;
-            const atmMeasured = gtmMeasured > 0 ? gtmMeasured + tbmMeasured : 0;
-
-            const normalizedWeights = {
-              methodSelection: 'Portable Scales - Individual Tyre Weights',
-              frontAxle: 0,
-              rearAxle: 0,
-              totalVehicle: 0,
-              totalCaravan: gtmMeasured,
-              grossCombination: atmMeasured,
-              tbm: tbmMeasured,
-              raw: {
-                axleWeigh: axleWeigh || null,
-                towBallMass: towBallMass ?? null,
-                caravanCapacities: caravanCaps,
-              },
-            };
-
-            const response = await axios.post('/api/weighs/diy-vehicle-only', {
-              vehicleSummary: {
-                description: '',
-                rego: '',
-                state: '',
-                vin: '',
-                gvmUnhitched: 0,
-                frontUnhitched: 0,
-                rearUnhitched: 0,
-              },
-              caravanSummary: {
-                rego,
-                state,
-                make: caravanMake,
-                model: caravanModel,
-                year: caravanYear,
-                vin,
-                complianceImage: caravanComplianceImage,
-                ...caravanCaps,
-                tbmMeasured,
-                gtmMeasured,
-                atmMeasured,
-              },
-              weights: normalizedWeights,
-              preWeigh: {
-                fuelLevel: fuelLevel === '' ? null : Number(fuelLevel),
-                passengersFront: Number(passengersFront) || 0,
-                passengersRear: Number(passengersRear) || 0,
-                notes: preWeigh?.notes || '',
-              },
-              modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
-              payment: {
-                method: 'direct',
-                amount: 0,
-                status: 'completed',
-              },
-              clientUserId: clientUserId || null,
-            });
-
-            return response.data?.weighId || null;
-          } catch (error) {
-            console.error('Failed to save professional caravan-only portable tyres weigh:', error);
-            console.error('Backend response:', error?.response?.data);
-            return null;
-          } finally {
-            setSaving(false);
-          }
-        };
-
         const enhancedState = {
-          rego,
-          state,
-          description,
-          vin,
-          axleWeigh,
-          methodSelection: 'Portable Scales - Individual Tyre Weights',
-          weighingSelection,
-          towBallMass,
-          preWeigh,
-          vehicleMasterId,
+          ...baseState,
           caravan: {
             rego,
             state,
@@ -602,14 +456,12 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
           },
         };
 
-        saveCaravanOnlyWeigh().then((weighId) => {
-          navigate('/vehicle-only-weighbridge-results', {
-            state: {
-              ...enhancedState,
-              alreadySaved: Boolean(weighId),
-              weighId: weighId || null,
-            },
-          });
+        navigate('/vehicle-only-weighbridge-results', {
+          state: {
+            ...enhancedState,
+            alreadySaved: false,
+            weighId: null,
+          },
         });
         return;
       }
@@ -617,30 +469,9 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       // Tow Vehicle and Caravan / Trailer: go to caravan registration screen next
       navigate('/professional-tow-portable-tyres-caravan-rego', {
         state: {
-          rego,
-          state,
-          description,
-          vin,
-          frontAxleCapacity: frontAxleLoading,
-          rearAxleCapacity: rearAxleLoading,
-          gvmCapacity: gvm,
-          gcmCapacity: gcm,
-          btcCapacity: btc,
-          tbmCapacity: tbm,
-          towBallMass,
-          axleWeigh,
-          vci01,
-          measuredFrontAxle: frontMeasured,
-          measuredRearAxle: rearMeasured,
-          measuredGvm: gvmMeasured,
-          fuelLevel,
-          passengersFront,
-          passengersRear,
-          modifiedImages,
-          preWeigh,
-          methodSelection: 'Portable Scales - Individual Tyre Weights',
-          weighingSelection,
-          vehicleMasterId,
+          ...baseState,
+          alreadySaved: false,
+          weighId: null,
         },
       });
     });

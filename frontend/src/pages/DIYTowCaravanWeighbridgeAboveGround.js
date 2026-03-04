@@ -15,10 +15,9 @@ const DIYTowCaravanWeighbridgeAboveGround = () => {
   const handleContinue = () => {
     const state = location.state || {};
 
-    navigate('/diy-weigh', {
+    navigate('/tow-caravan-weighbridge-above-ground-weights', {
       state: {
         ...state,
-        startAtPayment: true
       }
     });
   };
@@ -52,16 +51,16 @@ const DIYTowCaravanWeighbridgeAboveGround = () => {
             WeighBuddy recommends using either:
           </Typography>
           <Typography variant="body2" sx={{ ml: 2 }}>
-            b7 individual weigh pads (usually used by professional weighing businesses)
+            • individual weigh pads (usually used by professional weighing businesses)
           </Typography>
           <Typography variant="body2" sx={{ ml: 2 }}>
-            b7 an inground weighbridge, where the tow vehicle and trailer sit level, or
+            • an inground weighbridge, where the tow vehicle and trailer sit level, or
           </Typography>
           <Typography variant="body2" sx={{ ml: 2 }}>
-            b7 a goweigh style above-ground weighbridge with split sections that capture each axle group separately
+            • a goweigh style above-ground weighbridge with split sections that capture each axle group separately
           </Typography>
           <Typography variant="body2" sx={{ ml: 2, mb: 2 }}>
-            b7 If you use a single-pad above-ground weighbridge, the only reliably accurate measurements will be GCM, ATM and
+            • If you use a single-pad above-ground weighbridge, the only reliably accurate measurements will be GCM, ATM and
             Unhitched GVM.
           </Typography>
           <Typography variant="body2" sx={{ mb: 3 }}>

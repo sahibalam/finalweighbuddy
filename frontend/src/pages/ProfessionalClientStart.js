@@ -44,6 +44,12 @@ const ProfessionalClientStart = () => {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const navigate = useNavigate();
 
+  const buildExistingClientHelperText = () => {
+    if (existingClientError) return existingClientError;
+    if (isLookingUp) return 'Looking up client...';
+    return 'Enter email or phone number to find an existing client';
+  };
+
   const handleChange = (field) => (event) => {
     setClientForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
@@ -290,17 +296,21 @@ const ProfessionalClientStart = () => {
                         label="Search existing client (email or phone)"
                         value={existingQuery}
                         onChange={handleExistingQueryChange}
-                        helperText={
-                          existingClientError
-                            ? existingClientError
-                            : existingClient
-                            ? `${existingClient.name} (${existingClient.email}, ${existingClient.phone})`
-                            : isLookingUp
-                            ? 'Looking up client...'
-                            : 'Enter email or phone number to find an existing client'
-                        }
+                        helperText={buildExistingClientHelperText()}
                         error={Boolean(existingClientError)}
+                        FormHelperTextProps={{ sx: { whiteSpace: 'pre-line' } }}
                       />
+
+                      {existingClient && !existingClientError && (
+                        <Paper variant="outlined" sx={{ mt: 2, p: 2 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                            Selected Client
+                          </Typography>
+                          <Typography variant="body2">{existingClient.name || '-'}</Typography>
+                          <Typography variant="body2">{existingClient.email || '-'}</Typography>
+                          <Typography variant="body2">{existingClient.phone || '-'}</Typography>
+                        </Paper>
+                      )}
                     </Box>
                   )}
 

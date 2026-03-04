@@ -24,10 +24,23 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    hsts: false,
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        upgradeInsecureRequests: null,
+        scriptSrc: ["'self'", 'https://js.stripe.com'],
+        scriptSrcElem: ["'self'", 'https://js.stripe.com'],
+        frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com'],
+        connectSrc: ["'self'", 'https://api.stripe.com', 'https://checkout.stripe.com', 'https://q.stripe.com'],
+        imgSrc: ["'self'", 'data:', 'blob:']
+      }
+    }
+  })
+);
 app.use(compression());
-
-
 
 //CORS configuration
 console.log('�� CORS Configuration:');
@@ -93,7 +106,7 @@ app.use('/uploads', (req, res, next) => {
 app.use('/api/admin', adminRoutes);
 
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -115,7 +128,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler - serve React app for client-side routing
 app.use('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/build/index.html'));
 });
 
 app.listen(PORT, () => {

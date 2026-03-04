@@ -403,6 +403,23 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
     const frontUnhitched = Number(vehicleSummary.frontUnhitched) || 0;
     const rearUnhitched = Number(vehicleSummary.rearUnhitched) || 0;
 
+    const resolvedTowBallWeight =
+      normalizedWeights && typeof normalizedWeights === 'object'
+        ? Number(normalizedWeights.tbm) || 0
+        : 0;
+
+    const resolvedCaravanWeight =
+      normalizedWeights && typeof normalizedWeights === 'object'
+        ? Number(normalizedWeights.totalCaravan) || 0
+        : 0;
+
+    const resolvedAtmMeasured = Math.max(0, resolvedCaravanWeight + resolvedTowBallWeight);
+
+    const resolvedVehicleHitched =
+      normalizedWeights && typeof normalizedWeights === 'object'
+        ? Number(normalizedWeights.totalVehicle) || totalUnhitched
+        : totalUnhitched;
+
     // Confirm Caravan/Trailer Details rules (registered caravan flows):
     // all required except GTM, VIN, Axle Group Loadings.
     if (caravanSummary && typeof caravanSummary === 'object') {
@@ -534,10 +551,10 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
       // Vehicle-only DIY flow: treat the unhitched total as both hitched
       // and unhitched so required fields are satisfied. Caravan-related
       // fields are zero as there is no caravan in this flow.
-      vehicleWeightHitched: totalUnhitched,
+      vehicleWeightHitched: resolvedVehicleHitched,
       vehicleWeightUnhitched: totalUnhitched,
-      caravanWeight: 0,
-      towBallWeight: 0,
+      caravanWeight: resolvedAtmMeasured,
+      towBallWeight: resolvedTowBallWeight,
 
       // Store a light vehicle summary (from Info-Agent / lookup + DIY axle calc)
       vehicleData: {

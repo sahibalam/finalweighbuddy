@@ -64,8 +64,25 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
       setTare(String(c.tare != null ? c.tare : c.tareMass));
     }
 
-    if (!axleGroups && (c.axleCapacity != null || c.axleGroupLoading != null)) {
-      setAxleGroups(String(c.axleCapacity != null ? c.axleCapacity : c.axleGroupLoading));
+    if (
+      !axleGroups &&
+      (c.axleGroups != null ||
+        c.axleGroupLoadings != null ||
+        c.axleGroup != null ||
+        c.axleCapacity != null ||
+        c.axleGroupLoading != null)
+    ) {
+      const resolvedAxleGroups =
+        c.axleGroups != null
+          ? c.axleGroups
+          : c.axleGroupLoadings != null
+            ? c.axleGroupLoadings
+            : c.axleGroup != null
+              ? c.axleGroup
+              : c.axleCapacity != null
+                ? c.axleCapacity
+                : c.axleGroupLoading;
+      setAxleGroups(String(resolvedAxleGroups));
     }
 
     if ((!vin || String(vin).trim() === '') && c.vin) {
@@ -291,13 +308,22 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
         notes: baseState.notes || '',
       };
 
-      const saveResp = await axios.post('/api/weighs', payload);
-      const savedWeighId = saveResp?.data?.weigh?._id || saveResp?.data?.weighId || null;
+      // Confirm screens should NOT save; only navigate to results.
+      // Results screen "Finish" button will perform the save.
+      // Option A: ATM measured = GTM + TBM
+      const atmMeasured = Math.max(0, gtmMeasured + tbmMeasured);
 
       const enhancedState = {
         ...baseState,
-        weighId: savedWeighId,
-        alreadySaved: true,
+        alreadySaved: false,
+        weighId: null,
+        vehicleId,
+        caravanId,
+        towBallMass: tbmMeasured,
+        measuredGvmHitched: gvmHitched,
+        gtmMeasured,
+        atmMeasured,
+        gcmMeasured,
         axleWeigh: {
           ...(baseState.axleWeigh || {}),
         },

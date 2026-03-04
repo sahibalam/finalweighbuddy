@@ -111,44 +111,33 @@ const ProfessionalTowPortableTyresVCI01 = () => {
             </FormControl>
           </Box>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              columnGap: 4,
+              rowGap: 2,
+              mb: 2,
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography sx={{ minWidth: 110 }}>Front Left Tyre</Typography>
-              <TextField
-                value={frontLeft}
-                onChange={(e) => setFrontLeft(e.target.value)}
-                sx={{ width: 140, mr: 1 }}
-              />
+              <TextField value={frontLeft} onChange={(e) => setFrontLeft(e.target.value)} sx={{ width: 140, mr: 1 }} />
               <Typography>kg</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography sx={{ minWidth: 110 }}>Front Right Tyre</Typography>
-              <TextField
-                value={frontRight}
-                onChange={(e) => setFrontRight(e.target.value)}
-                sx={{ width: 140, mr: 1 }}
-              />
+              <TextField value={frontRight} onChange={(e) => setFrontRight(e.target.value)} sx={{ width: 140, mr: 1 }} />
               <Typography>kg</Typography>
             </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography sx={{ minWidth: 110 }}>Rear Left Tyre</Typography>
-              <TextField
-                value={rearLeft}
-                onChange={(e) => setRearLeft(e.target.value)}
-                sx={{ width: 140, mr: 1 }}
-              />
+              <TextField value={rearLeft} onChange={(e) => setRearLeft(e.target.value)} sx={{ width: 140, mr: 1 }} />
               <Typography>kg</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography sx={{ minWidth: 110 }}>Rear Right Tyre</Typography>
-              <TextField
-                value={rearRight}
-                onChange={(e) => setRearRight(e.target.value)}
-                sx={{ width: 140, mr: 1 }}
-              />
+              <TextField value={rearRight} onChange={(e) => setRearRight(e.target.value)} sx={{ width: 140, mr: 1 }} />
               <Typography>kg</Typography>
             </Box>
           </Box>
@@ -196,7 +185,15 @@ const ProfessionalTowPortableTyresVCI01 = () => {
                 RE-Weigh Tow Vehicle - Hitched to Caravan/Trailer
               </Typography>
 
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                  columnGap: 4,
+                  rowGap: 2,
+                  mb: 2,
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Typography sx={{ minWidth: 110 }}>Front Left Tyre</Typography>
                   <TextField
@@ -215,9 +212,6 @@ const ProfessionalTowPortableTyresVCI01 = () => {
                   />
                   <Typography>kg</Typography>
                 </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Typography sx={{ minWidth: 110 }}>Rear Left Tyre</Typography>
                   <TextField

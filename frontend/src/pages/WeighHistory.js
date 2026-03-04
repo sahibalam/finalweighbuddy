@@ -135,10 +135,18 @@ const WeighHistory = () => {
         weigh.caravan
       );
 
-    const weighingSelection =
-      w.diyWeighingSelection || (hasCaravan ? 'tow_vehicle_and_caravan' : 'vehicle_only');
+    let inferredWeighingSelection = null;
+    if (w.weightsType === 'diy_caravan_only_registered') {
+      inferredWeighingSelection = 'caravan_only_registered';
+    } else if (w.weightsType === 'diy_vehicle_only') {
+      inferredWeighingSelection = 'vehicle_only';
+    } else if (w.weightsType === 'diy_tow_caravan') {
+      inferredWeighingSelection = 'tow_vehicle_and_caravan';
+    }
 
-    // Measured values (hitched): prefer compliance.vehicle.*.actual, then weights.*
+    const weighingSelection =
+      w.diyWeighingSelection || inferredWeighingSelection || (hasCaravan ? 'tow_vehicle_and_caravan' : 'vehicle_only');
+
     const measuredFrontAxle =
       vehComp.frontAxle?.actual != null
         ? safeNum(vehComp.frontAxle.actual)
@@ -170,18 +178,28 @@ const WeighHistory = () => {
       0;
 
     const gtmOverall =
-      safeNum(w.totalCaravan) ??
-      (cavComp.gtm?.actual != null ? safeNum(cavComp.gtm.actual) : null) ??
-      caravanOnlyTotal;
+      weighingSelection === 'caravan_only_registered'
+        ? safeNum(w.totalCaravan) ??
+          (cavComp.gtm?.actual != null ? safeNum(cavComp.gtm.actual) : null) ??
+          caravanOnlyTotal
+        : safeNum(w.totalCaravan) ??
+          (cavComp.gtm?.actual != null ? safeNum(cavComp.gtm.actual) : null) ??
+          caravanOnlyTotal;
 
     const atmOverall =
-      (cavComp.atm?.actual != null ? safeNum(cavComp.atm.actual) : null) ??
-      (gtmOverall + (tbmOverall || 0));
+      weighingSelection === 'caravan_only_registered'
+        ? safeNum(w.grossCombination) ??
+          (cavComp.atm?.actual != null ? safeNum(cavComp.atm.actual) : null) ??
+          (gtmOverall + tbmOverall)
+        : (cavComp.atm?.actual != null ? safeNum(cavComp.atm.actual) : null) ??
+          (gtmOverall + tbmOverall);
 
     const gcmOverall =
-      safeNum(w.grossCombination) ??
-      (combComp.gcm?.actual != null ? safeNum(combComp.gcm.actual) : null) ??
-      (vehicleOnlyTotal + atmOverall);
+      weighingSelection === 'caravan_only_registered'
+        ? 0
+        : safeNum(w.grossCombination) ??
+          (combComp.gcm?.actual != null ? safeNum(combComp.gcm.actual) : null) ??
+          (vehicleOnlyTotal + atmOverall);
 
     // Unhitched values (used for Tow Vehicle Unhitched rows when available).
     const unhitchedGvmRaw =
@@ -218,15 +236,24 @@ const WeighHistory = () => {
     const resolveTowBallMass = () => {
       // 1) Explicit TBM saved on weights (common for DIY/fleet flows)
       const fromWeightsTbm = safeNum(w.tbm);
-      if (fromWeightsTbm != null && fromWeightsTbm > 0) return fromWeightsTbm;
+      if (fromWeightsTbm != null) return fromWeightsTbm;
 
       // 2) TBM measured/persisted on caravanData (tbmMeasured)
       const fromCaravanMeasured = safeNum(c.tbmMeasured);
-      if (fromCaravanMeasured != null && fromCaravanMeasured > 0) return fromCaravanMeasured;
+      if (fromCaravanMeasured != null) return fromCaravanMeasured;
 
-      // 3) Legacy top-level towBallWeight (may be 0 on some records)
+      // 3) Legacy top-level towBallWeight
       const legacy = safeNum(weigh.towBallWeight);
-      return legacy != null ? legacy : 0;
+      if (legacy != null) return legacy;
+
+      // 4) Computed fallback: for some professional tow+caravan weighbridge
+      // methods, TBM may not be persisted even though ATM/GTM/GCM are.
+      // Derive TBM from the same overall values used for embedded history.
+      const computed =
+        gcmOverall != null && vehicleOnlyTotal != null && gtmOverall != null
+          ? Math.max(0, (gcmOverall || 0) - (vehicleOnlyTotal || 0) - (gtmOverall || 0))
+          : Math.max(0, (gcmOverall || 0) - (vehicleOnlyTotal || 0));
+      return computed;
     };
 
     let resolvedTowBallMass = resolveTowBallMass();
@@ -245,6 +272,22 @@ const WeighHistory = () => {
 
     const axleWeigh =
       w.axleWeigh || weigh.axleWeigh || null;
+
+    const measuredCaravanAtm =
+      safeNum(w.grossCombination) ??
+      safeNum(c.atmMeasured) ??
+      safeNum(cavComp.atm?.actual) ??
+      (atmOverall != null ? atmOverall : 0);
+    const measuredCaravanGtm =
+      safeNum(w.totalCaravan) ??
+      safeNum(c.gtmMeasured) ??
+      safeNum(cavComp.gtm?.actual) ??
+      (gtmOverall != null ? gtmOverall : 0);
+    const measuredCaravanTbm =
+      safeNum(w.tbm) ??
+      safeNum(weigh.towBallWeight) ??
+      safeNum(c.tbmMeasured) ??
+      (tbmOverall != null ? tbmOverall : 0);
 
     const overrideState = {
       // Persistence / identity
@@ -299,19 +342,19 @@ const WeighHistory = () => {
         atm: c.atm || 0,
         gtm: c.gtm || 0,
         axleGroups: c.axleCapacity || c.axleGroups || 0,
+
+        // Ensure any static caravan details (like tare) are preserved for the
+        // embedded results modal, even when the history record stores them only
+        // under caravanData.
+        tare: c.tare != null && c.tare !== '' ? c.tare : 0,
+
         // Persist any measured caravan values so embedded history can
         // reconstruct ATM/GTM/TBM without raw tyre/axle payloads. Prefer
         // explicit caravanData measured fields, then fall back to
         // compliance.caravan actuals when available.
-        atmMeasured: c.atmMeasured != null && c.atmMeasured !== ''
-          ? Number(c.atmMeasured) || 0
-          : safeNum(cavComp.atm?.actual) ?? 0,
-        gtmMeasured: c.gtmMeasured != null && c.gtmMeasured !== ''
-          ? Number(c.gtmMeasured) || 0
-          : safeNum(cavComp.gtm?.actual) ?? 0,
-        tbmMeasured: c.tbmMeasured != null && c.tbmMeasured !== ''
-          ? Number(c.tbmMeasured) || 0
-          : safeNum(vehComp.tbm?.actual) ?? safeNum(w.tbm) ?? 0,
+        atmMeasured: measuredCaravanAtm,
+        gtmMeasured: measuredCaravanGtm,
+        tbmMeasured: measuredCaravanTbm,
         rego: weigh.caravanNumberPlate || c.numberPlate || c.plate || '',
         state: c.state || weigh.caravanRegistryId?.state || weigh.caravanState || ''
       },
@@ -321,10 +364,11 @@ const WeighHistory = () => {
       notes: weigh.notes || '',
 
       // Detailed axle / tyre payloads used by the results component
-      axleWeigh,
+      axleWeigh: axleWeigh || raw?.axleWeigh || null,
       tyreWeigh: raw?.tyreWeigh || null,
       goweighData: raw?.goweighData || null,
       towBallMass: resolvedTowBallMass,
+
       towBallMassOverride: safeNum(raw?.towBallMass),
       vci01: raw.vci01 || null,
       vci02: raw.vci02 || null

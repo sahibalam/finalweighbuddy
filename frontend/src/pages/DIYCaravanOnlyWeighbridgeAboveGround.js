@@ -78,13 +78,14 @@ const DIYCaravanOnlyWeighbridgeAboveGround = () => {
 
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <Typography variant="body1" sx={{ minWidth: 220 }}>
-              Aggregated Trailor Mass (ATM)
+              Aggregated Trailer Mass (ATM)
             </Typography>
             <TextField
               value={caravanAtm}
               onChange={(e) => setCaravanAtm(e.target.value)}
-              placeholder="ATM"
-              sx={{ width: 160, mr: 1 }}
+              variant="outlined"
+              size="small"
+              sx={{ mr: 1, width: 120 }}
             />
             <Typography variant="body1">kg</Typography>
           </Box>

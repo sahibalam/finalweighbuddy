@@ -16,6 +16,8 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const [isFinishing, setIsFinishing] = useState(false);
+
   // Professional flow: hydrate client details from localStorage draft created on ProfessionalClientStart
   const [clientInfo, setClientInfo] = useState(null);
   // Fleet flow: hydrate customer draft created from FleetStaffManagement "Create new User".
@@ -23,6 +25,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (embedded) return;
     try {
       const raw = window.localStorage.getItem('professionalClientDraft');
       console.log('🔎 professionalClientDraft raw in results:', raw);
@@ -48,6 +51,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (embedded) return;
     try {
       const raw = window.localStorage.getItem('weighbuddy_fleetCustomerDraft');
       console.log('DIYResults: fleetCustomerDraft raw from localStorage:', raw);
@@ -76,6 +80,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   }, []);
 
   const loadPersistedResultsState = () => {
+    if (embedded) return null;
     try {
       const raw = window.sessionStorage.getItem('weighbuddy_lastResultsState');
       if (!raw) return null;
@@ -88,6 +93,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const hasLocationState = Boolean(location.state && Object.keys(location.state).length > 0);
   const persistedState = useMemo(() => {
     if (overrideState) return null;
+    if (embedded) return null;
     if (hasLocationState) return null;
     return loadPersistedResultsState();
   }, [hasLocationState, overrideState]);
@@ -98,6 +104,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   useEffect(() => {
     if (!overrideState && hasLocationState) {
+      if (embedded) return;
       try {
         window.sessionStorage.setItem(
           'weighbuddy_lastResultsState',
@@ -188,6 +195,21 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // For embedded history modals, always prefer the customer details coming
   // from the weigh record (overrideState) so stale localStorage drafts from
   // professional/fleet workflows do not leak into the history view.
+  const loggedInDiyClient = React.useMemo(() => {
+    // Only treat the auth user as the "client" for normal DIY users.
+    // Fleet and professional flows can be operating on behalf of someone else,
+    // so keep those driven by customerName/customerEmail/customerPhone.
+    if (!user) return null;
+    if (user.userType === 'fleet') return null;
+    if (user.userType === 'professional') return null;
+
+    const fullName = String(user.name || '').trim();
+    const email = String(user.email || '').trim();
+    const phone = String(user.phone || '').trim();
+    if (!fullName && !email && !phone) return null;
+    return { fullName, email, phone };
+  }, [user]);
+
   const effectiveClient = React.useMemo(() => {
     const name = String(customerName || '').trim();
     const email = String(customerEmail || '').trim();
@@ -196,6 +218,12 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     if (embedded) {
       if (!name && !email && !phone) return null;
       return { fullName: name, email, phone };
+    }
+
+    // Default DIY results screen should show the logged-in DIY client in the
+    // header (top-right), rather than the "customer" fields.
+    if (loggedInDiyClient) {
+      return loggedInDiyClient;
     }
 
     if (clientInfo && (clientInfo.fullName || clientInfo.email || clientInfo.phone)) {
@@ -211,7 +239,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       email,
       phone,
     };
-  }, [clientInfo, customerName, customerEmail, customerPhone, embedded]);
+  }, [clientInfo, customerName, customerEmail, customerPhone, embedded, loggedInDiyClient]);
 
   const resolvedFuelLevel =
     fuelLevel !== '' && fuelLevel != null
@@ -273,6 +301,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   if (
     typeof window !== 'undefined' &&
     isTowCaravanGoWeighMethod &&
+    !embedded &&
     !resolvedGoweighData
   ) {
     try {
@@ -291,6 +320,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   let portableSessionVci02 = null;
   if (
     typeof window !== 'undefined' &&
+    !embedded &&
     weighingSelection === 'tow_vehicle_and_caravan' &&
     methodSelection === 'Portable Scales - Individual Tyre Weights'
   ) {
@@ -322,6 +352,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   useEffect(() => {
     if (
+      !embedded &&
       weighingSelection === 'tow_vehicle_and_caravan' &&
       methodSelection === 'Portable Scales - Individual Tyre Weights'
     ) {
@@ -374,6 +405,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       }
 
       if (updated && !overrideState) {
+        if (embedded) return;
         try {
           window.sessionStorage.setItem(
             'weighbuddy_lastResultsState',
@@ -489,7 +521,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // Trailer section does not show 0 in the Measured column.
   if (
     embedded &&
-    weighingSelection === 'tow_vehicle_and_caravan' &&
+    (weighingSelection === 'tow_vehicle_and_caravan' || weighingSelection === 'caravan_only_registered') &&
     methodSelection === 'Portable Scales - Individual Tyre Weights'
   ) {
     const caravanAtmMeasured = caravan && caravan.atmMeasured != null
@@ -958,7 +990,36 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
     const unhitchedWeigh = vci02?.unhitchedWeigh || null;
 
-    if (unhitchedWeigh) {
+    // Professional portable tow+caravan flow forwards the authoritative unhitched
+    // axle totals via `axleWeigh`. Prefer those over VCI/session-derived tyre
+    // weights so the results reflect exactly what was entered.
+    const unhitchedFrontFromAxleWeighKey =
+      axleWeigh?.unhitchedFrontAxle != null
+        ? safeNum(axleWeigh.unhitchedFrontAxle)
+        : axleWeigh?.frontAxleUnhitched != null
+          ? safeNum(axleWeigh.frontAxleUnhitched)
+          : 0;
+    const unhitchedRearFromAxleWeighKey =
+      axleWeigh?.unhitchedRearAxle != null
+        ? safeNum(axleWeigh.unhitchedRearAxle)
+        : axleWeigh?.rearAxleUnhitched != null
+          ? safeNum(axleWeigh.rearAxleUnhitched)
+          : 0;
+    const unhitchedGvmFromAxleWeighKey =
+      axleWeigh?.gvmUnhitched != null ? safeNum(axleWeigh.gvmUnhitched) : 0;
+
+    if (unhitchedFrontFromAxleWeighKey > 0 || unhitchedRearFromAxleWeighKey > 0) {
+      unhitchedFrontAxle = unhitchedFrontFromAxleWeighKey;
+      unhitchedRearAxle = unhitchedRearFromAxleWeighKey;
+      // Prefer explicit gvm when provided, otherwise derive from axles.
+      if (unhitchedGvmFromAxleWeighKey > 0) {
+        gvmUnhitched = unhitchedGvmFromAxleWeighKey;
+      } else {
+        gvmUnhitched = (unhitchedFrontAxle || 0) + (unhitchedRearAxle || 0);
+      }
+    }
+
+    if (gvmUnhitched <= 0 && unhitchedWeigh) {
       const unhitchedFront = safeNum(unhitchedWeigh.frontLeft) + safeNum(unhitchedWeigh.frontRight);
       const unhitchedRear = safeNum(unhitchedWeigh.rearLeft) + safeNum(unhitchedWeigh.rearRight);
       gvmUnhitched = unhitchedFront + unhitchedRear;
@@ -1017,12 +1078,17 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     if (gvmUnhitched <= 0 && axleWeigh) {
       const unhitchedFrontFromAxleWeigh =
         axleWeigh.unhitchedFrontAxle != null ? safeNum(axleWeigh.unhitchedFrontAxle) : 0;
+      const unhitchedRearFromAxleWeigh =
+        axleWeigh.unhitchedRearAxle != null ? safeNum(axleWeigh.unhitchedRearAxle) : 0;
       const gvmUnhitchedFromAxleWeigh =
         axleWeigh.gvmUnhitched != null ? safeNum(axleWeigh.gvmUnhitched) : 0;
       if (gvmUnhitchedFromAxleWeigh > 0) {
         gvmUnhitched = gvmUnhitchedFromAxleWeigh;
         unhitchedFrontAxle = unhitchedFrontFromAxleWeigh;
-        unhitchedRearAxle = Math.max(0, gvmUnhitchedFromAxleWeigh - unhitchedFrontFromAxleWeigh);
+        unhitchedRearAxle =
+          unhitchedRearFromAxleWeigh > 0
+            ? unhitchedRearFromAxleWeigh
+            : Math.max(0, gvmUnhitchedFromAxleWeigh - unhitchedFrontFromAxleWeigh);
       }
     }
 
@@ -1081,6 +1147,53 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         atmMeasured = gtmMeasured + tbm;
         // GCM = GTM + GVM Hitched
         gcmMeasured = gtmMeasured + gvmHitchedPortable;
+      }
+    }
+
+    // Professional portable tow+caravan: when trailerGtm is present, it should
+    // be treated as authoritative for the measured caravan GTM. This prevents
+    // caravanData/history hydration (gtmMeasured/tbmMeasured) from overriding
+    // the live portable-scale inputs.
+    if (axleWeigh?.trailerGtm != null) {
+      const proTrailerGtm = safeNum(axleWeigh.trailerGtm);
+      if (proTrailerGtm > 0) {
+        gtmMeasured = proTrailerGtm;
+        atmMeasured = gtmMeasured + (tbm || 0);
+        gcmMeasured = gtmMeasured + (gvmHitchedPortable || 0);
+      }
+    }
+
+    // Professional portable tow+caravan can provide unhitched rear axle explicitly.
+    // Ensure we respect it even when gvmUnhitched is already available.
+    if (axleWeigh?.unhitchedRearAxle != null) {
+      const proUnhitchedRear = safeNum(axleWeigh.unhitchedRearAxle);
+      if (proUnhitchedRear > 0) {
+        unhitchedRearAxle = proUnhitchedRear;
+        if ((unhitchedFrontAxle || 0) > 0) {
+          gvmUnhitched = (unhitchedFrontAxle || 0) + (unhitchedRearAxle || 0);
+        }
+      }
+    }
+
+    // Post-derive fallback: if towBallMass was not entered and we did not have
+    // sufficient hitch tyre readings to derive TBM above, derive TBM from
+    // hitched/unhitched GVM when available, then recompute ATM/GCM.
+    if ((!tbm || tbm <= 0) && (gvmUnhitched || 0) > 0 && (gvmHitchedPortable || 0) > 0) {
+      const gvmHitchWdhRelease = axleWeigh?.gvmHitchedWdhRelease != null
+        ? safeNum(axleWeigh.gvmHitchedWdhRelease)
+        : 0;
+      const hasWdhAxleWeigh = axleWeigh?.wdhUsed === 'Yes';
+      if (hasWdhAxleWeigh && gvmHitchWdhRelease > 0) {
+        tbm = gvmHitchWdhRelease - gvmUnhitched;
+      } else {
+        tbm = gvmHitchedPortable - gvmUnhitched;
+      }
+    }
+
+    if ((gtmMeasured || 0) > 0) {
+      atmMeasured = gtmMeasured + (tbm || 0);
+      if (!gcmMeasured || gcmMeasured <= 0) {
+        gcmMeasured = gtmMeasured + (gvmHitchedPortable || 0);
       }
     }
   } else if (resolvedState && resolvedState.towBallMass != null) {
@@ -1182,6 +1295,22 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const isPortableTowCaravanMethod =
     weighingSelection === 'tow_vehicle_and_caravan' &&
     methodSelection === 'Portable Scales - Individual Tyre Weights';
+
+  // Professional portable tow+caravan does not populate measuredFront/Rear/GVM
+  // in the same way as weighbridge methods. When missing, mirror the unhitched
+  // totals into the measured column so the Tow Vehicle Unhitched rows show the
+  // correct front/rear axle weights.
+  if (isPortableTowCaravanMethod && !embedded) {
+    if ((frontMeasured || 0) <= 0 && (unhitchedFrontAxle || 0) > 0) {
+      frontMeasured = unhitchedFrontAxle;
+    }
+    if ((rearMeasured || 0) <= 0 && (unhitchedRearAxle || 0) > 0) {
+      rearMeasured = unhitchedRearAxle;
+    }
+    if ((gvmMeasured || 0) <= 0 && (gvmUnhitched || 0) > 0) {
+      gvmMeasured = gvmUnhitched;
+    }
+  }
 
   const hasPortableTowCaravanMeasuredInputs =
     isPortableTowCaravanMethod &&
@@ -1372,6 +1501,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   const handleFinish = async () => {
     try {
+      if (isFinishing) return;
+      setIsFinishing(true);
+
       // For fleet users using the legacy DIY wizard, prefer any explicit
       // Fleet Staff customer draft details when saving to history.
       let outgoingCustomer = null;
@@ -1387,14 +1519,69 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         }
       }
 
+      // Professional compliance checks: prefer the explicit professional client draft
+      // (end-customer) if present.
+      if (!outgoingCustomer && user?.userType === 'professional') {
+        try {
+          const draftRaw = localStorage.getItem('professionalClientDraft');
+          const draft = draftRaw ? JSON.parse(draftRaw) : null;
+
+          const firstName = String(draft?.firstName || '').trim();
+          const lastName = String(draft?.lastName || '').trim();
+          const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+          const email = String(draft?.email || '').trim();
+          const phone = String(draft?.phone || '').trim();
+          const clientUserId = draft?.diyClientUserId != null ? String(draft.diyClientUserId).trim() : null;
+
+          if (fullName || email || phone || clientUserId) {
+            outgoingCustomer = { fullName, email, phone, clientUserId };
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Professional compliance checks can supply explicit client details via
+      // navigation state; prefer those over the logged-in professional user.
+      if (!outgoingCustomer) {
+        const fullName = String(
+          resolvedState?.customerName ||
+          resolvedState?.clientName ||
+          resolvedState?.fullName ||
+          resolvedState?.name ||
+          ''
+        ).trim();
+        const email = String(resolvedState?.customerEmail || resolvedState?.clientEmail || resolvedState?.email || '').trim();
+        const phone = String(resolvedState?.customerPhone || resolvedState?.clientPhone || resolvedState?.phone || '').trim();
+        const clientUserId = resolvedState?.clientUserId != null
+          ? String(resolvedState.clientUserId).trim()
+          : null;
+        if (fullName || email || phone || clientUserId) {
+          outgoingCustomer = { fullName, email, phone, clientUserId };
+        }
+      }
+
       if (weighingSelection === 'tow_vehicle_and_caravan') {
         // DIY tow vehicle + caravan: save a full record including caravan
         // summary and normalized weights so it appears in Weigh History.
 
+        // Persist unhitched GVM explicitly from the best available source.
+        // For professional portable / in-ground flows the results screen may
+        // have computed unhitched axle totals even when the raw axleWeigh
+        // doesn't contain them.
+        const resolvedUnhitchedGvm =
+          (Number(resolvedState?.unhitchedGvm) || 0) > 0
+            ? Number(resolvedState?.unhitchedGvm) || 0
+            : (Number(unhitchedFrontAxle) || 0) + (Number(unhitchedRearAxle) || 0) > 0
+              ? (Number(unhitchedFrontAxle) || 0) + (Number(unhitchedRearAxle) || 0)
+              : Number(gvmUnhitched) || 0;
+
         const normalizedWeights = {
           frontAxle: hitchedFrontAxle || 0,
           rearAxle: hitchedRearAxle || 0,
-          totalVehicle: gvmUnhitched || 0,
+          // Important: totalVehicle is treated as the *hitched* total in the
+          // backend persistence mapping for these combined flows.
+          totalVehicle: gvmHitched || gvmMeasured || 0,
           frontAxleGroup: 0,
           rearAxleGroup: 0,
           totalCaravan: gtmMeasured || atmMeasured || 0,
@@ -1428,7 +1615,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           btc: btcCapacityNum || undefined,
           tbm: tbmCapacityNum || undefined,
           // Measured DIY values
-          gvmUnhitched,
+          gvmUnhitched: resolvedUnhitchedGvm,
           frontUnhitched: unhitchedFrontAxle || 0,
           rearUnhitched: unhitchedRearAxle || 0
         };
@@ -1638,6 +1825,8 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     } catch (err) {
       console.error('Failed to save DIY weigh:', err);
       window.alert('Failed to save weigh result. Please try again.');
+    } finally {
+      setIsFinishing(false);
     }
   };
 
@@ -2522,7 +2711,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         {/* Gross Trailer Mass (GTM) */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                            <Typography variant="body2">Gross Trailer Mass (GTM)</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
@@ -2550,6 +2739,46 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                             </Typography>
                           </Grid>
                         </Grid>
+
+                        {/* Axle Group Loading */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Axle Group Loading</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {caravanAxleGroupCapacityNum != null ? `${caravanAxleGroupCapacityNum} kg` : 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {caravanAxleGroupCapacityNum != null
+                                ? `${(Number(caravanAxleGroupCapacityNum) || 0) - (Number(caravanMeasuredGtm) || 0)} kg`
+                                : 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanAxleGroupCapacityNum == null ||
+                                Number(caravanAxleGroupCapacityNum) === 0 ||
+                                (Number(caravanMeasuredGtm) || 0) <= (Number(caravanAxleGroupCapacityNum) || 0)
+                                  ? 'success.main'
+                                  : 'error'
+                              }
+                            >
+                              {caravanAxleGroupCapacityNum == null || Number(caravanAxleGroupCapacityNum) === 0
+                                ? 'N/A'
+                                : (Number(caravanMeasuredGtm) || 0) <= (Number(caravanAxleGroupCapacityNum) || 0)
+                                  ? 'OK'
+                                  : 'OVER'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
                       </>
                     )}
 
@@ -2567,20 +2796,39 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                             </Typography>
                           </Grid>
                           <Grid item xs={2}>
-                            <Typography variant="body2">N/A</Typography>
+                            <Typography variant="body2">
+                              {caravanMeasuredGtm ? `${caravanMeasuredGtm} kg` : 'N/A'}
+                            </Typography>
                           </Grid>
                           <Grid item xs={2}>
-                            <Typography variant="body2">N/A</Typography>
+                            <Typography variant="body2">
+                              {caravanAxleGroupCapacityNum && caravanMeasuredGtm
+                                ? `${caravanAxleGroupCapacityNum - caravanMeasuredGtm} kg`
+                                : 'N/A'}
+                            </Typography>
                           </Grid>
                           <Grid item xs={2}>
-                            <Typography variant="body2">N/A</Typography>
+                            <Typography
+                              variant="body2"
+                              color={
+                                caravanAxleGroupCapacityNum && caravanMeasuredGtm
+                                  ? (caravanMeasuredGtm <= caravanAxleGroupCapacityNum
+                                    ? 'success.main'
+                                    : 'error')
+                                  : 'text.primary'
+                              }
+                            >
+                              {caravanAxleGroupCapacityNum && caravanMeasuredGtm
+                                ? (caravanMeasuredGtm <= caravanAxleGroupCapacityNum ? 'OK' : 'OVER')
+                                : 'N/A'}
+                            </Typography>
                           </Grid>
                         </Grid>
 
                         {/* ATM */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
+                            <Typography variant="body2">Aggregated Trailer Mass (ATM)</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanAtmCapacityNum} kg</Typography>
@@ -2614,7 +2862,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         {/* GTM */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                            <Typography variant="body2">Gross Trailer Mass (GTM)</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
@@ -2640,6 +2888,27 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                                   ? 'OK'
                                   : 'OVER'}
                             </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* Towball Mass */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Towball Mass</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">
+                              {`${Math.max(0, (Number(caravanMeasuredAtm) || 0) - (Number(caravanMeasuredGtm) || 0))} kg`}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2" color="text.secondary">N/A</Typography>
                           </Grid>
                         </Grid>
                       </>
@@ -2669,7 +2938,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         {/* ATM - Supplied */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
+                            <Typography variant="body2">Aggregated Trailer Mass (ATM)</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanAtmCapacityNum} kg</Typography>
@@ -2703,7 +2972,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         {/* GTM - Na */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                            <Typography variant="body2">Gross Trailer Mass (GTM)</Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography variant="body2">Na</Typography>
@@ -2730,27 +2999,29 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                           </Grid>
                           {/* Compliance = capacity */}
                           <Grid item xs={2}>
-                            <Typography variant="body2">{caravanGtmCapacityNum} kg</Typography>
+                            <Typography variant="body2">{caravanAxleGroupCapacityNum} kg</Typography>
                           </Grid>
                           {/* Measured = actual GTM */}
                           <Grid item xs={2}>
                             <Typography variant="body2">{caravanMeasuredGtm} kg</Typography>
                           </Grid>
                           <Grid item xs={2}>
-                            <Typography variant="body2">{caravanGtmCapacityDiff} kg</Typography>
+                            <Typography variant="body2">
+                              {(caravanAxleGroupCapacityNum || 0) - (caravanMeasuredGtm || 0)} kg
+                            </Typography>
                           </Grid>
                           <Grid item xs={2}>
                             <Typography
                               variant="body2"
                               color={
-                                caravanMeasuredGtm <= caravanGtmCapacityNum || caravanGtmCapacityNum === 0
+                                caravanMeasuredGtm <= caravanAxleGroupCapacityNum || caravanAxleGroupCapacityNum === 0
                                   ? 'success.main'
                                   : 'error'
                               }
                             >
-                              {caravanGtmCapacityNum === 0
+                              {caravanAxleGroupCapacityNum === 0
                                 ? 'N/A'
-                                : caravanMeasuredGtm <= caravanGtmCapacityNum
+                                : caravanMeasuredGtm <= caravanAxleGroupCapacityNum
                                   ? 'OK'
                                   : 'OVER'}
                             </Typography>
@@ -2760,7 +3031,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         {/* ATM */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Aggregated Trailor Mass (ATM)</Typography>
+                            <Typography variant="body2">Aggregated Trailer Mass (ATM)</Typography>
                           </Grid>
                           {/* Compliance = capacity */}
                           <Grid item xs={2}>
@@ -2796,7 +3067,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                         {/* GTM */}
                         <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
                           <Grid item xs={4}>
-                            <Typography variant="body2">Gross Trailor Mass (GTM)</Typography>
+                            <Typography variant="body2">Gross Trailer Mass (GTM)</Typography>
                           </Grid>
                           {/* Compliance = capacity */}
                           <Grid item xs={2}>
@@ -2824,6 +3095,25 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                                   ? 'OK'
                                   : 'OVER'}
                             </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* Towball Mass */}
+                        <Grid container sx={{ borderBottom: '1px solid #eee', py: 1 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">Towball Mass</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">{caravanMeasuredTbm} kg</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2">N/A</Typography>
+                          </Grid>
+                          <Grid item xs={2}>
+                            <Typography variant="body2" color="text.secondary">N/A</Typography>
                           </Grid>
                         </Grid>
                       </>
@@ -2950,12 +3240,21 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                       const hasAirbag =
                         preWeigh && preWeigh.airbagPressurePsi != null && preWeigh.airbagPressurePsi !== '';
 
-                      if (!hasTowball && !hasAirbag) {
-                        // DIY flows (and any others without these values) show only fuel/passengers.
-                        return base;
-                      }
+                      const hasWater =
+                        preWeigh &&
+                        (
+                          (preWeigh.waterTankCount != null && preWeigh.waterTankCount !== '') ||
+                          (preWeigh.waterTankFullCount != null && preWeigh.waterTankFullCount !== '') ||
+                          (preWeigh.waterTotalLitres != null && preWeigh.waterTotalLitres !== '')
+                        );
 
                       const parts = [base];
+
+                      if (hasWater) {
+                        parts.push(
+                          `Water Tanks ${preWeigh.waterTankCount || 'N/A'}, Full ${preWeigh.waterTankFullCount || 'N/A'}, Total ${preWeigh.waterTotalLitres || 'N/A'} Ltrs`
+                        );
+                      }
                       if (hasTowball) {
                         parts.push(`Tow Ball Height ${preWeigh.towballHeightMm} mm`);
                       }
@@ -3011,15 +3310,14 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
                 >
                   Download Report
                 </Button>
-                {!alreadySaved && !weighId && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleFinish}
-                  >
-                    Finish
-                  </Button>
-                )}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={alreadySaved || weighId ? () => navigate('/dashboard') : handleFinish}
+                  disabled={isFinishing}
+                >
+                  {isFinishing ? 'Saving...' : alreadySaved || weighId ? 'Finish' : 'Finish'}
+                </Button>
               </>
             )}
           </Box>

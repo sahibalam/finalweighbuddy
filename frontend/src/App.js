@@ -424,6 +424,13 @@ function App() {
               </Layout>
             </PrivateRoute>
           } />
+          <Route path="/professional-vehicle-only-weighbridge-in-ground-caravan-rego" element={
+            <PrivateRoute>
+              <Layout>
+                <DIYTowCaravanWeighbridgeCaravanRego />
+              </Layout>
+            </PrivateRoute>
+          } />
 
           <Route path="/professional-vehicle-only-weighbridge-goweigh" element={
             <PrivateRoute>

@@ -60,12 +60,29 @@ const DIYCaravanOnlyConfirm = () => {
     if (!gtm && c.gtm != null) setGtm(String(c.gtm));
     if (!atm && c.atm != null) setAtm(String(c.atm));
 
-    if (!axleGroups && (c.axleCapacity != null || c.axleGroupLoading != null)) {
-      setAxleGroups(String(c.axleCapacity != null ? c.axleCapacity : c.axleGroupLoading));
-    }
-
     if (!tare && (c.tare != null || c.tareMass != null)) {
       setTare(String(c.tare != null ? c.tare : c.tareMass));
+    }
+
+    if (
+      !axleGroups &&
+      (c.axleGroups != null ||
+        c.axleGroupLoadings != null ||
+        c.axleGroup != null ||
+        c.axleCapacity != null ||
+        c.axleGroupLoading != null)
+    ) {
+      const resolvedAxleGroups =
+        c.axleGroups != null
+          ? c.axleGroups
+          : c.axleGroupLoadings != null
+            ? c.axleGroupLoadings
+            : c.axleGroup != null
+              ? c.axleGroup
+              : c.axleCapacity != null
+                ? c.axleCapacity
+                : c.axleGroupLoading;
+      setAxleGroups(String(resolvedAxleGroups));
     }
 
     if ((!vin || String(vin).trim() === '') && c.vin) {

@@ -58,8 +58,9 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
     if (stateData.state) setState(stateData.state.toUpperCase());
     if (stateData.vin) setVin(stateData.vin.toUpperCase());
 
-    // Vehicle description from make/model/year/variant
-    if (vehicle.make || vehicle.model || vehicle.year || vehicle.variant) {
+    if (vehicle.description) {
+      setDescription(String(vehicle.description));
+    } else if (vehicle.make || vehicle.model || vehicle.year || vehicle.variant) {
       const parts = [vehicle.year, vehicle.make, vehicle.model, vehicle.variant]
         .filter(Boolean)
         .map(String);

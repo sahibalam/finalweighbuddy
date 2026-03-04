@@ -1,15 +1,25 @@
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const smtpHost = process.env.SMTP_HOST;
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
+
+const transporter = smtpHost && smtpUser && smtpPass
+  ? nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: false,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS) || 5000,
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS) || 5000,
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS) || 7000,
+  })
+  : null;
 
 async function sendDiyWelcomeEmail({ email, firstName, password }) {
   const safeFirstName = firstName || 'there';
@@ -25,6 +35,15 @@ async function sendDiyWelcomeEmail({ email, firstName, password }) {
     <p>You can sign in anytime to view your reports and manage your details.</p>
     <p>If you did not expect this email, please contact WeighBuddy support.</p>
   `;
+
+  const sendEmails = String(process.env.SEND_EMAILS || 'true').toLowerCase() === 'true';
+  if (!sendEmails) {
+    return;
+  }
+
+  if (!transporter) {
+    return;
+  }
 
   await transporter.sendMail({
     from: process.env.SMTP_FROM || `WeighBuddy <${process.env.SMTP_USER}>`,
@@ -59,7 +78,13 @@ async function createDiyClientFromProfessional({ firstName, lastName, email, pho
 
   await user.save();
 
-  await sendDiyWelcomeEmail({ email, firstName: firstName || name, password });
+  // Do not block API response on SMTP. Nginx may time out while waiting.
+  // Fire-and-forget the email send, and report emailSent optimistically.
+  Promise.resolve()
+    .then(() => sendDiyWelcomeEmail({ email, firstName: firstName || name, password }))
+    .catch((error) => {
+      console.error('Error sending DIY welcome email:', error);
+    });
 
   return { user, created: true, emailSent: true };
 }

@@ -450,157 +450,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
         preWeigh,
       };
 
-      const saveVehicleOnlyWeigh = async () => {
-        try {
-          setSaving(true);
-
-          const capacities = {
-            fawr: frontAxleLoading !== '' ? Number(frontAxleLoading) || 0 : null,
-            rawr: rearAxleLoading !== '' ? Number(rearAxleLoading) || 0 : null,
-            gvm: gvm !== '' ? Number(gvm) || 0 : null,
-            gcm: gcm !== '' ? Number(gcm) || 0 : null,
-            btc: btc !== '' ? Number(btc) || 0 : null,
-            tbm: tbm !== '' ? Number(tbm) || 0 : null,
-          };
-
-          const frontMeasured = axleWeigh?.frontAxleUnhitched != null ? Number(axleWeigh.frontAxleUnhitched) || 0 : 0;
-          const gvmMeasured = axleWeigh?.gvmUnhitched != null ? Number(axleWeigh.gvmUnhitched) || 0 : 0;
-          const rearMeasured = gvmMeasured > 0 ? Math.max(0, gvmMeasured - frontMeasured) : 0;
-
-          const normalizedWeights = {
-            methodSelection: 'Weighbridge - goweigh',
-            frontAxle: frontMeasured,
-            rearAxle: rearMeasured,
-            totalVehicle: gvmMeasured,
-            totalCaravan: 0,
-            grossCombination: gvmMeasured,
-            tbm: 0,
-            raw: {
-              axleWeigh: axleWeigh || null,
-              goweighData: goweighData || null,
-              vehicleCapacities: capacities,
-            },
-          };
-
-          const response = await axios.post('/api/weighs/diy-vehicle-only', {
-            vehicleSummary: {
-              description,
-              rego,
-              state,
-              vin,
-              gvmUnhitched: gvmMeasured,
-              frontUnhitched: frontMeasured,
-              rearUnhitched: rearMeasured,
-              ...capacities,
-            },
-            weights: normalizedWeights,
-            preWeigh: {
-              fuelLevel: baseState.fuelLevel === '' ? null : Number(baseState.fuelLevel),
-              passengersFront: Number(baseState.passengersFront) || 0,
-              passengersRear: Number(baseState.passengersRear) || 0,
-              notes: preWeigh?.notes || '',
-            },
-            modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
-            payment: {
-              method: 'direct',
-              amount: 0,
-              status: 'completed',
-            },
-            clientUserId: clientUserId || null,
-          });
-
-          return response.data?.weighId || null;
-        } catch (error) {
-          console.error('Failed to save professional vehicle-only goweigh weigh:', error);
-          console.error('Backend response:', error?.response?.data);
-          return null;
-        } finally {
-          setSaving(false);
-        }
-      };
-
       if (weighingSelection === 'caravan_only_registered') {
-        const saveCaravanOnlyWeigh = async () => {
-          try {
-            setSaving(true);
-
-            const caravanCaps = {
-              atm: caravanAtm !== '' ? Number(caravanAtm) || 0 : null,
-              gtm: caravanGtm !== '' ? Number(caravanGtm) || 0 : null,
-              axleGroups: caravanAxleGroups !== '' ? Number(caravanAxleGroups) || 0 : null,
-              tare: caravanTare !== '' ? Number(caravanTare) || 0 : null,
-            };
-
-            const gtmMeasured = axleWeigh?.trailerGtm != null ? Number(axleWeigh.trailerGtm) || 0 : 0;
-            const atmMeasured = axleWeigh?.trailerAtm != null ? Number(axleWeigh.trailerAtm) || 0 : 0;
-            const tbmMeasured = axleWeigh?.tbm != null ? Number(axleWeigh.tbm) || 0 : 0;
-
-            const normalizedWeights = {
-              methodSelection: 'Weighbridge - goweigh',
-              frontAxle: 0,
-              rearAxle: 0,
-              totalVehicle: 0,
-              totalCaravan: gtmMeasured,
-              grossCombination: atmMeasured,
-              tbm: tbmMeasured,
-              raw: {
-                axleWeigh: axleWeigh || null,
-                goweighData: goweighData || null,
-                towBallMass: tbmMeasured,
-                caravanCapacities: caravanCaps,
-              },
-            };
-
-            const response = await axios.post('/api/weighs/diy-vehicle-only', {
-              vehicleSummary: {
-                description: '',
-                rego: '',
-                state: '',
-                vin: '',
-                gvmUnhitched: 0,
-                frontUnhitched: 0,
-                rearUnhitched: 0,
-              },
-              caravanSummary: {
-                rego,
-                state,
-                make: caravanMake,
-                model: caravanModel,
-                year: caravanYear,
-                vin,
-                complianceImage: caravanComplianceImage,
-                ...caravanCaps,
-                tbmMeasured,
-                gtmMeasured,
-                atmMeasured,
-              },
-              weights: normalizedWeights,
-              preWeigh: {
-                fuelLevel: baseState.fuelLevel === '' ? null : Number(baseState.fuelLevel),
-                passengersFront: Number(baseState.passengersFront) || 0,
-                passengersRear: Number(baseState.passengersRear) || 0,
-                notes: preWeigh?.notes || '',
-              },
-              modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
-              payment: {
-                method: 'direct',
-                amount: 0,
-                status: 'completed',
-              },
-              clientUserId: clientUserId || null,
-            });
-
-            return response.data?.weighId || null;
-          } catch (error) {
-            console.error('Failed to save professional caravan-only goweigh weigh:', error);
-            console.error('Backend response:', error?.response?.data);
-            return null;
-          } finally {
-            setSaving(false);
-          }
-        };
-
-        // Caravan-only GoWeigh: go to results with caravan details and persisted weigh record.
         const enhancedState = {
           ...baseState,
           caravan: {
@@ -618,14 +468,12 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
           },
         };
 
-        saveCaravanOnlyWeigh().then((weighId) => {
-          navigate('/vehicle-only-weighbridge-results', {
-            state: {
-              ...enhancedState,
-              alreadySaved: Boolean(weighId),
-              weighId: weighId || null,
-            },
-          });
+        navigate('/vehicle-only-weighbridge-results', {
+          state: {
+            ...enhancedState,
+            alreadySaved: false,
+            weighId: null,
+          },
         });
       } else if (weighingSelection === 'tow_vehicle_and_caravan') {
         // For tow vehicle + caravan GoWeigh, go to caravan registration next.
@@ -636,15 +484,13 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighConfirm = () => {
           },
         });
       } else {
-        // Vehicle-only GoWeigh: persist a weigh record immediately so it appears in history.
-        saveVehicleOnlyWeigh().then((weighId) => {
-          navigate('/vehicle-only-weighbridge-results', {
-            state: {
-              ...baseState,
-              alreadySaved: Boolean(weighId),
-              weighId: weighId || null,
-            },
-          });
+        // Vehicle-only GoWeigh: go to results and save only when Finish is clicked.
+        navigate('/vehicle-only-weighbridge-results', {
+          state: {
+            ...baseState,
+            alreadySaved: false,
+            weighId: null,
+          },
         });
       }
     });

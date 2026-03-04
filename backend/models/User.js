@@ -25,7 +25,6 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: [true, 'Phone number is required'],
-    match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
   },
   postcode: {
     type: String,

@@ -87,23 +87,32 @@ const DIYTowCaravanWeighbridgeGoWeigh = () => {
           <Typography variant="body2" sx={{ mb: 1 }}>
             Tow Vehicle Unhitched
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Typography sx={{ minWidth: 180 }}>Front Axle Unhitched</Typography>
-            <TextField
-              value={frontUnhitched}
-              onChange={(e) => setFrontUnhitched(e.target.value)}
-              sx={{ width: 140, mr: 1 }}
-            />
-            <Typography>kg (Platform A)</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <Typography sx={{ minWidth: 180 }}>Rear Axle Unhitched</Typography>
-            <TextField
-              value={rearUnhitched}
-              onChange={(e) => setRearUnhitched(e.target.value)}
-              sx={{ width: 140, mr: 1 }}
-            />
-            <Typography>kg (Platform B)</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 2,
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+              <Typography sx={{ minWidth: 180 }}>Front Axle Unhitched</Typography>
+              <TextField
+                value={frontUnhitched}
+                onChange={(e) => setFrontUnhitched(e.target.value)}
+                sx={{ width: 140, mr: 1 }}
+              />
+              <Typography>kg (Platform A)</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+              <Typography sx={{ minWidth: 180 }}>Rear Axle Unhitched</Typography>
+              <TextField
+                value={rearUnhitched}
+                onChange={(e) => setRearUnhitched(e.target.value)}
+                sx={{ width: 140, mr: 1 }}
+              />
+              <Typography>kg (Platform B)</Typography>
+            </Box>
           </Box>
 
           <Typography variant="body2" sx={{ mb: 1 }}>
@@ -126,23 +135,32 @@ const DIYTowCaravanWeighbridgeGoWeigh = () => {
           <Typography variant="body2" sx={{ mb: 1 }}>
             Tow Vehicle Hitched
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Typography sx={{ minWidth: 180 }}>Front Axle Hitched</Typography>
-            <TextField
-              value={frontHitched}
-              onChange={(e) => setFrontHitched(e.target.value)}
-              sx={{ width: 140, mr: 1 }}
-            />
-            <Typography>kg (Platform A)</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <Typography sx={{ minWidth: 180 }}>Rear Axle Hitched</Typography>
-            <TextField
-              value={rearHitched}
-              onChange={(e) => setRearHitched(e.target.value)}
-              sx={{ width: 140, mr: 1 }}
-            />
-            <Typography>kg (Platform B)</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 2,
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+              <Typography sx={{ minWidth: 180 }}>Front Axle Hitched</Typography>
+              <TextField
+                value={frontHitched}
+                onChange={(e) => setFrontHitched(e.target.value)}
+                sx={{ width: 140, mr: 1 }}
+              />
+              <Typography>kg (Platform A)</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+              <Typography sx={{ minWidth: 180 }}>Rear Axle Hitched</Typography>
+              <TextField
+                value={rearHitched}
+                onChange={(e) => setRearHitched(e.target.value)}
+                sx={{ width: 140, mr: 1 }}
+              />
+              <Typography>kg (Platform B)</Typography>
+            </Box>
           </Box>
 
           <Typography variant="body2" sx={{ mb: 1 }}>
