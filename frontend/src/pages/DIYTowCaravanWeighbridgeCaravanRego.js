@@ -82,7 +82,7 @@ const DIYTowCaravanWeighbridgeCaravanRego = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan/Trailer
+            Tow Vehicle and Caravan
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Weighbridge - In Ground - Individual Axle Weights

@@ -291,7 +291,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     methodSelection === 'Weighbridge - goweigh';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan/Trailer'
+      ? 'Tow Vehicle and Caravan'
       : weighingSelection === 'caravan_only_registered'
         ? 'Caravan / Trailer Only (registered)'
         : 'Vehicle Only';
@@ -1449,8 +1449,117 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // Vehicle-only history records are created only when the user clicks Finish.
   const [autoSaved] = useState(alreadySaved || Boolean(weighId));
 
+  const triggerPdfDownload = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleDownloadReport = async () => {
     try {
+      const isTowCaravanPortable =
+        weighingSelection === 'tow_vehicle_and_caravan' &&
+        methodSelection === 'Portable Scales - Individual Tyre Weights';
+      const resolvedTyreWeigh =
+        resolvedState?.tyreWeigh || portableSessionTyreWeigh || null;
+      const isSingleAxle = resolvedTyreWeigh?.axleConfig === 'Single Axle';
+
+      if (isTowCaravanPortable && isSingleAxle) {
+        const reportPayload = {
+          header: {
+            date: new Date().toLocaleDateString(),
+            customerName: effectiveClient?.fullName || '',
+            carRego: rego || '',
+            carMake: description || '',
+            carModel: '',
+            caravanRego: caravan?.rego || '',
+            caravanMake: caravan?.make || '',
+            caravanModel: caravan?.model || '',
+            location: '',
+          },
+          compliance: {
+            frontAxle: frontCapacity || 0,
+            gvm: effectiveGvmForCapacity || 0,
+            rearAxle: rearCapacity || 0,
+            tbm: tbmCapacityNum || 0,
+            atm: caravanAtmCapacityNum || 0,
+            gtm: caravanGtmCapacityNum || 0,
+            gcm: gcmCapacityNum || 0,
+            btc: btcCapacityNum || 0,
+          },
+          weightsRecorded: {
+            frontAxle: frontMeasured || 0,
+            gvm: gvmHitched || gvmMeasured || 0,
+            rearAxle: rearMeasured || 0,
+            tbm: tbm || 0,
+            atm: atmMeasured || 0,
+            gtm: gtmMeasured || 0,
+            gcm: gcmMeasured || 0,
+            btc: atmMeasured || 0,
+          },
+          capacity: {
+            frontAxle: frontCapacityDiff || 0,
+            gvm: gvmCapacityDiff || 0,
+            rearAxle: rearCapacityDiff || 0,
+            tbm: (tbmCapacityNum || 0) - (tbm || 0),
+            atm: (caravanAtmCapacityNum || 0) - (atmMeasured || 0),
+            gtm: caravanGtmCapacityDiff || 0,
+            gcm: (gcmCapacityNum || 0) - (gcmMeasured || 0),
+            btc: (btcCapacityNum || 0) - (atmMeasured || 0),
+          },
+          result: {
+            frontAxle: frontMeasured <= frontCapacity,
+            gvm: (gvmHitched || gvmMeasured || 0) <= (effectiveGvmForCapacity || 0),
+            rearAxle: rearMeasured <= rearCapacity,
+            tbm: (tbm || 0) <= (tbmCapacityNum || 0),
+            atm: (atmMeasured || 0) <= (caravanAtmCapacityNum || 0),
+            gtm: (gtmMeasured || 0) <= (caravanGtmCapacityNum || 0),
+            gcm: (gcmMeasured || 0) <= (gcmCapacityNum || 0),
+            btc: (atmMeasured || 0) <= (btcCapacityNum || 0),
+          },
+          carInfo: {
+            fuelLevel: resolvedFuelLevel === '' ? null : Number(resolvedFuelLevel),
+            passengersFront: Number(resolvedPassengersFront) || 0,
+            passengersRear: Number(resolvedPassengersRear) || 0,
+          },
+          advisory: {
+            vanToCarRatioPct: vanToCarRatioPct != null ? Number(vanToCarRatioPct) : null,
+            towBallPct: towBallPct != null ? Number(towBallPct) : null,
+            btcPct: btcPct != null ? Number(btcPct) : null,
+          },
+          tyreWeigh: resolvedTyreWeigh,
+          notes: '',
+        };
+
+        const endpoints = [
+          {
+            url: '/api/weighs/diy-tow-caravan-portable-single-axle/report-1',
+            filename: 'diy-tow-caravan-portable-single-axle-1.pdf'
+          },
+          {
+            url: '/api/weighs/diy-tow-caravan-portable-single-axle/report-2',
+            filename: 'diy-tow-caravan-portable-single-axle-2.pdf'
+          },
+          {
+            url: '/api/weighs/diy-tow-caravan-portable-single-axle/report-3',
+            filename: 'diy-tow-caravan-portable-single-axle-3.pdf'
+          }
+        ];
+
+        for (const ep of endpoints) {
+          const resp = await axios.post(ep.url, reportPayload, { responseType: 'blob' });
+          const blob = new Blob([resp.data], { type: 'application/pdf' });
+          triggerPdfDownload(blob, ep.filename);
+          await new Promise((r) => setTimeout(r, 600));
+        }
+        return;
+      }
+
       const response = await axios.post('/api/weighs/diy-vehicle-only/report', {
         vehicleInfo: {
           rego,
@@ -1485,14 +1594,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       });
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'weigh-results.pdf';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      triggerPdfDownload(blob, 'weigh-results.pdf');
     } catch (err) {
       console.error('Failed to download DIY vehicle-only report:', err);
       window.alert('Failed to generate report. Please try again.');

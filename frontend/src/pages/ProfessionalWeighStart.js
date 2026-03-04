@@ -68,7 +68,7 @@ const ProfessionalWeighStart = () => {
               label="What am I weighing?"
               onChange={(e) => setWeighType(e.target.value)}
             >
-              <MenuItem value="tow-vehicle-caravan">Tow Vehicle and Caravan/Trailer</MenuItem>
+              <MenuItem value="tow-vehicle-caravan">Tow Vehicle and Caravan</MenuItem>
               <MenuItem value="vehicle-only">Vehicle Only</MenuItem>
               <MenuItem value="caravan-only">Caravan/Trailer Only (Registered)</MenuItem>
               <MenuItem value="custom-build">Trailer tare report for Rover/Custom Build</MenuItem>

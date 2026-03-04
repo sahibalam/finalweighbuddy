@@ -607,10 +607,9 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
 
       // Optional normalized weights payload (used by newer results screens + history modal mirroring)
       weights: normalizedWeights && typeof normalizedWeights === 'object' ? normalizedWeights : undefined,
-
       preWeigh,
       notes,
-
+               
       // Minimal complianceResults stub for DIY record
       complianceResults: {
         vehicle: {
@@ -786,13 +785,210 @@ router.post('/diy-vehicle-only/report', protect, async (req, res) => {
 
     doc.end();
   } catch (error) {
-    console.error('Error generating DIY vehicle-only report:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating report'
-    });
+    console.error('DIY vehicle-only PDF generation error:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate PDF report' });
+  }
+}); // <--- Added closing bracket here
+
+// @route   POST /api/weighs/diy-tow-caravan-portable-single-axle/report-1
+// @access  Private
+router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (req, res) => {
+  try {
+    const payload = req.body && typeof req.body === 'object' ? req.body : {};
+    const header = payload.header && typeof payload.header === 'object' ? payload.header : {};
+    const compliance = payload.compliance && typeof payload.compliance === 'object' ? payload.compliance : {};
+
+    const weightsRecorded = payload.weightsRecorded && typeof payload.weightsRecorded === 'object' ? payload.weightsRecorded : {};
+    const capacity = payload.capacity && typeof payload.capacity === 'object' ? payload.capacity : {};
+    const result = payload.result && typeof payload.result === 'object' ? payload.result : {};
+
+    const resolveTemplatePath = (filename) => {
+      // ...
+      const p = path.join(__dirname, '..', 'assets', filename);
+      return fs.existsSync(p) ? p : null;
+    };
+
+    const templatePath = resolveTemplatePath('Portable Scales - Individual Tyre Weights.jpg');
+    if (!templatePath) {
+      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights.jpg')}`);
+    }
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-1.pdf');
+
+    doc.pipe(res);
+    doc.image(templatePath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+
+    const safeText = (v) => (v == null ? '' : String(v));
+    const safeNum = (v) => (v == null || v === '' ? '' : String(Number(v)));
+    const okText = (b) => (b === false ? 'Over' : b === true ? 'OK' : '');
+
+    // Header row positions (tuned to match the provided template)
+    doc.fillColor('#000000');
+    doc.fontSize(10);
+    doc.text(safeText(header.date), 240, 18, { width: 90, align: 'left' });
+    doc.text(safeText(header.customerName), 340, 18, { width: 170, align: 'left' });
+    doc.text(safeText(header.time || ''), 520, 18, { width: 70, align: 'left' });
+    doc.text(safeText(header.location || ''), 690, 18, { width: 140, align: 'left' });
+
+    doc.text(safeText(header.carRego), 240, 42, { width: 90, align: 'left' });
+    doc.text(safeText(header.carMake), 340, 42, { width: 80, align: 'left' });
+    doc.text(safeText(header.carModel), 430, 42, { width: 80, align: 'left' });
+    doc.text(safeText(header.caravanRego), 520, 42, { width: 80, align: 'left' });
+    doc.text(safeText(header.caravanMake), 610, 42, { width: 90, align: 'left' });
+    doc.text(safeText(header.caravanModel), 710, 42, { width: 90, align: 'left' });
+
+    // Compliance table values
+    // Columns: Front Axle, GVM, Rear Axle, TowBall, ATM, GTM, GCM, BTC
+    // Row Y positions (Compliance, Weights Recorded, Capacity, Result)
+    const colsX = [170, 245, 320, 395, 470, 545, 620, 770];
+    const rowY = {
+      compliance: 332,
+      weights: 355,
+      capacity: 379,
+      result: 402,
+    };
+    const drawRow = (y, values, isResult = false) => {
+      values.forEach((val, idx) => {
+        const x = colsX[idx] || 0;
+        doc.text(isResult ? safeText(val) : safeNum(val), x, y, { width: 60, align: 'center' });
+      });
+    };
+
+    drawRow(rowY.compliance, [
+      compliance.frontAxle,
+      compliance.gvm,
+      compliance.rearAxle,
+      compliance.tbm,
+      compliance.atm,
+      compliance.gtm,
+      compliance.gcm,
+      compliance.btc,
+    ]);
+
+    drawRow(rowY.weights, [
+      weightsRecorded.frontAxle,
+      weightsRecorded.gvm,
+      weightsRecorded.rearAxle,
+      weightsRecorded.tbm,
+      weightsRecorded.atm,
+      weightsRecorded.gtm,
+      weightsRecorded.gcm,
+      weightsRecorded.btc,
+    ]);
+
+    drawRow(rowY.capacity, [
+      capacity.frontAxle,
+      capacity.gvm,
+      capacity.rearAxle,
+      capacity.tbm,
+      capacity.atm,
+      capacity.gtm,
+      capacity.gcm,
+      capacity.btc,
+    ]);
+
+    doc.fontSize(10);
+    drawRow(
+      rowY.result,
+      [
+        okText(result.frontAxle),
+        okText(result.gvm),
+        okText(result.rearAxle),
+        okText(result.tbm),
+        okText(result.atm),
+        okText(result.gtm),
+        okText(result.gcm),
+        okText(result.btc),
+      ],
+      true
+    );
+
+    doc.end();
+  } catch (error) {
+    console.error('DIY tow+caravan portable single-axle report-1 error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to generate PDF report' });
+    } else {
+      res.end();
+    }
   }
 });
+
+// @desc    Generate PDF report part 2 for DIY Tow Vehicle + Caravan (Portable Scales, Single Axle)
+// @route   POST /api/weighs/diy-tow-caravan-portable-single-axle/report-2
+// @access  Private
+router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (req, res) => {
+  try {
+    const resolveTemplatePath = (filename) => {
+      const p = path.join(__dirname, '..', 'assets', filename);
+      return fs.existsSync(p) ? p : null;
+    };
+
+    const templateAPath = resolveTemplatePath('Portable Scales - Individual Tyre Weights-a.jpg');
+    const templateBPath = resolveTemplatePath('Portable Scales - Individual Tyre Weights-b.jpg');
+    if (!templateAPath) {
+      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights-a.jpg')}`);
+    }
+    if (!templateBPath) {
+      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights-b.jpg')}`);
+    }
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-2.pdf');
+
+    doc.pipe(res);
+    doc.image(templateAPath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+    doc.addPage({ size: 'A4', layout: 'landscape', margin: 0 });
+    doc.image(templateBPath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+    doc.end();
+  } catch (error) {
+    console.error('DIY tow+caravan portable single-axle report-2 error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to generate PDF report' });
+    } else {
+      res.end();
+    }
+  }
+});
+
+// @desc    Generate PDF report part 3 for DIY Tow Vehicle + Caravan (Portable Scales, Single Axle)
+// @route   POST /api/weighs/diy-tow-caravan-portable-single-axle/report-3
+// @access  Private
+router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (req, res) => {
+  try {
+    const resolveTemplatePath = (filename) => {
+      const p = path.join(__dirname, '..', 'assets', filename);
+      return fs.existsSync(p) ? p : null;
+    };
+
+    const templatePath = resolveTemplatePath('Portable Scales - Individual Tyre Weights-c.jpg');
+    if (!templatePath) {
+      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights-c.jpg')}`);
+    }
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-3.pdf');
+
+    doc.pipe(res);
+    doc.image(templatePath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+    doc.end();
+  } catch (error) {
+    console.error('DIY tow+caravan portable single-axle report-3 error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to generate PDF report' });
+    } else {
+      res.end();
+    }
+  }
+});
+
 // @route   GET /api/weighs
 // @access  Private
 router.get('/', protect, async (req, res) => {

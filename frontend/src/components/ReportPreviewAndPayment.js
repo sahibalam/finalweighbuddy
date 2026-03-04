@@ -168,13 +168,13 @@ const ReportPreviewAndPayment = ({
   };
 
 
-  // PAYMENT-ONLY VIEW (Vehicle Only / Tow Vehicle and Caravan/Trailer, Weighbridge - In Ground - Individual Axle Weights)
+  // PAYMENT-ONLY VIEW (Vehicle Only / Tow Vehicle and Caravan, Weighbridge - In Ground - Individual Axle Weights)
   if (paymentOnly) {
     const methodText = vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights';
 
     let headingText;
     if (weighingSelection === 'tow_vehicle_and_caravan') {
-      headingText = 'Tow Vehicle and Caravan/Trailer';
+      headingText = 'Tow Vehicle and Caravan';
     } else if (weighingSelection === 'caravan_only_registered') {
       headingText = 'Caravan / Trailer Only (registered)';
     } else if (weighingSelection === 'custom_build_trailer_tare') {

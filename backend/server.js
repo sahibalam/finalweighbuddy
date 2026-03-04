@@ -103,6 +103,9 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, './uploads')));
 
+// Serve template images (used for PDF reports)
+app.use('/static-images', express.static(path.join(__dirname, '../frontend/public/images')));
+
 app.use('/api/admin', adminRoutes);
 
 // Serve static files from the React app build directory

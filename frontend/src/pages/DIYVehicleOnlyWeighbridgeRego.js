@@ -28,7 +28,7 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan/Trailer'
+      ? 'Tow Vehicle and Caravan'
       : 'Vehicle Only';
 
   const handleContinue = async () => {

@@ -17,7 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 const WEIGHING_OPTIONS = [
   {
     value: 'tow_vehicle_and_caravan',
-    label: 'Tow Vehicle and Caravan/Trailer'
+    label: 'Tow Vehicle and Caravan'
   },
   {
     value: 'vehicle_only',

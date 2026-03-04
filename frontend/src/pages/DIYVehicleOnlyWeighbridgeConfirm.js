@@ -43,7 +43,7 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan/Trailer'
+      ? 'Tow Vehicle and Caravan'
       : 'Vehicle Only';
 
   // On mount, hydrate fields from the rego lookup (registry / weigh history / Info-Agent)

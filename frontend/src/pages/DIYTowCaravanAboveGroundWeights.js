@@ -39,7 +39,7 @@ const DIYTowCaravanAboveGroundWeights = () => {
             WeighBuddy Compliance Check
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan/Trailer
+            Tow Vehicle and Caravan
           </Typography>
 
           <Typography variant="subtitle1" sx={{ mb: 2 }}>

@@ -376,7 +376,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan/Trailer
+            Tow Vehicle and Caravan
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Portable Scales - Individual Tyre Weights
