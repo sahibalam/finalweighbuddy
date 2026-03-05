@@ -806,15 +806,19 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     const payload = req.body && typeof req.body === 'object' ? req.body : {};
     const header = payload.header && typeof payload.header === 'object' ? payload.header : {};
     const compliance = payload.compliance && typeof payload.compliance === 'object' ? payload.compliance : {};
-
     const weightsRecorded = payload.weightsRecorded && typeof payload.weightsRecorded === 'object' ? payload.weightsRecorded : {};
     const capacity = payload.capacity && typeof payload.capacity === 'object' ? payload.capacity : {};
     const result = payload.result && typeof payload.result === 'object' ? payload.result : {};
-
     const carInfo = payload.carInfo && typeof payload.carInfo === 'object' ? payload.carInfo : {};
     const advisory = payload.advisory && typeof payload.advisory === 'object' ? payload.advisory : {};
     const notes = payload.notes != null ? String(payload.notes) : '';
     const vci01 = payload.vci01 && typeof payload.vci01 === 'object' ? payload.vci01 : {};
+
+    const isDualAxleCaravan =
+      payload &&
+      payload.tyreWeigh &&
+      typeof payload.tyreWeigh === 'object' &&
+      String(payload.tyreWeigh.axleConfig || '').toLowerCase() === 'dual axle';
 
     const resolveTemplatePath = (filename) => {
       // ...
@@ -822,9 +826,14 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
       return fs.existsSync(p) ? p : null;
     };
 
-    const templatePath = resolveTemplatePath('Portable Scales - Individual Tyre Weights.jpg');
+    const templatePath = isDualAxleCaravan
+      ? resolveTemplatePath('dual-axle-cravan.png')
+      : resolveTemplatePath('single-axle-caravan.jpg') ||
+        resolveTemplatePath('Portable Scales - Individual Tyre Weights.jpg');
     if (!templatePath) {
-      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights.jpg')}`);
+      throw new Error(
+        `Template image not found: ${path.join(__dirname, '..', 'assets', isDualAxleCaravan ? 'dual-axle-cravan.png' : 'single-axle-caravan.jpg')} (or legacy Portable Scales - Individual Tyre Weights.jpg)`
+      );
     }
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
@@ -1483,14 +1492,27 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
 // @access  Private
 router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (req, res) => {
   try {
+    const payload = req.body || {};
+
+    const isDualAxleCaravan =
+      payload &&
+      payload.tyreWeigh &&
+      typeof payload.tyreWeigh === 'object' &&
+      String(payload.tyreWeigh.axleConfig || '').toLowerCase() === 'dual axle';
+
     const resolveTemplatePath = (filename) => {
       const p = path.join(__dirname, '..', 'assets', filename);
       return fs.existsSync(p) ? p : null;
     };
 
-    const templatePath = resolveTemplatePath('Portable Scales - Individual Tyre Weights-c.jpg');
+    const templatePath = isDualAxleCaravan
+      ? resolveTemplatePath('dual-axle-trailer.png')
+      : resolveTemplatePath('single-axle-trailer.jpg') ||
+        resolveTemplatePath('Portable Scales - Individual Tyre Weights-c.jpg');
     if (!templatePath) {
-      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights-c.jpg')}`);
+      throw new Error(
+        `Template image not found: ${path.join(__dirname, '..', 'assets', isDualAxleCaravan ? 'dual-axle-trailer.png' : 'single-axle-trailer.jpg')} (or legacy Portable Scales - Individual Tyre Weights-c.jpg)`
+      );
     }
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
@@ -1500,7 +1522,6 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
 
     doc.pipe(res);
 
-    const payload = req.body || {};
     const header = payload.header || {};
     const notes = payload.notes || '';
     const vci01 = payload.vci01 || {};
