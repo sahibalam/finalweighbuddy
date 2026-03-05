@@ -652,10 +652,16 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
 // @route   POST /api/weighs/diy-vehicle-only/report
 // @access  Private
 router.post('/diy-vehicle-only/report', protect, async (req, res) => {
+  let doc;
   try {
     const { vehicleInfo = {}, measured = {}, capacities = {}, capacityDiff = {}, carInfo = {}, notes = '', methodSelection = '' } = req.body || {};
 
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36 });
+    const resolveTemplatePath = (filename) => {
+      const p = path.join(__dirname, '..', 'assets', filename);
+      return fs.existsSync(p) ? p : null;
+    };
+
+    doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36 });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=diy-vehicle-only-weigh.pdf');
@@ -795,6 +801,19 @@ router.post('/diy-vehicle-only/report', protect, async (req, res) => {
     doc.end();
   } catch (error) {
     console.error('DIY vehicle-only PDF generation error:', error);
+    if (res.headersSent) {
+      try {
+        if (doc && !doc.ended) doc.end();
+      } catch (e) {
+        // ignore
+      }
+      try {
+        res.end();
+      } catch (e) {
+        // ignore
+      }
+      return;
+    }
     res.status(500).json({ success: false, message: 'Failed to generate PDF report' });
   }
 }); // <--- Added closing bracket here
