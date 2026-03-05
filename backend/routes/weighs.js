@@ -1460,7 +1460,195 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-3.pdf');
 
     doc.pipe(res);
-    doc.image(templatePath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+
+    const payload = req.body || {};
+    const header = payload.header || {};
+    const notes = payload.notes || '';
+    const vci01 = payload.vci01 || {};
+    const tyreWeigh = payload.tyreWeigh || null;
+
+    const borderColor = '#bdbdbd';
+    const titleBg = '#efefef';
+    const lightBg = '#f7f7f7';
+    const textColor = '#000000';
+
+    const safeNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const fmtKg = (v) => {
+      const n = safeNum(v);
+      return n == null ? '-' : `${Math.round(n)} kg`;
+    };
+
+    const drawCell = (x, y, w, h, text, opts = {}) => {
+      const { bg = null, align = 'left', fontSize = 9, color = textColor, padL = 6, padR = 6 } = opts;
+      doc.save();
+      if (bg) {
+        doc.fillColor(bg);
+        doc.rect(x, y, w, h).fill();
+      }
+      doc.strokeColor(borderColor);
+      doc.rect(x, y, w, h).stroke();
+      doc.fillColor(color);
+      doc.fontSize(fontSize);
+      doc.text(String(text ?? ''), x + padL, y + 6, { width: w - padL - padR, align, ellipsis: true });
+      doc.restore();
+    };
+
+    // Background
+    doc.save();
+    doc.fillColor('#ffffff');
+    doc.rect(0, 0, 842, 595).fill();
+    doc.restore();
+
+    // Header strip with logo placeholder + 2-row info grid
+    const headerTop = 26;
+    const logoX = 35;
+    const logoY = headerTop;
+    const logoW = 165;
+    const logoH = 62;
+    doc.save();
+    doc.strokeColor(borderColor);
+    doc.rect(logoX, logoY, logoW, logoH).stroke();
+    doc.fontSize(9);
+    doc.fillColor('#333333');
+    doc.text('Weighbuddy logo for DIY,\nAllow professional and\nfleet to add logo here', logoX + 10, logoY + 10, {
+      width: logoW - 20,
+      height: logoH - 20,
+    });
+    doc.restore();
+
+    const gridX = logoX + logoW + 20;
+    const gridY = headerTop;
+    const gridW = 842 - gridX - 35;
+    const labelH = 18;
+    const valueH = 22;
+
+    // Row 1
+    const row1Cols = [110, 220, 110, gridW - 110 - 220 - 110];
+    const row1Labels = ['Date', 'Customer Name', 'Time', 'Location'];
+    const row1Values = [header.date || '', header.customerName || '', header.time || '', header.location || ''];
+    let cx = gridX;
+    for (let i = 0; i < row1Cols.length; i += 1) {
+      drawCell(cx, gridY, row1Cols[i], labelH, row1Labels[i], { bg: titleBg, fontSize: 8 });
+      drawCell(cx, gridY + labelH, row1Cols[i], valueH, row1Values[i], { fontSize: 9 });
+      cx += row1Cols[i];
+    }
+
+    // Row 2 (Car + Trailer fields)
+    const row2Y = gridY + labelH + valueH;
+    const row2Cols = [110, 170, 170, 110, 170, gridW - (110 + 170 + 170 + 110 + 170)];
+    const row2Labels = ['Car Rego', 'Make', 'Model', 'Trailer Rego', 'Make', 'Model'];
+    const row2Values = [
+      header.carRego || '',
+      header.carMake || '',
+      header.carModel || '',
+      header.caravanRego || '',
+      header.caravanMake || '',
+      header.caravanModel || '',
+    ];
+    cx = gridX;
+    for (let i = 0; i < row2Cols.length; i += 1) {
+      drawCell(cx, row2Y, row2Cols[i], labelH, row2Labels[i], { bg: titleBg, fontSize: 8 });
+      drawCell(cx, row2Y + labelH, row2Cols[i], valueH, row2Values[i], { fontSize: 9 });
+      cx += row2Cols[i];
+    }
+
+    // Diagram image
+    const diagramX = 150;
+    const diagramY = 135;
+    const diagramW = 540;
+    const diagramH = 175;
+    doc.image(templatePath, diagramX, diagramY, { fit: [diagramW, diagramH], align: 'center', valign: 'center' });
+
+    // Weight overlays
+    const hitchWeigh = (vci01 && vci01.hitchWeigh) || {};
+    const carFR = hitchWeigh.frontRight;
+    const carRR = hitchWeigh.rearRight;
+    const carFL = hitchWeigh.frontLeft;
+    const carRL = hitchWeigh.rearLeft;
+
+    const caravanLeft = tyreWeigh?.single?.left;
+    const caravanRight = tyreWeigh?.single?.right;
+
+    const carLeftTotal = (safeNum(carFL) || 0) + (safeNum(carRL) || 0);
+    const carRightTotal = (safeNum(carFR) || 0) + (safeNum(carRR) || 0);
+    const vanLeftTotal = safeNum(caravanLeft) || 0;
+    const vanRightTotal = safeNum(caravanRight) || 0;
+
+    // Car tyre numbers (positions tuned to template)
+    doc.save();
+    doc.fillColor('#000000');
+    doc.fontSize(10);
+    // Right side values
+    doc.text(fmtKg(carFR), diagramX + 58, diagramY + 32, { width: 80, align: 'center' });
+    doc.text(fmtKg(carRR), diagramX + 165, diagramY + 32, { width: 80, align: 'center' });
+    // Left side values
+    doc.text(fmtKg(carFL), diagramX + 58, diagramY + 137, { width: 80, align: 'center' });
+    doc.text(fmtKg(carRL), diagramX + 165, diagramY + 137, { width: 80, align: 'center' });
+
+    // Trailer left/right values (near trailer text)
+    doc.text(fmtKg(vanRightTotal), diagramX + 410, diagramY + 40, { width: 90, align: 'center' });
+    doc.text(fmtKg(vanLeftTotal), diagramX + 410, diagramY + 135, { width: 90, align: 'center' });
+    doc.restore();
+
+    // Left/Right KG boxes
+    const boxW = 70;
+    const boxH = 48;
+    const boxPad = 10;
+
+    const drawKgStack = (x, y, rightKg, leftKg) => {
+      drawCell(x, y, boxW, boxH, `Right KG\n${Math.round(rightKg || 0)}`, { bg: titleBg, align: 'center', fontSize: 9, padL: boxPad, padR: boxPad });
+      drawCell(x, y + boxH, boxW, boxH, `Left KG\n${Math.round(leftKg || 0)}`, { bg: titleBg, align: 'center', fontSize: 9, padL: boxPad, padR: boxPad });
+    };
+
+    // Car stacks (left of car)
+    drawKgStack(60, diagramY + 25, carRightTotal, carLeftTotal);
+    // Trailer stacks (right of trailer)
+    drawKgStack(842 - 60 - boxW, diagramY + 25, vanRightTotal, vanLeftTotal);
+
+    // Middle helper text (very small, light)
+    doc.save();
+    doc.fillColor('#777777');
+    doc.fontSize(7);
+    doc.text('Right kg split between tyres', 60, diagramY + 25 + boxH - 12, { width: boxW, align: 'center' });
+    doc.text('Right kg split between tyres', 842 - 60 - boxW, diagramY + 25 + boxH - 12, { width: boxW, align: 'center' });
+    doc.restore();
+
+    // Additional Notes block
+    const notesX = 35;
+    const notesY = 350;
+    const notesW = 842 - 70;
+    const notesTitleH = 22;
+    const notesBodyH = 160;
+
+    drawCell(notesX, notesY, notesW, notesTitleH, 'Additional Notes', { bg: titleBg, fontSize: 10 });
+    doc.save();
+    doc.fillColor(lightBg);
+    doc.rect(notesX, notesY + notesTitleH, notesW, notesBodyH).fill();
+    doc.strokeColor(borderColor);
+    doc.rect(notesX, notesY + notesTitleH, notesW, notesBodyH).stroke();
+    doc.fillColor('#000000');
+    doc.fontSize(10);
+    doc.text(notes && String(notes).trim() !== '' ? String(notes) : '-', notesX + 10, notesY + notesTitleH + 10, {
+      width: notesW - 20,
+      height: notesBodyH - 20,
+    });
+    doc.restore();
+
+    // Footer
+    const footerY = 575;
+    doc.save();
+    doc.fillColor('#000000');
+    doc.fontSize(10);
+    doc.text('powered by weighbuddy', 0, footerY, { width: 842, align: 'center' });
+    doc.fontSize(9);
+    doc.text('help - FAQ', 600, footerY, { width: 100, align: 'left' });
+    doc.text('Terms and Conditions', 690, footerY, { width: 150, align: 'left' });
+    doc.restore();
+
     doc.end();
   } catch (error) {
     console.error('DIY tow+caravan portable single-axle report-3 error:', error);
