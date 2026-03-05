@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { PDFDocument } from 'pdf-lib';
 import { useAuth } from '../contexts/AuthContext';
 
 const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = {}) => {
@@ -1597,12 +1598,17 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           }
         ];
 
+        const mergedPdf = await PDFDocument.create();
         for (const ep of endpoints) {
-          const resp = await axios.post(ep.url, reportPayload, { responseType: 'blob' });
-          const blob = new Blob([resp.data], { type: 'application/pdf' });
-          triggerPdfDownload(blob, ep.filename);
-          await new Promise((r) => setTimeout(r, 600));
+          const resp = await axios.post(ep.url, reportPayload, { responseType: 'arraybuffer' });
+          const srcPdf = await PDFDocument.load(resp.data);
+          const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+          pages.forEach((p) => mergedPdf.addPage(p));
         }
+
+        const mergedBytes = await mergedPdf.save();
+        const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+        triggerPdfDownload(mergedBlob, 'diy-tow-caravan-portable-single-axle.pdf');
         return;
       }
 
