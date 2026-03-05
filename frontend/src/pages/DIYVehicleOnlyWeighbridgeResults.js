@@ -1334,7 +1334,12 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // measured GVM so the row does not show 0.
   const effectiveGvmForCapacity =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? (gvmUnhitched > 0 ? gvmUnhitched : gvmMeasured)
+      ? (gvmCapacityNum + (tbmCapacityNum || 0))
+      : gvmMeasured;
+
+  const measuredGvmForComparison =
+    weighingSelection === 'tow_vehicle_and_caravan'
+      ? (gvmHitched || gvmMeasured)
       : gvmMeasured;
 
   // FINAL embedded tow+caravan history fallbacks: run as late as possible,
@@ -1408,7 +1413,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // Capacity row: difference (capacity - measured)
   const frontCapacityDiff = frontCapacity - frontMeasured;
   const rearCapacityDiff = rearCapacity - rearMeasured;
-  const gvmCapacityDiff = gvmCapacityNum - effectiveGvmForCapacity;
+  const gvmCapacityDiff = effectiveGvmForCapacity - measuredGvmForComparison;
   const caravanGtmCapacityDiff = caravanGtmCapacityNum -
     (weighingSelection === 'caravan_only_registered' ? caravanMeasuredGtm : gtmMeasured);
 
