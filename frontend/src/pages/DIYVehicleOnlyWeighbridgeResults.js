@@ -1512,6 +1512,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           header: {
             date: new Date().toLocaleDateString(),
             customerName: effectiveClient?.fullName || '',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             carRego: carRegoForHeader,
             carMake: carMakeForHeader,
             carModel: carModelForHeader,
