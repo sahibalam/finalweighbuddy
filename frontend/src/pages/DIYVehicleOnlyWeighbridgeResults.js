@@ -1334,7 +1334,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   // measured GVM so the row does not show 0.
   const effectiveGvmForCapacity =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? (gvmCapacityNum + (tbmCapacityNum || 0))
+      ? gvmCapacityNum
       : gvmMeasured;
 
   const measuredGvmForComparison =
