@@ -662,6 +662,15 @@ router.post('/diy-vehicle-only/report', protect, async (req, res) => {
 
     doc.pipe(res);
 
+    const logoPath = resolveTemplatePath('weighbuddy logo green background.png');
+    if (logoPath) {
+      try {
+        doc.image(logoPath, 18, 16, { fit: [155, 52], align: 'left', valign: 'top' });
+      } catch (e) {
+        // ignore logo render errors
+      }
+    }
+
     // Vehicle image above the table
     const vehicleImagePath = path.join(__dirname, '..', 'assets', 'vehicle.png');
     try {
@@ -823,6 +832,15 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-1.pdf');
 
     doc.pipe(res);
+
+    const logoPath = resolveTemplatePath('weighbuddy logo green background.png');
+    if (logoPath) {
+      try {
+        doc.image(logoPath, 18, 16, { fit: [155, 52], align: 'left', valign: 'top' });
+      } catch (e) {
+        // ignore logo render errors
+      }
+    }
     // The base template contains a very large vehicle+caravan illustration.
     // If rendered full-page it sits behind the compliance table. To mirror the
     // reference layout, crop just the vehicle+caravan region and render it
@@ -1223,6 +1241,15 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
 
     doc.pipe(res);
 
+    const logoPath = resolveTemplatePath('weighbuddy logo green background.png');
+    if (logoPath) {
+      try {
+        doc.image(logoPath, 18, 16, { fit: [155, 52], align: 'left', valign: 'top' });
+      } catch (e) {
+        // ignore logo render errors
+      }
+    }
+
     const payload = req.body || {};
     const header = payload.header || {};
     const compliance = payload.compliance || {};
@@ -1509,16 +1536,29 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     const logoY = headerTop;
     const logoW = 165;
     const logoH = 62;
-    doc.save();
-    doc.strokeColor(borderColor);
-    doc.rect(logoX, logoY, logoW, logoH).stroke();
-    doc.fontSize(9);
-    doc.fillColor('#333333');
-    doc.text('Weighbuddy logo for DIY,\nAllow professional and\nfleet to add logo here', logoX + 10, logoY + 10, {
-      width: logoW - 20,
-      height: logoH - 20,
-    });
-    doc.restore();
+    let logoRendered = false;
+    const report3LogoPath = resolveTemplatePath('weighbuddy logo green background.png');
+    if (report3LogoPath) {
+      try {
+        doc.image(report3LogoPath, logoX, logoY, { fit: [logoW, logoH], align: 'left', valign: 'top' });
+        logoRendered = true;
+      } catch (e) {
+        logoRendered = false;
+      }
+    }
+
+    if (!logoRendered) {
+      doc.save();
+      doc.strokeColor(borderColor);
+      doc.rect(logoX, logoY, logoW, logoH).stroke();
+      doc.fontSize(9);
+      doc.fillColor('#333333');
+      doc.text('Weighbuddy logo for DIY,\nAllow professional and\nfleet to add logo here', logoX + 10, logoY + 10, {
+        width: logoW - 20,
+        height: logoH - 20,
+      });
+      doc.restore();
+    }
 
     const gridX = logoX + logoW + 20;
     const gridY = headerTop;
