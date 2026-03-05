@@ -4,6 +4,14 @@ frontend/node_modules/
 
 uploads/
 
+frontend/build/
+
+.DS_Store
+
+backend/uploads/
+
+backend/Vehicle_Load_Report_FINAL.pdf
+
 # Environment files
 *.env
 backend/.env

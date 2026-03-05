@@ -42,6 +42,12 @@ const DIYTowCaravanInfo = () => {
       notes
     };
 
+    try {
+      window.sessionStorage.setItem('weighbuddy_diy_tow_preweigh', JSON.stringify(preWeigh));
+    } catch (e) {
+      // ignore storage errors
+    }
+
     let nextPath = '/diy-weigh';
 
     if (methodSelection === 'Portable Scales - Individual Tyre Weights') {

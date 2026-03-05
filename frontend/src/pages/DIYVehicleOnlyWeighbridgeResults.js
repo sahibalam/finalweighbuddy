@@ -1470,6 +1470,28 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       const isSingleAxle = resolvedTyreWeigh?.axleConfig === 'Single Axle';
 
       if (isTowCaravanPortable && isSingleAxle) {
+        let notesFromSession = '';
+        if (typeof window !== 'undefined' && !embedded) {
+          try {
+            const raw = window.sessionStorage.getItem('weighbuddy_diy_tow_preweigh');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && typeof parsed === 'object' && parsed.notes != null) {
+                notesFromSession = String(parsed.notes);
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        const notesFromPreWeigh =
+          resolvedState?.preWeigh?.notes != null
+            ? String(resolvedState.preWeigh.notes)
+            : location?.state?.preWeigh?.notes != null
+              ? String(location.state.preWeigh.notes)
+              : notesFromSession;
+
         const reportPayload = {
           header: {
             date: new Date().toLocaleDateString(),
@@ -1533,7 +1555,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             btcPct: btcPct != null ? Number(btcPct) : null,
           },
           tyreWeigh: resolvedTyreWeigh,
-          notes: '',
+          vci01: resolvedState?.vci01 || portableSessionVci01 || null,
+          vci02: resolvedState?.vci02 || portableSessionVci02 || null,
+          notes: notesFromPreWeigh,
         };
 
         const endpoints = [

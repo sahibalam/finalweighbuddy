@@ -802,6 +802,10 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     const capacity = payload.capacity && typeof payload.capacity === 'object' ? payload.capacity : {};
     const result = payload.result && typeof payload.result === 'object' ? payload.result : {};
 
+    const carInfo = payload.carInfo && typeof payload.carInfo === 'object' ? payload.carInfo : {};
+    const advisory = payload.advisory && typeof payload.advisory === 'object' ? payload.advisory : {};
+    const notes = payload.notes != null ? String(payload.notes) : '';
+
     const resolveTemplatePath = (filename) => {
       // ...
       const p = path.join(__dirname, '..', 'assets', filename);
@@ -819,11 +823,154 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-1.pdf');
 
     doc.pipe(res);
-    doc.image(templatePath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+    // The base template contains a very large vehicle+caravan illustration.
+    // If rendered full-page it sits behind the compliance table. To mirror the
+    // reference layout, crop just the vehicle+caravan region and render it
+    // smaller near the top.
+    try {
+      doc.image(templatePath, 120, 75, {
+        fit: [640, 220],
+        align: 'center',
+        valign: 'center',
+        srcRect: [0, 80, 1800, 520],
+      });
+    } catch (imgErr) {
+      // If cropping is not supported for the image type, fall back to a smaller render.
+      doc.image(templatePath, 60, 40, { fit: [720, 300], align: 'center', valign: 'top' });
+    }
 
     const safeText = (v) => (v == null ? '' : String(v));
     const safeNum = (v) => (v == null || v === '' ? '' : String(Number(v)));
     const okText = (b) => (b === false ? 'Over' : b === true ? 'OK' : '');
+
+    // Draw table grid + headers so the PDF mirrors the UI screenshot.
+    // The background template image sometimes lacks visible borders once scaled,
+    // so we explicitly draw the table structure.
+    const drawTowCaravanComplianceTable = () => {
+      const headers = [
+        'Front Axle',
+        'GVM',
+        'Rear Axle',
+        'TowBall (Check Advisory)',
+        'ATM',
+        'GTM',
+        'GCM',
+        'BTC',
+      ];
+
+      // Tuned to the current template placement (842x595 landscape).
+      // Slightly wider columns for the long TowBall header.
+      const headerY = 304;
+      const headerH = 24;
+      const rowH = 23;
+      // Shift slightly right to prevent left-edge clipping on some PDF viewers.
+      const startX = 125;
+      const labelW = 118;
+      // Narrow columns slightly so the full table (including BTC) fits on A4 landscape.
+      const colW = [66, 66, 66, 128, 66, 66, 66, 66];
+
+      const tableW = labelW + colW.reduce((a, b) => a + b, 0);
+      const borderColor = '#9e9e9e';
+
+      doc.save();
+      doc.lineWidth(1);
+      doc.strokeColor(borderColor);
+
+      // Outer border (header + 4 rows)
+      doc.rect(startX, headerY, tableW, headerH + rowH * 4).stroke();
+
+      // Header background
+      doc.fillColor('#e8f4ff');
+      doc.rect(startX + labelW, headerY, tableW - labelW, headerH).fill();
+      doc.fillColor('#f5f5f5');
+      doc.rect(startX, headerY, labelW, headerH).fill();
+
+      // Header cell borders + text
+      doc.fillColor('#000000');
+      doc.fontSize(9);
+      let x = startX;
+      doc.rect(x, headerY, labelW, headerH).stroke();
+      x += labelW;
+      headers.forEach((h, i) => {
+        doc.rect(x, headerY, colW[i], headerH).stroke();
+        doc.text(String(h), x + 2, headerY + 6, { width: colW[i] - 4, align: 'center' });
+        x += colW[i];
+      });
+
+      // Horizontal lines for rows
+      for (let r = 0; r <= 4; r += 1) {
+        const y = headerY + headerH + r * rowH;
+        doc.moveTo(startX, y).lineTo(startX + tableW, y).stroke();
+      }
+
+      // Vertical lines (label boundary + each column)
+      let vx = startX;
+      doc.moveTo(vx, headerY).lineTo(vx, headerY + headerH + rowH * 4).stroke();
+      vx += labelW;
+      doc.moveTo(vx, headerY).lineTo(vx, headerY + headerH + rowH * 4).stroke();
+      headers.forEach((_, i) => {
+        vx += colW[i];
+        doc.moveTo(vx, headerY).lineTo(vx, headerY + headerH + rowH * 4).stroke();
+      });
+
+      // Row label backgrounds and text
+      const rowLabels = ['Compliance', 'Weights Recorded', 'Capacity', 'Result'];
+      rowLabels.forEach((label, idx) => {
+        const y = headerY + headerH + idx * rowH;
+        // Row background colors (approx. to UI screenshot)
+        const rowBg =
+          label === 'Compliance'
+            ? '#cdd9ff'
+            : label === 'Weights Recorded'
+              ? '#fff3b0'
+              : label === 'Capacity'
+                ? '#eeeeee'
+                : '#ffffff';
+
+        doc.fillColor(rowBg);
+        doc.rect(startX, y, labelW, rowH).fill();
+        // Fill the value row background for the first three rows.
+        if (label !== 'Result') {
+          doc.fillColor(rowBg);
+          doc.rect(startX + labelW, y, tableW - labelW, rowH).fill();
+        }
+        doc.strokeColor(borderColor);
+        doc.rect(startX, y, labelW, rowH).stroke();
+        doc.fillColor('#000000');
+        doc.fontSize(9);
+        doc.text(String(label), startX + 6, y + 7, { width: labelW - 12, align: 'left' });
+      });
+
+      doc.restore();
+    };
+
+    drawTowCaravanComplianceTable();
+
+    // Keep value placement derived from the same table geometry so it never
+    // shifts a column relative to the drawn grid.
+    const tableGeom = {
+      headerY: 304,
+      headerH: 24,
+      rowH: 23,
+      startX: 125,
+      labelW: 118,
+      colW: [66, 66, 66, 128, 66, 66, 66, 66],
+    };
+    const valueCellCentersX = (() => {
+      const xs = [];
+      let x = tableGeom.startX + tableGeom.labelW;
+      for (let i = 0; i < tableGeom.colW.length; i += 1) {
+        xs.push(x + tableGeom.colW[i] / 2);
+        x += tableGeom.colW[i];
+      }
+      return xs;
+    })();
+    const valueRowY = {
+      compliance: tableGeom.headerY + tableGeom.headerH + 7,
+      weights: tableGeom.headerY + tableGeom.headerH + tableGeom.rowH + 7,
+      capacity: tableGeom.headerY + tableGeom.headerH + tableGeom.rowH * 2 + 7,
+      result: tableGeom.headerY + tableGeom.headerH + tableGeom.rowH * 3 + 7,
+    };
 
     // Header row positions (tuned to match the provided template)
     doc.fillColor('#000000');
@@ -843,21 +990,33 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     // Compliance table values
     // Columns: Front Axle, GVM, Rear Axle, TowBall, ATM, GTM, GCM, BTC
     // Row Y positions (Compliance, Weights Recorded, Capacity, Result)
-    const colsX = [170, 245, 320, 395, 470, 545, 620, 770];
-    const rowY = {
-      compliance: 332,
-      weights: 355,
-      capacity: 379,
-      result: 402,
-    };
     const drawRow = (y, values, isResult = false) => {
       values.forEach((val, idx) => {
-        const x = colsX[idx] || 0;
-        doc.text(isResult ? safeText(val) : safeNum(val), x, y, { width: 60, align: 'center' });
+        const cx = valueCellCentersX[idx];
+        if (cx == null) return;
+        const text = isResult ? safeText(val) : safeNum(val);
+        const cellW = tableGeom.colW[idx] || 60;
+
+        if (isResult) {
+          // Color result cells: green for OK, red for Over.
+          const isOver = String(text).toLowerCase() === 'over';
+          const bg = isOver ? '#e53935' : '#1aa64b';
+          const cellX = tableGeom.startX + tableGeom.labelW + tableGeom.colW
+            .slice(0, idx)
+            .reduce((a, b) => a + b, 0);
+          const cellY = tableGeom.headerY + tableGeom.headerH + tableGeom.rowH * 3;
+          doc.save();
+          doc.fillColor(bg);
+          doc.rect(cellX, cellY, cellW, tableGeom.rowH).fill();
+          doc.restore();
+          doc.fillColor('#000000');
+        }
+
+        doc.text(text, cx - cellW / 2, y, { width: cellW, align: 'center' });
       });
     };
 
-    drawRow(rowY.compliance, [
+    drawRow(valueRowY.compliance, [
       compliance.frontAxle,
       compliance.gvm,
       compliance.rearAxle,
@@ -868,7 +1027,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
       compliance.btc,
     ]);
 
-    drawRow(rowY.weights, [
+    drawRow(valueRowY.weights, [
       weightsRecorded.frontAxle,
       weightsRecorded.gvm,
       weightsRecorded.rearAxle,
@@ -879,7 +1038,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
       weightsRecorded.btc,
     ]);
 
-    drawRow(rowY.capacity, [
+    drawRow(valueRowY.capacity, [
       capacity.frontAxle,
       capacity.gvm,
       capacity.rearAxle,
@@ -892,7 +1051,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
 
     doc.fontSize(10);
     drawRow(
-      rowY.result,
+      valueRowY.result,
       [
         okText(result.frontAxle),
         okText(result.gvm),
@@ -905,6 +1064,127 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
       ],
       true
     );
+
+    // Sections below the compliance table (Car Information, Advisory Only, Additional Notes)
+    // Layout tuned for A4 landscape.
+    const blocksTop = tableGeom.headerY + tableGeom.headerH + tableGeom.rowH * 4 + 20;
+
+    const borderColor = '#bdbdbd';
+    const titleBg = '#f5f5f5';
+
+    const drawBoxTitle = (x, y, w, h, title) => {
+      doc.save();
+      doc.fillColor(titleBg);
+      doc.rect(x, y, w, h).fillAndStroke(titleBg, borderColor);
+      doc.fillColor('#000000');
+      doc.fontSize(10);
+      doc.text(String(title), x + 8, y + 6, { width: w - 16, align: 'left' });
+      doc.restore();
+    };
+
+    const drawCell = (x, y, w, h, text, opts = {}) => {
+      const { bg = null, align = 'left', fontSize = 9, color = '#000000' } = opts;
+      doc.save();
+      if (bg) {
+        doc.fillColor(bg);
+        doc.rect(x, y, w, h).fill();
+      }
+      doc.strokeColor(borderColor);
+      doc.rect(x, y, w, h).stroke();
+      doc.fillColor(color);
+      doc.fontSize(fontSize);
+      doc.text(String(text ?? ''), x + 6, y + 6, { width: w - 12, align });
+      doc.restore();
+    };
+
+    // Car Information block
+    const carX = 70;
+    const carY = blocksTop;
+    const carW = 250;
+    const titleH = 22;
+    const rowH = 20;
+    drawBoxTitle(carX, carY, carW, titleH, 'Car Information');
+
+    const carTableY = carY + titleH;
+    const labelW = 120;
+    const valueW = carW - labelW;
+    drawCell(carX, carTableY, labelW, rowH, 'Fuel');
+    drawCell(carX + labelW, carTableY, valueW, rowH, carInfo.fuelLevel != null ? `${carInfo.fuelLevel}%` : '-');
+    drawCell(carX, carTableY + rowH, labelW, rowH, 'Passengers');
+    drawCell(carX + labelW, carTableY + rowH, valueW / 2, rowH, 'Front', { align: 'center' });
+    drawCell(carX + labelW + valueW / 2, carTableY + rowH, valueW / 2, rowH, 'Rear', { align: 'center' });
+    drawCell(carX + labelW, carTableY + rowH * 2, valueW / 2, rowH, carInfo.passengersFront ?? '-', { align: 'center' });
+    drawCell(carX + labelW + valueW / 2, carTableY + rowH * 2, valueW / 2, rowH, carInfo.passengersRear ?? '-', { align: 'center' });
+
+    // Advisory Only block
+    const advX = carX + carW + 40;
+    const advY = blocksTop;
+    const advW = 260;
+    drawBoxTitle(advX, advY, advW, titleH, 'Advisory Only');
+    const advTableY = advY + titleH;
+    const advRowH = 22;
+    const advLabelW = 200;
+    const advValW = advW - advLabelW;
+
+    const pctVal = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+    const advisoryCellColor = (pct, okIfGte) => {
+      if (pct == null) return '#eeeeee';
+      return pct >= okIfGte ? '#1aa64b' : '#e53935';
+    };
+
+    const vanToCar = pctVal(advisory.vanToCarRatioPct);
+    drawCell(advX, advTableY, advLabelW, advRowH, 'Trailer / Caravan to Car Ratio <85%');
+    drawCell(
+      advX + advLabelW,
+      advTableY,
+      advValW,
+      advRowH,
+      vanToCar == null ? '-' : `${Math.round(vanToCar)}%`,
+      { bg: advisoryCellColor(vanToCar, 85), align: 'center', color: '#ffffff' }
+    );
+
+    const towBallPct = pctVal(advisory.towBallPct);
+    drawCell(advX, advTableY + advRowH, advLabelW, advRowH, 'Towball % (8% to 12%)');
+    const towBallOk = towBallPct != null && towBallPct >= 8 && towBallPct <= 12;
+    drawCell(
+      advX + advLabelW,
+      advTableY + advRowH,
+      advValW,
+      advRowH,
+      towBallPct == null ? '-' : `${Math.round(towBallPct)}%`,
+      { bg: towBallOk ? '#1aa64b' : '#e53935', align: 'center', color: '#ffffff' }
+    );
+
+    const btcPct = pctVal(advisory.btcPct);
+    drawCell(advX, advTableY + advRowH * 2, advLabelW, advRowH, 'Braked Towing Capacity Ratio <80%');
+    drawCell(
+      advX + advLabelW,
+      advTableY + advRowH * 2,
+      advValW,
+      advRowH,
+      btcPct == null ? '-' : `${Math.round(btcPct)}%`,
+      { bg: advisoryCellColor(btcPct, 80), align: 'center', color: '#ffffff' }
+    );
+
+    // Additional Notes block
+    const notesX = advX + advW + 40;
+    const notesY = blocksTop;
+    const notesW = 300;
+    drawBoxTitle(notesX, notesY, notesW, titleH, 'Additional Notes');
+    const notesBodyY = notesY + titleH;
+    const notesBodyH = 3 * advRowH;
+    const notesPadL = 8;
+    const notesPadR = 18;
+    doc.save();
+    doc.strokeColor(borderColor);
+    doc.rect(notesX, notesBodyY, notesW, notesBodyH).stroke();
+    doc.fillColor('#000000');
+    doc.fontSize(9);
+    doc.text(notes && notes.trim() !== '' ? notes : '-', notesX + notesPadL, notesBodyY + 8, {
+      width: notesW - notesPadL - notesPadR,
+      height: notesBodyH - 16,
+    });
+    doc.restore();
 
     doc.end();
   } catch (error) {
@@ -942,9 +1222,196 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     res.setHeader('Content-Disposition', 'attachment; filename=diy-tow-caravan-portable-single-axle-2.pdf');
 
     doc.pipe(res);
-    doc.image(templateAPath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
-    doc.addPage({ size: 'A4', layout: 'landscape', margin: 0 });
-    doc.image(templateBPath, 0, 0, { fit: [842, 595], align: 'center', valign: 'center' });
+
+    const payload = req.body || {};
+    const header = payload.header || {};
+    const compliance = payload.compliance || {};
+    const weightsRecorded = payload.weightsRecorded || {};
+    const capacity = payload.capacity || {};
+    const result = payload.result || {};
+    const carInfo = payload.carInfo || {};
+    const notes = payload.notes || '';
+    const vci01 = payload.vci01 || {};
+
+    const borderColor = '#bdbdbd';
+    const titleBg = '#f5f5f5';
+
+    const safeNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const fmtKg = (v) => {
+      const n = safeNum(v);
+      return n == null ? '-' : `${Math.round(n)} kg`;
+    };
+
+    const okText = (ok) => (ok ? 'OK' : 'Over');
+
+    const drawCell = (x, y, w, h, text, opts = {}) => {
+      const { bg = null, align = 'left', fontSize = 9, color = '#000000', padL = 6, padR = 6 } = opts;
+      doc.save();
+      if (bg) {
+        doc.fillColor(bg);
+        doc.rect(x, y, w, h).fill();
+      }
+      doc.strokeColor(borderColor);
+      doc.rect(x, y, w, h).stroke();
+      doc.fillColor(color);
+      doc.fontSize(fontSize);
+      doc.text(String(text ?? ''), x + padL, y + 6, { width: w - padL - padR, align });
+      doc.restore();
+    };
+
+    const headerX = 210;
+    const headerY = 18;
+    const headerW = 600;
+    const headerRowH = 22;
+    const headerRow2H = 22;
+
+    doc.save();
+    doc.strokeColor(borderColor);
+    doc.rect(headerX, headerY, headerW, headerRowH + headerRow2H).stroke();
+    doc.restore();
+
+    const cols1 = [110, 190, 110, 190];
+    const labels1 = ['Date', 'Customer Name', 'Time', 'Location'];
+    const values1 = [header.date || '', header.customerName || '', header.time || '', header.location || ''];
+    let cx = headerX;
+    for (let i = 0; i < cols1.length; i += 1) {
+      drawCell(cx, headerY, cols1[i], headerRowH, labels1[i], { bg: titleBg, fontSize: 8 });
+      drawCell(cx, headerY + headerRowH, cols1[i], headerRow2H, values1[i], { fontSize: 9 });
+      cx += cols1[i];
+    }
+
+    const row2Y = headerY + headerRowH + headerRow2H + 2;
+    const row2Cols = [110, 190, 190, 110];
+    const row2Labels = ['Car Rego', 'Make', 'Model', ''];
+    const row2Values = [header.carRego || '', header.carMake || '', header.carModel || '', ''];
+    cx = headerX;
+    for (let i = 0; i < row2Cols.length; i += 1) {
+      if (row2Labels[i] !== '') {
+        drawCell(cx, row2Y, row2Cols[i], headerRowH, row2Labels[i], { bg: titleBg, fontSize: 8 });
+        drawCell(cx, row2Y + headerRowH, row2Cols[i], headerRow2H, row2Values[i], { fontSize: 9 });
+      } else {
+        drawCell(cx, row2Y, row2Cols[i], headerRowH + headerRow2H, '', { bg: '#ffffff' });
+      }
+      cx += row2Cols[i];
+    }
+
+    const sideImgX = 90;
+    const sideImgY = 90;
+    doc.image(templateAPath, sideImgX, sideImgY, { fit: [450, 160], align: 'left', valign: 'top' });
+
+    const topImgX = 560;
+    const topImgY = 105;
+    doc.image(templateBPath, topImgX, topImgY, { fit: [240, 300], align: 'left', valign: 'top' });
+
+    const tyre = (vci01 && vci01.hitchWeigh) || {};
+    doc.save();
+    doc.fillColor('#000000');
+    doc.fontSize(10);
+    doc.text(fmtKg(tyre.frontLeft), topImgX - 95, topImgY + 85, { width: 90, align: 'right' });
+    doc.text(fmtKg(tyre.rearLeft), topImgX - 95, topImgY + 205, { width: 90, align: 'right' });
+    doc.text(fmtKg(tyre.frontRight), topImgX + 245, topImgY + 85, { width: 90, align: 'left' });
+    doc.text(fmtKg(tyre.rearRight), topImgX + 245, topImgY + 205, { width: 90, align: 'left' });
+    doc.restore();
+
+    const tableX = 135;
+    const tableY = 270;
+    const tableW = 370;
+    const labelW = 110;
+    const colW = (tableW - labelW) / 3;
+    const headerH = 22;
+    const rowH = 22;
+    const headers = ['Rear Axle', 'GVM', 'Front Axle'];
+
+    drawCell(tableX, tableY, labelW, headerH, '', { bg: titleBg, align: 'center', fontSize: 8 });
+    for (let i = 0; i < 3; i += 1) {
+      drawCell(tableX + labelW + i * colW, tableY, colW, headerH, headers[i], { bg: '#e8f4ff', align: 'center', fontSize: 8 });
+    }
+
+    const rowLabels = ['Compliance', 'Weights Recorded', 'Capacity', 'Result'];
+    const rowBg = ['#cdd9ff', '#fff3b0', '#eeeeee', '#ffffff'];
+    const vals = [
+      [compliance.rearAxle, compliance.gvm, compliance.frontAxle],
+      [weightsRecorded.rearAxle, weightsRecorded.gvm, weightsRecorded.frontAxle],
+      [capacity.rearAxle, capacity.gvm, capacity.frontAxle],
+      [okText(result.rearAxle), okText(result.gvm), okText(result.frontAxle)],
+    ];
+
+    for (let r = 0; r < rowLabels.length; r += 1) {
+      const y = tableY + headerH + r * rowH;
+      drawCell(tableX, y, labelW, rowH, rowLabels[r], { bg: rowBg[r], fontSize: 9 });
+      for (let c = 0; c < 3; c += 1) {
+        const isResult = rowLabels[r] === 'Result';
+        const ok = c === 0 ? result.rearAxle : c === 1 ? result.gvm : result.frontAxle;
+        const bg =
+          isResult
+            ? ok
+              ? '#1aa64b'
+              : '#e53935'
+            : rowBg[r];
+        const color = isResult ? '#ffffff' : '#000000';
+        const text = isResult ? vals[r][c] : fmtKg(vals[r][c]).replace(' kg', '');
+        drawCell(tableX + labelW + c * colW, y, colW, rowH, text, { bg, align: 'center', fontSize: 9, color });
+      }
+    }
+
+    const blocksTop = 455;
+    const titleH = 22;
+
+    const drawBoxTitle = (x, y, w, h, title) => {
+      doc.save();
+      doc.fillColor(titleBg);
+      doc.rect(x, y, w, h).fillAndStroke(titleBg, borderColor);
+      doc.fillColor('#000000');
+      doc.fontSize(10);
+      doc.text(String(title), x + 8, y + 6, { width: w - 16, align: 'left' });
+      doc.restore();
+    };
+
+    const carX = 70;
+    const carY = blocksTop;
+    const carW = 260;
+    drawBoxTitle(carX, carY, carW, titleH, 'Car Information');
+    const carTableY = carY + titleH;
+    const infoRowH = 22;
+    const infoLabelW = 120;
+    drawCell(carX, carTableY, infoLabelW, infoRowH, 'Fuel');
+    drawCell(carX + infoLabelW, carTableY, carW - infoLabelW, infoRowH, carInfo.fuelLevel != null ? `${carInfo.fuelLevel}%` : '-');
+    drawCell(carX, carTableY + infoRowH, infoLabelW, infoRowH, 'Passengers');
+    drawCell(carX + infoLabelW, carTableY + infoRowH, (carW - infoLabelW) / 2, infoRowH, 'Front', { align: 'center' });
+    drawCell(carX + infoLabelW + (carW - infoLabelW) / 2, carTableY + infoRowH, (carW - infoLabelW) / 2, infoRowH, 'Rear', { align: 'center' });
+    drawCell(carX + infoLabelW, carTableY + infoRowH * 2, (carW - infoLabelW) / 2, infoRowH, carInfo.passengersFront ?? '-', { align: 'center' });
+    drawCell(
+      carX + infoLabelW + (carW - infoLabelW) / 2,
+      carTableY + infoRowH * 2,
+      (carW - infoLabelW) / 2,
+      infoRowH,
+      carInfo.passengersRear ?? '-',
+      { align: 'center' }
+    );
+
+    const notesX = carX + carW + 40;
+    const notesY = blocksTop;
+    const notesW = 520;
+    drawBoxTitle(notesX, notesY, notesW, titleH, 'Additional Notes');
+    const notesBodyY = notesY + titleH;
+    const notesBodyH = infoRowH * 3;
+    const notesPadL = 8;
+    const notesPadR = 18;
+    doc.save();
+    doc.strokeColor(borderColor);
+    doc.rect(notesX, notesBodyY, notesW, notesBodyH).stroke();
+    doc.fillColor('#000000');
+    doc.fontSize(9);
+    doc.text(notes && String(notes).trim() !== '' ? String(notes) : '-', notesX + notesPadL, notesBodyY + 8, {
+      width: notesW - notesPadL - notesPadR,
+      height: notesBodyH - 16,
+    });
+    doc.restore();
+
     doc.end();
   } catch (error) {
     console.error('DIY tow+caravan portable single-axle report-2 error:', error);
