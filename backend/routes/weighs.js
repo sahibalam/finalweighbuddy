@@ -1315,12 +1315,13 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     }
 
     const sideImgX = 90;
-    const sideImgY = 90;
-    doc.image(templateAPath, sideImgX, sideImgY, { fit: [450, 160], align: 'left', valign: 'top' });
+    // Keep clear space below the header grid so Car Rego / Make row is unobstructed.
+    const sideImgY = 120;
+    doc.image(templateAPath, sideImgX, sideImgY, { fit: [430, 140], align: 'left', valign: 'top' });
 
     const topImgX = 560;
-    const topImgY = 105;
-    doc.image(templateBPath, topImgX, topImgY, { fit: [240, 300], align: 'left', valign: 'top' });
+    const topImgY = 125;
+    doc.image(templateBPath, topImgX, topImgY, { fit: [230, 290], align: 'left', valign: 'top' });
 
     const tyre = (vci01 && vci01.hitchWeigh) || {};
     doc.save();
