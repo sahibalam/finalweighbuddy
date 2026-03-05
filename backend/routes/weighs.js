@@ -1696,10 +1696,10 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     // Trailer tyre values
     if (isDualAxleTrailer) {
       // Four-tyre overlay for dual axle trailer templates
-      doc.text(fmtKg(caravanDualFR), diagramX + 360, diagramY + 40, { width: 90, align: 'center' });
-      doc.text(fmtKg(caravanDualRR), diagramX + 460, diagramY + 40, { width: 90, align: 'center' });
-      doc.text(fmtKg(caravanDualFL), diagramX + 360, diagramY + 135, { width: 90, align: 'center' });
-      doc.text(fmtKg(caravanDualRL), diagramX + 460, diagramY + 135, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualFR), diagramX + 345, diagramY + 40, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualRR), diagramX + 445, diagramY + 40, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualFL), diagramX + 345, diagramY + 135, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualRL), diagramX + 445, diagramY + 135, { width: 90, align: 'center' });
     } else {
       // Left/right overlay for single axle trailer templates
       doc.text(fmtKg(vanRightTotal), diagramX + 410, diagramY + 40, { width: 90, align: 'center' });
