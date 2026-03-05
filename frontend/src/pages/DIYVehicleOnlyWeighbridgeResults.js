@@ -1492,13 +1492,29 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
               ? String(location.state.preWeigh.notes)
               : notesFromSession;
 
+        const carRegoForHeader =
+          rego ||
+          resolvedState?.vehicleNumberPlate ||
+          resolvedState?.vehicleRego ||
+          resolvedState?.vehicleInfo?.rego ||
+          '';
+        const carMakeForHeader =
+          description ||
+          resolvedState?.vehicleDescription ||
+          resolvedState?.vehicleMake ||
+          '';
+        const carModelForHeader =
+          resolvedState?.vehicleModel ||
+          resolvedState?.vehicleInfo?.model ||
+          '';
+
         const reportPayload = {
           header: {
             date: new Date().toLocaleDateString(),
             customerName: effectiveClient?.fullName || '',
-            carRego: rego || '',
-            carMake: description || '',
-            carModel: '',
+            carRego: carRegoForHeader,
+            carMake: carMakeForHeader,
+            carModel: carModelForHeader,
             caravanRego: caravan?.rego || '',
             caravanMake: caravan?.make || '',
             caravanModel: caravan?.model || '',
