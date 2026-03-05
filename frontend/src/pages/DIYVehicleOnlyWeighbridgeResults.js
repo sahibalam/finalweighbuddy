@@ -1473,9 +1473,10 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         methodSelection === 'Portable Scales - Individual Tyre Weights';
       const resolvedTyreWeigh =
         resolvedState?.tyreWeigh || portableSessionTyreWeigh || null;
-      const isSingleAxle = resolvedTyreWeigh?.axleConfig === 'Single Axle';
+      const axleConfigLabel = resolvedTyreWeigh?.axleConfig;
+      const isSingleOrDualAxle = axleConfigLabel === 'Single Axle' || axleConfigLabel === 'Dual Axle';
 
-      if (isTowCaravanPortable && isSingleAxle) {
+      if (isTowCaravanPortable && isSingleOrDualAxle) {
         let notesFromSession = '';
         if (typeof window !== 'undefined' && !embedded) {
           try {
