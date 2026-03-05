@@ -1662,13 +1662,25 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     const carFL = hitchWeigh.frontLeft;
     const carRL = hitchWeigh.rearLeft;
 
-    const caravanLeft = tyreWeigh?.single?.left;
-    const caravanRight = tyreWeigh?.single?.right;
+    const axleConfigLabel = String(tyreWeigh?.axleConfig || '');
+    const isDualAxleTrailer = axleConfigLabel.toLowerCase() === 'dual axle';
+
+    const caravanSingleLeft = tyreWeigh?.single?.left;
+    const caravanSingleRight = tyreWeigh?.single?.right;
+
+    const caravanDualFL = tyreWeigh?.dual?.frontLeft;
+    const caravanDualFR = tyreWeigh?.dual?.frontRight;
+    const caravanDualRL = tyreWeigh?.dual?.rearLeft;
+    const caravanDualRR = tyreWeigh?.dual?.rearRight;
 
     const carLeftTotal = (safeNum(carFL) || 0) + (safeNum(carRL) || 0);
     const carRightTotal = (safeNum(carFR) || 0) + (safeNum(carRR) || 0);
-    const vanLeftTotal = safeNum(caravanLeft) || 0;
-    const vanRightTotal = safeNum(caravanRight) || 0;
+    const vanLeftTotal = isDualAxleTrailer
+      ? (safeNum(caravanDualFL) || 0) + (safeNum(caravanDualRL) || 0)
+      : safeNum(caravanSingleLeft) || 0;
+    const vanRightTotal = isDualAxleTrailer
+      ? (safeNum(caravanDualFR) || 0) + (safeNum(caravanDualRR) || 0)
+      : safeNum(caravanSingleRight) || 0;
 
     // Car tyre numbers (positions tuned to template)
     doc.save();
@@ -1681,9 +1693,18 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     doc.text(fmtKg(carFL), diagramX + 58, diagramY + 137, { width: 80, align: 'center' });
     doc.text(fmtKg(carRL), diagramX + 165, diagramY + 137, { width: 80, align: 'center' });
 
-    // Trailer left/right values (near trailer text)
-    doc.text(fmtKg(vanRightTotal), diagramX + 410, diagramY + 40, { width: 90, align: 'center' });
-    doc.text(fmtKg(vanLeftTotal), diagramX + 410, diagramY + 135, { width: 90, align: 'center' });
+    // Trailer tyre values
+    if (isDualAxleTrailer) {
+      // Four-tyre overlay for dual axle trailer templates
+      doc.text(fmtKg(caravanDualFR), diagramX + 360, diagramY + 40, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualRR), diagramX + 460, diagramY + 40, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualFL), diagramX + 360, diagramY + 135, { width: 90, align: 'center' });
+      doc.text(fmtKg(caravanDualRL), diagramX + 460, diagramY + 135, { width: 90, align: 'center' });
+    } else {
+      // Left/right overlay for single axle trailer templates
+      doc.text(fmtKg(vanRightTotal), diagramX + 410, diagramY + 40, { width: 90, align: 'center' });
+      doc.text(fmtKg(vanLeftTotal), diagramX + 410, diagramY + 135, { width: 90, align: 'center' });
+    }
     doc.restore();
 
     // Left/Right KG boxes
