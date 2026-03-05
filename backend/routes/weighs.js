@@ -1285,8 +1285,9 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     }
 
     const row2Y = headerY + headerRowH + headerRow2H + 2;
-    const row2Cols = [110, 190, 190, 110];
-    const row2Labels = ['Car Rego', 'Make', 'Model', ''];
+    // Row 2: display only Car Rego + Make (description). Model is intentionally omitted.
+    const row2Cols = [110, 380, 110];
+    const row2Labels = ['Car Rego', 'Make', ''];
     const resolvedCarRego =
       header.carRego ||
       header.rego ||
@@ -1301,8 +1302,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
       payload.vehicleDescription ||
       payload.description ||
       '';
-    const resolvedCarModel = header.carModel || header.model || payload.vehicleModel || '';
-    const row2Values = [resolvedCarRego, resolvedCarMake, resolvedCarModel, ''];
+    const row2Values = [resolvedCarRego, resolvedCarMake, ''];
     cx = headerX;
     for (let i = 0; i < row2Cols.length; i += 1) {
       if (row2Labels[i] !== '') {
