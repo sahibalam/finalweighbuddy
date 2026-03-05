@@ -814,6 +814,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     const carInfo = payload.carInfo && typeof payload.carInfo === 'object' ? payload.carInfo : {};
     const advisory = payload.advisory && typeof payload.advisory === 'object' ? payload.advisory : {};
     const notes = payload.notes != null ? String(payload.notes) : '';
+    const vci01 = payload.vci01 && typeof payload.vci01 === 'object' ? payload.vci01 : {};
 
     const resolveTemplatePath = (filename) => {
       // ...
@@ -1047,7 +1048,18 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
 
     drawRow(valueRowY.weights, [
       weightsRecorded.frontAxle,
-      weightsRecorded.gvm,
+      (() => {
+        const hitch = vci01 && typeof vci01 === 'object' ? vci01.hitchWeigh : null;
+        if (!hitch || typeof hitch !== 'object') return weightsRecorded.gvm;
+        const fl = Number(hitch.frontLeft);
+        const fr = Number(hitch.frontRight);
+        const rl = Number(hitch.rearLeft);
+        const rr = Number(hitch.rearRight);
+        const nums = [fl, fr, rl, rr].filter((n) => Number.isFinite(n));
+        if (nums.length < 2) return weightsRecorded.gvm;
+        const sum = nums.reduce((a, b) => a + b, 0);
+        return sum > 0 ? sum : weightsRecorded.gvm;
+      })(),
       weightsRecorded.rearAxle,
       weightsRecorded.tbm,
       weightsRecorded.atm,
