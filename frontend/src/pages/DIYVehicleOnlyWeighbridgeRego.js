@@ -25,10 +25,14 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
   const methodSelection = location.state?.methodSelection || '';
   const weighingSelection = location.state?.weighingSelection || '';
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan'
+      ? `Tow Vehicle and ${towSetupLabel}`
       : 'Vehicle Only';
 
   const handleContinue = async () => {
@@ -79,7 +83,9 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
           vci01: location.state?.vci01 || null,
           vci02: location.state?.vci02 || null,
           methodSelection,
-          weighingSelection
+          weighingSelection,
+          diyWeighingSelection: location.state?.diyWeighingSelection || '',
+          towSetupType: location.state?.towSetupType || ''
         }
       });
     } catch (err) {
@@ -102,7 +108,9 @@ const DIYVehicleOnlyWeighbridgeRego = () => {
             vci01: location.state?.vci01 || null,
             vci02: location.state?.vci02 || null,
             methodSelection,
-            weighingSelection
+            weighingSelection,
+            diyWeighingSelection: location.state?.diyWeighingSelection || '',
+            towSetupType: location.state?.towSetupType || ''
           }
         });
       } else {

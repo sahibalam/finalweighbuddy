@@ -6,6 +6,10 @@ const DIYTowCaravanAboveGroundWeights = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [gcm, setGcm] = useState('');
   const [atm, setAtm] = useState('');
   const [gvmUnhitched, setGvmUnhitched] = useState('');
@@ -39,7 +43,7 @@ const DIYTowCaravanAboveGroundWeights = () => {
             WeighBuddy Compliance Check
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan
+            {`Tow Vehicle and ${towSetupLabel}`}
           </Typography>
 
           <Typography variant="subtitle1" sx={{ mb: 2 }}>

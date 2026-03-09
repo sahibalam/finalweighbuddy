@@ -20,6 +20,14 @@ const WEIGHING_OPTIONS = [
     label: 'Tow Vehicle and Caravan'
   },
   {
+    value: 'tow_vehicle_and_trailer',
+    label: 'Tow Vehicle and Trailer'
+  },
+  {
+    value: 'tow_vehicle_and_boat',
+    label: 'Tow Vehicle and Boat'
+  },
+  {
     value: 'vehicle_only',
     label: 'Vehicle Only'
   },
@@ -59,7 +67,7 @@ const METHOD_OPTIONS = {
 };
 
 const DIYWelcome = () => {
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isCustomBuildTrailerTare = location.state?.customBuildTrailerTare || false;
@@ -67,7 +75,19 @@ const DIYWelcome = () => {
   const [weighingSelection, setWeighingSelection] = useState('');
   const [methodSelection, setMethodSelection] = useState('');
 
-  const currentMethods = weighingSelection ? METHOD_OPTIONS[weighingSelection] || [] : [];
+  const normalizedWeighingSelection =
+    weighingSelection === 'tow_vehicle_and_trailer' || weighingSelection === 'tow_vehicle_and_boat'
+      ? 'tow_vehicle_and_caravan'
+      : weighingSelection;
+
+  const towSetupType =
+    weighingSelection === 'tow_vehicle_and_trailer'
+      ? 'trailer'
+      : weighingSelection === 'tow_vehicle_and_boat'
+        ? 'boat'
+        : 'caravan';
+
+  const currentMethods = normalizedWeighingSelection ? METHOD_OPTIONS[normalizedWeighingSelection] || [] : [];
 
   useEffect(() => {
     if (isCustomBuildTrailerTare) {
@@ -84,22 +104,34 @@ const DIYWelcome = () => {
 
     let targetPath = '/diy-weigh';
 
-    if (weighingSelection === 'vehicle_only') {
+    if (normalizedWeighingSelection === 'vehicle_only') {
       targetPath = '/vehicle-only-info';
-    } else if (weighingSelection === 'tow_vehicle_and_caravan') {
+    } else if (normalizedWeighingSelection === 'tow_vehicle_and_caravan') {
       targetPath = '/tow-caravan-info';
-    } else if (weighingSelection === 'caravan_only_registered') {
+    } else if (normalizedWeighingSelection === 'caravan_only_registered') {
       targetPath = '/caravan-only-info';
-    } else if (weighingSelection === 'custom_build_trailer_tare') {
+    } else if (normalizedWeighingSelection === 'custom_build_trailer_tare') {
       // Custom-build trailer tare uses the caravan-only info screen (tare report
       // variant) before branching to the specific method screen.
       targetPath = '/caravan-only-info';
     }
 
+    // eslint-disable-next-line no-console
+    console.log('DIYWelcome start', {
+      weighingSelection,
+      normalizedWeighingSelection,
+      diyWeighingSelection: weighingSelection,
+      towSetupType,
+      methodSelection,
+      targetPath,
+    });
+
     navigate(targetPath, {
       state: {
-        weighingSelection,
+        weighingSelection: normalizedWeighingSelection,
+        diyWeighingSelection: weighingSelection,
         methodSelection,
+        towSetupType: normalizedWeighingSelection === 'tow_vehicle_and_caravan' ? towSetupType : undefined,
         // Preserve the custom-build trailer tare flag so the caravan-only
         // info screen can render the 9.png layout.
         customBuildTrailerTare: isCustomBuildTrailerTare,
@@ -202,42 +234,6 @@ const DIYWelcome = () => {
           </Box>
 
           {renderIntroText()}
-
-          {(weighingSelection || isCustomBuildTrailerTare) &&
-            !isCustomBuildTrailerTare &&
-            weighingSelection !== 'vehicle_only' &&
-            weighingSelection !== 'tow_vehicle_and_caravan' &&
-            weighingSelection !== 'caravan_only_registered' && (
-            <Box sx={{ mt: 6 }}>
-              <Typography
-                variant="body1"
-                sx={{ mb: 1, color: 'text.primary' }}
-              >
-                Dropdown options:
-              </Typography>
-              <Box component="ul" sx={{ m: 0, pl: 3 }}>
-                {currentMethods.map((method) => (
-                  <Typography
-                    key={method}
-                    component="li"
-                    variant="body1"
-                    sx={{ color: 'text.primary', mb: 0.5 }}
-                  >
-                    {method}
-                  </Typography>
-                ))}
-              </Box>
-
-              {weighingSelection === 'tow_vehicle_and_caravan' && (
-                <Typography
-                  variant="body1"
-                  sx={{ mt: 4, textAlign: 'center', color: 'text.primary' }}
-                >
-                  Weighbuddy records Geo location of weigh
-                </Typography>
-              )}
-            </Box>
-          )}
 
           <Box sx={{ flexGrow: 1 }} />
 

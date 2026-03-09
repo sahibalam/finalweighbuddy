@@ -38,12 +38,17 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
   const [modifiedPreviewOpen, setModifiedPreviewOpen] = useState(false);
   const [modifiedPreviewIndex, setModifiedPreviewIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
-  const methodSelection = location.state?.methodSelection || '';
-  const weighingSelection = location.state?.weighingSelection || '';
+  const resolvedState = location.state || {};
+  const weighingSelection = resolvedState.weighingSelection || 'vehicle_only';
+  const diyWeighingSelection = resolvedState?.diyWeighingSelection || '';
+  const methodSelection = resolvedState.methodSelection || '';
+  const towSetupType = resolvedState?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
   const methodLabel = methodSelection || 'Weighbridge - In Ground - Individual Axle Weights';
   const headingLabel =
     weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan'
+      ? `Tow Vehicle and ${towSetupLabel}`
       : 'Vehicle Only';
 
   // On mount, hydrate fields from the rego lookup (registry / weigh history / Info-Agent)
@@ -252,6 +257,8 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
       modifiedImages,
       methodSelection,
       weighingSelection,
+      diyWeighingSelection,
+      towSetupType,
       preWeigh,
       axleWeigh,
       tyreWeigh,
@@ -260,6 +267,13 @@ const DIYVehicleOnlyWeighbridgeConfirm = () => {
       vci01,
       vci02
     };
+
+    // eslint-disable-next-line no-console
+    console.log('DIYVehicleOnlyWeighbridgeConfirm -> results navigate', {
+      weighingSelection,
+      diyWeighingSelection,
+      towSetupType,
+    });
 
     if (weighingSelection === 'tow_vehicle_and_caravan') {
       navigate('/tow-caravan-weighbridge-caravan-rego', {

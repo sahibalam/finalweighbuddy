@@ -17,6 +17,10 @@ const DIYTowCaravanWeighbridgeInGround = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [frontAxle, setFrontAxle] = useState('');
   const [gvmHitched, setGvmHitched] = useState('');
   const [wdhUsed, setWdhUsed] = useState('');
@@ -57,7 +61,7 @@ const DIYTowCaravanWeighbridgeInGround = () => {
           </Typography>
 
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Weigh Tow Vehicle Hitched to Caravan/Trailer First
+            {`Weigh Tow Vehicle Hitched to ${towSetupLabel} First`}
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

@@ -35,7 +35,9 @@ const ReportPreviewAndPayment = ({
   paymentOnly = false,
   amount = 20,
   vehicleOnlyMethodLabel = '',
-  weighingSelection = ''
+  weighingSelection = '',
+  diyWeighingSelection = '',
+  towSetupType = ''
 }) => {
   const navigate = useNavigate();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -145,7 +147,9 @@ const ReportPreviewAndPayment = ({
             axleWeigh: vehicleData?.diyAxleWeigh || null,
             tyreWeigh: vehicleData?.diyTyreWeigh || null,
             methodSelection: vehicleOnlyMethodLabel,
-            weighingSelection
+            weighingSelection,
+            diyWeighingSelection,
+            towSetupType
           }
         });
       } else {
@@ -155,7 +159,9 @@ const ReportPreviewAndPayment = ({
             axleWeigh: vehicleData?.diyAxleWeigh || null,
             tyreWeigh: vehicleData?.diyTyreWeigh || null,
             methodSelection: vehicleOnlyMethodLabel || 'Weighbridge - In Ground - Individual Axle Weights',
-            weighingSelection
+            weighingSelection,
+            diyWeighingSelection,
+            towSetupType
           }
         });
       }
@@ -174,7 +180,19 @@ const ReportPreviewAndPayment = ({
 
     let headingText;
     if (weighingSelection === 'tow_vehicle_and_caravan') {
-      headingText = 'Tow Vehicle and Caravan';
+      const setup =
+        towSetupType ||
+        (diyWeighingSelection === 'tow_vehicle_and_trailer'
+          ? 'trailer'
+          : diyWeighingSelection === 'tow_vehicle_and_boat'
+            ? 'boat'
+            : 'caravan');
+      headingText =
+        setup === 'trailer'
+          ? 'Tow Vehicle and Trailer'
+          : setup === 'boat'
+            ? 'Tow Vehicle and Boat'
+            : 'Tow Vehicle and Caravan';
     } else if (weighingSelection === 'caravan_only_registered') {
       headingText = 'Caravan / Trailer Only (registered)';
     } else if (weighingSelection === 'custom_build_trailer_tare') {

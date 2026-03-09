@@ -12,6 +12,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const DIYTowCaravanUnhitchedWeighbridgeAxle = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
   const [frontAxle, setFrontAxle] = useState('');
   const [gvm, setGvm] = useState('');
 
@@ -58,7 +62,7 @@ const DIYTowCaravanUnhitchedWeighbridgeAxle = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan
+            {`Tow Vehicle and ${towSetupLabel}`}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Weighbridge - In Ground - Individual Axle Weights

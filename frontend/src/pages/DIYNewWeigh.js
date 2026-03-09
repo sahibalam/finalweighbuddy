@@ -39,6 +39,17 @@ const DIYNewWeigh = () => {
   const startAtPayment = !!location.state?.startAtPayment;
   const vehicleOnlyMethodLabel = location.state?.methodSelection || '';
   const weighingSelection = location.state?.weighingSelection || '';
+  const diyWeighingSelection = location.state?.diyWeighingSelection || '';
+  const towSetupType = location.state?.towSetupType || '';
+
+  // eslint-disable-next-line no-console
+  console.log('DIYNewWeigh init', {
+    startAtPayment,
+    weighingSelection,
+    diyWeighingSelection,
+    towSetupType,
+    methodSelection: vehicleOnlyMethodLabel,
+  });
 
   /* -------------------- STATE -------------------- */
   const [activeStep, setActiveStep] = useState(0);
@@ -473,6 +484,8 @@ const DIYNewWeigh = () => {
             : 20}
           vehicleOnlyMethodLabel={vehicleOnlyMethodLabel}
           weighingSelection={weighingSelection}
+          diyWeighingSelection={diyWeighingSelection}
+          towSetupType={towSetupType}
         />
       )
     }

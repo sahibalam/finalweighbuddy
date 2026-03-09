@@ -17,25 +17,43 @@ const DIYTowCaravanInfo = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+  const baseState = location.state || {};
+  const { methodSelection } = baseState;
+  const isWeighbridgeTowMethod =
+    methodSelection ===
+      'Weighbridge - In Ground - Tow Vehicle and Trailer are level and Individual Axle Weights can be recorded' ||
+    methodSelection === 'Weighbridge - goweigh' ||
+    methodSelection ===
+      'Weighbridge - Above Ground - Single Cell - Tow Vehicle and Trailer are no level limiting the ability to record individual axle weights.';
+
   const [fuelLevel, setFuelLevel] = useState('');
   const [frontPassengers, setFrontPassengers] = useState('');
   const [rearPassengers, setRearPassengers] = useState('');
+  const [towedAxleConfig, setTowedAxleConfig] = useState(baseState.towedAxleConfig || '');
   const [waterTankCount, setWaterTankCount] = useState('');
   const [waterTankFullCount, setWaterTankFullCount] = useState('');
   const [waterTotalLitres, setWaterTotalLitres] = useState('');
   const [notes, setNotes] = useState('');
 
   const handleContinue = () => {
+    if (isWeighbridgeTowMethod && !towedAxleConfig) {
+      window.alert('Please select the towed setup axle configuration.');
+      return;
+    }
+
     const fuelValue = parseFloat(fuelLevel) || 0;
     const passengersFrontValue = parseInt(frontPassengers, 10) || 0;
     const passengersRearValue = parseInt(rearPassengers, 10) || 0;
-    const baseState = location.state || {};
-    const { methodSelection } = baseState;
 
     const preWeigh = {
       fuelLevel: fuelValue,
       passengersFront: passengersFrontValue,
       passengersRear: passengersRearValue,
+      towedAxleConfig: towedAxleConfig || null,
       waterTankCount: waterTankCount || null,
       waterTankFullCount: waterTankFullCount || null,
       waterTotalLitres: waterTotalLitres || null,
@@ -63,6 +81,7 @@ const DIYTowCaravanInfo = () => {
     navigate(nextPath, {
       state: {
         ...baseState,
+        towedAxleConfig,
         preWeigh
       }
     });
@@ -94,6 +113,30 @@ const DIYTowCaravanInfo = () => {
           >
             Important information to start the weighing process
           </Typography>
+
+          {isWeighbridgeTowMethod && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+              <Typography
+                variant="body1"
+                sx={{ minWidth: 150 }}
+              >
+                {`${towSetupLabel} Axle Config`}
+              </Typography>
+              <FormControl sx={{ width: 220 }} size="small">
+                <InputLabel id="towed-axle-config-label">Axle Config</InputLabel>
+                <Select
+                  labelId="towed-axle-config-label"
+                  label="Axle Config"
+                  value={towedAxleConfig}
+                  onChange={(e) => setTowedAxleConfig(e.target.value)}
+                >
+                  <MenuItem value="Single Axle">Single Axle</MenuItem>
+                  <MenuItem value="Dual Axle">Dual Axle</MenuItem>
+                  <MenuItem value="Triple Axle">Triple Axle</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          )}
 
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <Typography
@@ -152,7 +195,7 @@ const DIYTowCaravanInfo = () => {
               variant="body1"
               sx={{ minWidth: 150 }}
             >
-              Water in Caravan/Trailer
+              {`Water in ${towSetupLabel}`}
             </Typography>
             <TextField
               value={waterTankCount}

@@ -13,7 +13,17 @@ const ProfessionalWeighStart = () => {
       case 'tow-vehicle-caravan':
         // Use the same flow as Vehicle Only, but mark selection so we can label screens correctly
         navigate('/professional-weigh-vehicle-only', {
-          state: { weighingSelection: 'tow_vehicle_and_caravan' },
+          state: { weighingSelection: 'tow_vehicle_and_caravan', towSetupType: 'caravan' },
+        });
+        break;
+      case 'tow-vehicle-trailer':
+        navigate('/professional-weigh-vehicle-only', {
+          state: { weighingSelection: 'tow_vehicle_and_caravan', towSetupType: 'trailer' },
+        });
+        break;
+      case 'tow-vehicle-boat':
+        navigate('/professional-weigh-vehicle-only', {
+          state: { weighingSelection: 'tow_vehicle_and_caravan', towSetupType: 'boat' },
         });
         break;
       case 'vehicle-only':
@@ -69,6 +79,8 @@ const ProfessionalWeighStart = () => {
               onChange={(e) => setWeighType(e.target.value)}
             >
               <MenuItem value="tow-vehicle-caravan">Tow Vehicle and Caravan</MenuItem>
+              <MenuItem value="tow-vehicle-trailer">Tow Vehicle and Trailer</MenuItem>
+              <MenuItem value="tow-vehicle-boat">Tow Vehicle and Boat</MenuItem>
               <MenuItem value="vehicle-only">Vehicle Only</MenuItem>
               <MenuItem value="caravan-only">Caravan/Trailer Only (Registered)</MenuItem>
               <MenuItem value="custom-build">Trailer tare report for Rover/Custom Build</MenuItem>

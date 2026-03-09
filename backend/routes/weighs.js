@@ -399,13 +399,19 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
       customerPhone: incomingCustomerPhone = null,
     } = req.body || {};
 
+    const rawWeighData =
+      normalizedWeights && typeof normalizedWeights === 'object' &&
+      normalizedWeights.raw && typeof normalizedWeights.raw === 'object'
+        ? normalizedWeights.raw
+        : null;
+
     const totalUnhitched = Number(vehicleSummary.gvmUnhitched) || 0;
     const frontUnhitched = Number(vehicleSummary.frontUnhitched) || 0;
     const rearUnhitched = Number(vehicleSummary.rearUnhitched) || 0;
 
     const resolvedTowBallWeight =
       normalizedWeights && typeof normalizedWeights === 'object'
-        ? Number(normalizedWeights.tbm) || 0
+        ? Math.max(0, Number(normalizedWeights.tbm) || 0)
         : 0;
 
     const resolvedCaravanWeight =
@@ -607,6 +613,7 @@ router.post('/diy-vehicle-only', protect, async (req, res) => {
 
       // Optional normalized weights payload (used by newer results screens + history modal mirroring)
       weights: normalizedWeights && typeof normalizedWeights === 'object' ? normalizedWeights : undefined,
+      rawWeighData: rawWeighData || undefined,
       preWeigh,
       notes,
                
@@ -833,11 +840,31 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     const notes = payload.notes != null ? String(payload.notes) : '';
     const vci01 = payload.vci01 && typeof payload.vci01 === 'object' ? payload.vci01 : {};
 
-    const isDualAxleCaravan =
-      payload &&
-      payload.tyreWeigh &&
-      typeof payload.tyreWeigh === 'object' &&
-      String(payload.tyreWeigh.axleConfig || '').toLowerCase() === 'dual axle';
+    const axleConfigStr =
+      payload && payload.tyreWeigh && typeof payload.tyreWeigh === 'object'
+        ? String(payload.tyreWeigh.axleConfig || '').toLowerCase()
+        : '';
+    const isDualAxleCaravan = axleConfigStr === 'dual axle';
+    const isTripleAxleCaravan = axleConfigStr === 'triple axle';
+    const isTowTrailer =
+      String(payload?.weighingSelection || '').toLowerCase() === 'tow_vehicle_and_trailer' ||
+      String(payload?.diyWeighingSelection || '').toLowerCase() === 'tow_vehicle_and_trailer' ||
+      Boolean(payload?.isTowTrailer);
+    const isTowBoat =
+      String(payload?.weighingSelection || '').toLowerCase() === 'tow_vehicle_and_boat' ||
+      String(payload?.diyWeighingSelection || '').toLowerCase() === 'tow_vehicle_and_boat' ||
+      Boolean(payload?.isTowBoat);
+
+    // eslint-disable-next-line no-console
+    console.log('report-1 template selection', {
+      weighingSelection: payload?.weighingSelection,
+      diyWeighingSelection: payload?.diyWeighingSelection,
+      isTowTrailer,
+      isTowBoat,
+      axleConfigStr,
+      isDualAxleCaravan,
+      isTripleAxleCaravan,
+    });
 
     const resolveTemplatePath = (filename) => {
       // ...
@@ -845,13 +872,29 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
       return fs.existsSync(p) ? p : null;
     };
 
-    const templatePath = isDualAxleCaravan
-      ? resolveTemplatePath('dual-axle-cravan.png')
-      : resolveTemplatePath('single-axle-caravan.jpg') ||
-        resolveTemplatePath('Portable Scales - Individual Tyre Weights.jpg');
+    const templatePath = isTripleAxleCaravan
+      ? resolveTemplatePath('tri-axle-first.png')
+      : isTowTrailer
+        ? (isDualAxleCaravan
+            ? resolveTemplatePath('vehicle-dual-axle-trailer.png')
+            : resolveTemplatePath('vehicle-single-axle-trailer.png'))
+        : isTowBoat
+          ? (isDualAxleCaravan
+              ? resolveTemplatePath('vehicle-dual-axle-boat.png')
+              : resolveTemplatePath('vehicle-single-axle-boat.png'))
+          : isDualAxleCaravan
+            ? resolveTemplatePath('dual-axle-cravan.png')
+            : resolveTemplatePath('single-axle-caravan.jpg') ||
+              resolveTemplatePath('Portable Scales - Individual Tyre Weights.jpg');
+
+    // eslint-disable-next-line no-console
+    console.log('report-1 resolved template', {
+      templatePath,
+      templateFilename: templatePath ? path.basename(templatePath) : null,
+    });
     if (!templatePath) {
       throw new Error(
-        `Template image not found: ${path.join(__dirname, '..', 'assets', isDualAxleCaravan ? 'dual-axle-cravan.png' : 'single-axle-caravan.jpg')} (or legacy Portable Scales - Individual Tyre Weights.jpg)`
+        `Template image not found: ${path.join(__dirname, '..', 'assets', isTripleAxleCaravan ? 'tri-axle-first.png' : isDualAxleCaravan ? 'dual-axle-cravan.png' : 'single-axle-caravan.jpg')} (or legacy Portable Scales - Individual Tyre Weights.jpg)`
       );
     }
 
@@ -875,15 +918,16 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     // reference layout, crop just the vehicle+caravan region and render it
     // smaller near the top.
     try {
-      doc.image(templatePath, 120, 75, {
+      // Leave clear space for the header grid (date/name/time/location + car rego/make).
+      doc.image(templatePath, 120, 95, {
         fit: [640, 220],
         align: 'center',
         valign: 'center',
-        srcRect: [0, 80, 1800, 520],
+        // crop: [0, 150, 1800, 700]
       });
     } catch (imgErr) {
       // If cropping is not supported for the image type, fall back to a smaller render.
-      doc.image(templatePath, 60, 40, { fit: [720, 300], align: 'center', valign: 'top' });
+      doc.image(templatePath, 60, 95, { fit: [720, 300], align: 'center', valign: 'top' });
     }
 
     const safeText = (v) => (v == null ? '' : String(v));
@@ -1019,20 +1063,74 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
       result: tableGeom.headerY + tableGeom.headerH + tableGeom.rowH * 3 + 7,
     };
 
-    // Header row positions (tuned to match the provided template)
-    doc.fillColor('#000000');
-    doc.fontSize(10);
-    doc.text(safeText(header.date), 240, 18, { width: 90, align: 'left' });
-    doc.text(safeText(header.customerName), 340, 18, { width: 170, align: 'left' });
-    doc.text(safeText(header.time || ''), 520, 18, { width: 70, align: 'left' });
-    doc.text(safeText(header.location || ''), 690, 18, { width: 140, align: 'left' });
+    // Header grid (match report-2 styling)
+    const headerBorderColor = '#bdbdbd';
+    const headerTitleBg = '#f5f5f5';
 
-    doc.text(safeText(header.carRego), 240, 42, { width: 90, align: 'left' });
-    doc.text(safeText(header.carMake), 340, 42, { width: 80, align: 'left' });
-    doc.text(safeText(header.carModel), 430, 42, { width: 80, align: 'left' });
-    doc.text(safeText(header.caravanRego), 520, 42, { width: 80, align: 'left' });
-    doc.text(safeText(header.caravanMake), 610, 42, { width: 90, align: 'left' });
-    doc.text(safeText(header.caravanModel), 710, 42, { width: 90, align: 'left' });
+    const drawHeaderCell = (x, y, w, h, text, opts = {}) => {
+      const { bg = null, align = 'left', fontSize = 9, color = '#000000', padL = 6, padR = 6 } = opts;
+      doc.save();
+      if (bg) {
+        doc.fillColor(bg);
+        doc.rect(x, y, w, h).fill();
+      }
+      doc.strokeColor(headerBorderColor);
+      doc.rect(x, y, w, h).stroke();
+      doc.fillColor(color);
+      doc.fontSize(fontSize);
+      doc.text(String(text ?? ''), x + padL, y + 6, { width: w - padL - padR, align });
+      doc.restore();
+    };
+
+    const headerX = 210;
+    const headerY = 18;
+    const headerW = 600;
+    const headerRowH = 22;
+    const headerRow2H = 22;
+
+    doc.save();
+    doc.strokeColor(headerBorderColor);
+    doc.rect(headerX, headerY, headerW, headerRowH + headerRow2H).stroke();
+    doc.restore();
+
+    const cols1 = [110, 190, 110, 190];
+    const labels1 = ['Date', 'Customer Name', 'Time', 'Location'];
+    const values1 = [safeText(header.date), safeText(header.customerName), safeText(header.time || ''), safeText(header.location || '')];
+    let cx = headerX;
+    for (let i = 0; i < cols1.length; i += 1) {
+      drawHeaderCell(cx, headerY, cols1[i], headerRowH, labels1[i], { bg: headerTitleBg, fontSize: 8 });
+      drawHeaderCell(cx, headerY + headerRowH, cols1[i], headerRow2H, values1[i], { fontSize: 9 });
+      cx += cols1[i];
+    }
+
+    const row2Y = headerY + headerRowH + headerRow2H + 2;
+    const row2Cols = [110, 380, 110];
+    const row2Labels = ['Car Rego', 'Make', ''];
+    const resolvedCarRego =
+      safeText(header.carRego) ||
+      safeText(header.rego) ||
+      safeText(header.vehicleNumberPlate) ||
+      safeText(payload.vehicleNumberPlate) ||
+      safeText(payload.rego) ||
+      '';
+    const resolvedCarMake =
+      safeText(header.carMake) ||
+      safeText(header.make) ||
+      safeText(header.vehicleDescription) ||
+      safeText(payload.vehicleDescription) ||
+      safeText(payload.description) ||
+      '';
+    const row2Values = [resolvedCarRego, resolvedCarMake, ''];
+    cx = headerX;
+    for (let i = 0; i < row2Cols.length; i += 1) {
+      if (row2Labels[i] !== '') {
+        drawHeaderCell(cx, row2Y, row2Cols[i], headerRowH, row2Labels[i], { bg: headerTitleBg, fontSize: 8 });
+        drawHeaderCell(cx, row2Y + headerRowH, row2Cols[i], headerRow2H, row2Values[i], { fontSize: 9 });
+      } else {
+        drawHeaderCell(cx, row2Y, row2Cols[i], headerRowH + headerRow2H, '', { bg: '#ffffff' });
+      }
+      cx += row2Cols[i];
+    }
 
     // Compliance table values
     // Columns: Front Axle, GVM, Rear Axle, TowBall, ATM, GTM, GCM, BTC
@@ -1175,9 +1273,10 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     drawCell(carX + labelW + valueW / 2, carTableY + rowH * 2, valueW / 2, rowH, carInfo.passengersRear ?? '-', { align: 'center' });
 
     // Advisory Only block
-    const advX = carX + carW + 40;
+    // Keep within the A4 landscape width and leave clear space for the Additional Notes block.
+    const advX = carX + carW + 20;
     const advY = blocksTop;
-    const advW = 260;
+    const advW = 240;
     drawBoxTitle(advX, advY, advW, titleH, 'Advisory Only');
     const advTableY = advY + titleH;
     const advRowH = 22;
@@ -1225,9 +1324,10 @@ router.post('/diy-tow-caravan-portable-single-axle/report-1', protect, async (re
     );
 
     // Additional Notes block
-    const notesX = advX + advW + 40;
+    // Keep within the A4 landscape width so it doesn't clip at the right edge.
+    const notesX = 600;
     const notesY = blocksTop;
-    const notesW = 300;
+    const notesW = 220;
     drawBoxTitle(notesX, notesY, notesW, titleH, 'Additional Notes');
     const notesBodyY = notesY + titleH;
     const notesBodyH = 3 * advRowH;
@@ -1270,9 +1370,6 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     if (!templateAPath) {
       throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights-a.jpg')}`);
     }
-    if (!templateBPath) {
-      throw new Error(`Template image not found: ${path.join(__dirname, '..', 'assets', 'Portable Scales - Individual Tyre Weights-b.jpg')}`);
-    }
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
 
@@ -1291,6 +1388,8 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     }
 
     const payload = req.body || {};
+    const renderMode = String(payload.report2RenderMode || '').toUpperCase();
+    const aOnly = renderMode === 'A_ONLY';
     const header = payload.header || {};
     const compliance = payload.compliance || {};
     const weightsRecorded = payload.weightsRecorded || {};
@@ -1299,6 +1398,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     const carInfo = payload.carInfo || {};
     const notes = payload.notes || '';
     const vci01 = payload.vci01 || {};
+    const vci02 = payload.vci02 || {};
 
     const borderColor = '#bdbdbd';
     const titleBg = '#f5f5f5';
@@ -1388,9 +1488,14 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
 
     const topImgX = 560;
     const topImgY = 125;
-    doc.image(templateBPath, topImgX, topImgY, { fit: [230, 290], align: 'left', valign: 'top' });
+    if (!aOnly && templateBPath) {
+      doc.image(templateBPath, topImgX, topImgY, { fit: [230, 290], align: 'left', valign: 'top' });
+    }
 
-    const tyre = (vci01 && vci01.hitchWeigh) || {};
+    const tyre =
+      (vci02 && vci02.unhitchedWeigh) ||
+      (vci01 && vci01.hitchWeigh) ||
+      {};
     doc.save();
     doc.fillColor('#000000');
     doc.fontSize(10);
@@ -1409,6 +1514,47 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     const rowH = 22;
     const headers = ['Rear Axle', 'GVM', 'Front Axle'];
 
+    const computeUnhitchedAxleWeights = (unhitchedWeigh) => {
+      const fl = safeNum(unhitchedWeigh?.frontLeft);
+      const fr = safeNum(unhitchedWeigh?.frontRight);
+      const rl = safeNum(unhitchedWeigh?.rearLeft);
+      const rr = safeNum(unhitchedWeigh?.rearRight);
+      if ([fl, fr, rl, rr].some((v) => v == null)) {
+        return null;
+      }
+
+      const frontAxle = fl + fr;
+      const rearAxle = rl + rr;
+      const gvm = frontAxle + rearAxle;
+      return { frontAxle, rearAxle, gvm };
+    };
+
+    const computedUnhitched = computeUnhitchedAxleWeights(vci02?.unhitchedWeigh);
+    const effectiveWeightsRecorded = computedUnhitched || {
+      rearAxle: weightsRecorded.rearAxle,
+      gvm: weightsRecorded.gvm,
+      frontAxle: weightsRecorded.frontAxle,
+    };
+
+    const computeCapacity = (limit, measured) => {
+      const lim = safeNum(limit);
+      const meas = safeNum(measured);
+      if (lim == null || meas == null) return null;
+      return lim - meas;
+    };
+
+    const effectiveCapacity = {
+      rearAxle: computeCapacity(compliance.rearAxle, effectiveWeightsRecorded.rearAxle) ?? capacity.rearAxle,
+      gvm: computeCapacity(compliance.gvm, effectiveWeightsRecorded.gvm) ?? capacity.gvm,
+      frontAxle: computeCapacity(compliance.frontAxle, effectiveWeightsRecorded.frontAxle) ?? capacity.frontAxle,
+    };
+
+    const effectiveResult = {
+      rearAxle: safeNum(effectiveCapacity.rearAxle) != null ? safeNum(effectiveCapacity.rearAxle) >= 0 : result.rearAxle,
+      gvm: safeNum(effectiveCapacity.gvm) != null ? safeNum(effectiveCapacity.gvm) >= 0 : result.gvm,
+      frontAxle: safeNum(effectiveCapacity.frontAxle) != null ? safeNum(effectiveCapacity.frontAxle) >= 0 : result.frontAxle,
+    };
+
     drawCell(tableX, tableY, labelW, headerH, '', { bg: titleBg, align: 'center', fontSize: 8 });
     for (let i = 0; i < 3; i += 1) {
       drawCell(tableX + labelW + i * colW, tableY, colW, headerH, headers[i], { bg: '#e8f4ff', align: 'center', fontSize: 8 });
@@ -1418,9 +1564,9 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
     const rowBg = ['#cdd9ff', '#fff3b0', '#eeeeee', '#ffffff'];
     const vals = [
       [compliance.rearAxle, compliance.gvm, compliance.frontAxle],
-      [weightsRecorded.rearAxle, weightsRecorded.gvm, weightsRecorded.frontAxle],
-      [capacity.rearAxle, capacity.gvm, capacity.frontAxle],
-      [okText(result.rearAxle), okText(result.gvm), okText(result.frontAxle)],
+      [effectiveWeightsRecorded.rearAxle, effectiveWeightsRecorded.gvm, effectiveWeightsRecorded.frontAxle],
+      [effectiveCapacity.rearAxle, effectiveCapacity.gvm, effectiveCapacity.frontAxle],
+      [okText(effectiveResult.rearAxle), okText(effectiveResult.gvm), okText(effectiveResult.frontAxle)],
     ];
 
     for (let r = 0; r < rowLabels.length; r += 1) {
@@ -1428,7 +1574,7 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
       drawCell(tableX, y, labelW, rowH, rowLabels[r], { bg: rowBg[r], fontSize: 9 });
       for (let c = 0; c < 3; c += 1) {
         const isResult = rowLabels[r] === 'Result';
-        const ok = c === 0 ? result.rearAxle : c === 1 ? result.gvm : result.frontAxle;
+        const ok = c === 0 ? effectiveResult.rearAxle : c === 1 ? effectiveResult.gvm : effectiveResult.frontAxle;
         const bg =
           isResult
             ? ok
@@ -1476,9 +1622,11 @@ router.post('/diy-tow-caravan-portable-single-axle/report-2', protect, async (re
       { align: 'center' }
     );
 
-    const notesX = carX + carW + 40;
+    // Additional Notes block
+    // Keep within the A4 landscape width so it doesn't clip at the right edge.
+    const notesX = 350;
     const notesY = blocksTop;
-    const notesW = 520;
+    const notesW = 460;
     drawBoxTitle(notesX, notesY, notesW, titleH, 'Additional Notes');
     const notesBodyY = notesY + titleH;
     const notesBodyH = infoRowH * 3;
@@ -1513,24 +1661,36 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
   try {
     const payload = req.body || {};
 
-    const isDualAxleCaravan =
-      payload &&
-      payload.tyreWeigh &&
-      typeof payload.tyreWeigh === 'object' &&
-      String(payload.tyreWeigh.axleConfig || '').toLowerCase() === 'dual axle';
+    const axleConfigStr =
+      payload && payload.tyreWeigh && typeof payload.tyreWeigh === 'object'
+        ? String(payload.tyreWeigh.axleConfig || '').toLowerCase()
+        : '';
+    const isDualAxleCaravan = axleConfigStr === 'dual axle';
+    const isTripleAxleCaravan = axleConfigStr === 'triple axle';
+
+    const isTowBoat =
+      String(payload?.weighingSelection || '').toLowerCase() === 'tow_vehicle_and_boat' ||
+      String(payload?.diyWeighingSelection || '').toLowerCase() === 'tow_vehicle_and_boat' ||
+      Boolean(payload?.isTowBoat);
 
     const resolveTemplatePath = (filename) => {
       const p = path.join(__dirname, '..', 'assets', filename);
       return fs.existsSync(p) ? p : null;
     };
 
-    const templatePath = isDualAxleCaravan
-      ? resolveTemplatePath('dual-axle-trailer.png')
-      : resolveTemplatePath('single-axle-trailer.jpg') ||
-        resolveTemplatePath('Portable Scales - Individual Tyre Weights-c.jpg');
+    const templatePath = isTripleAxleCaravan
+      ? resolveTemplatePath('tri-axle-third.png')
+      : isTowBoat
+        ? (isDualAxleCaravan
+            ? resolveTemplatePath('dual-axle-trailer.png')
+            : (resolveTemplatePath('single-axle-trailer.png') || resolveTemplatePath('single-axle-trailer.jpg')))
+        : isDualAxleCaravan
+          ? resolveTemplatePath('dual-axle-trailer.png')
+          : resolveTemplatePath('single-axle-trailer.jpg') ||
+            resolveTemplatePath('Portable Scales - Individual Tyre Weights-c.jpg');
     if (!templatePath) {
       throw new Error(
-        `Template image not found: ${path.join(__dirname, '..', 'assets', isDualAxleCaravan ? 'dual-axle-trailer.png' : 'single-axle-trailer.jpg')} (or legacy Portable Scales - Individual Tyre Weights-c.jpg)`
+        `Template image not found: ${path.join(__dirname, '..', 'assets', isTripleAxleCaravan ? 'tri-axle-third.png' : isDualAxleCaravan ? 'dual-axle-trailer.png' : 'single-axle-trailer.jpg')} (or legacy Portable Scales - Individual Tyre Weights-c.jpg)`
       );
     }
 
@@ -1663,7 +1823,9 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     const carRL = hitchWeigh.rearLeft;
 
     const axleConfigLabel = String(tyreWeigh?.axleConfig || '');
-    const isDualAxleTrailer = axleConfigLabel.toLowerCase() === 'dual axle';
+    const axleConfigLower = axleConfigLabel.toLowerCase();
+    const isDualAxleTrailer = axleConfigLower === 'dual axle';
+    const isTripleAxleTrailer = axleConfigLower === 'triple axle';
 
     const caravanSingleLeft = tyreWeigh?.single?.left;
     const caravanSingleRight = tyreWeigh?.single?.right;
@@ -1673,14 +1835,29 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     const caravanDualRL = tyreWeigh?.dual?.rearLeft;
     const caravanDualRR = tyreWeigh?.dual?.rearRight;
 
+    const caravanTripleFL = tyreWeigh?.triple?.frontLeft;
+    const caravanTripleFR = tyreWeigh?.triple?.frontRight;
+    const caravanTripleML = tyreWeigh?.triple?.middleLeft;
+    const caravanTripleMR = tyreWeigh?.triple?.middleRight;
+    const caravanTripleRL = tyreWeigh?.triple?.rearLeft;
+    const caravanTripleRR = tyreWeigh?.triple?.rearRight;
+
     const carLeftTotal = (safeNum(carFL) || 0) + (safeNum(carRL) || 0);
     const carRightTotal = (safeNum(carFR) || 0) + (safeNum(carRR) || 0);
-    const vanLeftTotal = isDualAxleTrailer
-      ? (safeNum(caravanDualFL) || 0) + (safeNum(caravanDualRL) || 0)
-      : safeNum(caravanSingleLeft) || 0;
-    const vanRightTotal = isDualAxleTrailer
-      ? (safeNum(caravanDualFR) || 0) + (safeNum(caravanDualRR) || 0)
-      : safeNum(caravanSingleRight) || 0;
+    const vanLeftTotal = isTripleAxleTrailer
+      ? (safeNum(caravanTripleFL) || 0) +
+        (safeNum(caravanTripleML) || 0) +
+        (safeNum(caravanTripleRL) || 0)
+      : isDualAxleTrailer
+        ? (safeNum(caravanDualFL) || 0) + (safeNum(caravanDualRL) || 0)
+        : safeNum(caravanSingleLeft) || 0;
+    const vanRightTotal = isTripleAxleTrailer
+      ? (safeNum(caravanTripleFR) || 0) +
+        (safeNum(caravanTripleMR) || 0) +
+        (safeNum(caravanTripleRR) || 0)
+      : isDualAxleTrailer
+        ? (safeNum(caravanDualFR) || 0) + (safeNum(caravanDualRR) || 0)
+        : safeNum(caravanSingleRight) || 0;
 
     // Car tyre numbers (positions tuned to template)
     doc.save();
@@ -1694,7 +1871,17 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     doc.text(fmtKg(carRL), diagramX + 165, diagramY + 137, { width: 80, align: 'center' });
 
     // Trailer tyre values
-    if (isDualAxleTrailer) {
+    if (isTripleAxleTrailer) {
+      // Six-tyre overlay for tri axle trailer templates
+      // NOTE: coordinates tuned by relative positioning; adjust if template changes.
+      doc.text(fmtKg(caravanTripleFR), diagramX + 320, diagramY + 38, { width: 80, align: 'center' });
+      doc.text(fmtKg(caravanTripleMR), diagramX + 408, diagramY + 38, { width: 80, align: 'center' });
+      doc.text(fmtKg(caravanTripleRR), diagramX + 496, diagramY + 38, { width: 80, align: 'center' });
+
+      doc.text(fmtKg(caravanTripleFL), diagramX + 320, diagramY + 133, { width: 80, align: 'center' });
+      doc.text(fmtKg(caravanTripleML), diagramX + 408, diagramY + 133, { width: 80, align: 'center' });
+      doc.text(fmtKg(caravanTripleRL), diagramX + 496, diagramY + 133, { width: 80, align: 'center' });
+    } else if (isDualAxleTrailer) {
       // Four-tyre overlay for dual axle trailer templates
       doc.text(fmtKg(caravanDualFR), diagramX + 345, diagramY + 40, { width: 90, align: 'center' });
       doc.text(fmtKg(caravanDualRR), diagramX + 445, diagramY + 40, { width: 90, align: 'center' });
@@ -1707,28 +1894,38 @@ router.post('/diy-tow-caravan-portable-single-axle/report-3', protect, async (re
     }
     doc.restore();
 
-    // Left/Right KG boxes
+    // Left/Right KG balance stacks
     const boxW = 70;
-    const boxH = 48;
+    const boxH = 42;
     const boxPad = 10;
 
-    const drawKgStack = (x, y, rightKg, leftKg) => {
-      drawCell(x, y, boxW, boxH, `Right KG\n${Math.round(rightKg || 0)}`, { bg: titleBg, align: 'center', fontSize: 9, padL: boxPad, padR: boxPad });
-      drawCell(x, y + boxH, boxW, boxH, `Left KG\n${Math.round(leftKg || 0)}`, { bg: titleBg, align: 'center', fontSize: 9, padL: boxPad, padR: boxPad });
+    const drawBalanceStack = (x, y, rightKg, leftKg) => {
+      const r = safeNum(rightKg) || 0;
+      const l = safeNum(leftKg) || 0;
+      const diff = Math.abs(r - l);
+      const heavySide = r >= l ? 'Right' : 'Left';
+
+      drawCell(x, y, boxW, boxH, `Right\n${Math.round(r)}`, { bg: titleBg, align: 'center', fontSize: 9, padL: boxPad, padR: boxPad });
+      drawCell(
+        x,
+        y + boxH,
+        boxW,
+        boxH,
+        `${heavySide} Heavy\nBy\n${Math.round(diff)}kg`,
+        { bg: '#fff3b0', align: 'center', fontSize: 8, padL: boxPad, padR: boxPad }
+      );
+      drawCell(x, y + boxH * 2, boxW, boxH, `Left\n${Math.round(l)}`, { bg: titleBg, align: 'center', fontSize: 9, padL: boxPad, padR: boxPad });
     };
 
-    // Car stacks (left of car)
-    drawKgStack(60, diagramY + 25, carRightTotal, carLeftTotal);
-    // Trailer stacks (right of trailer)
-    drawKgStack(842 - 60 - boxW, diagramY + 25, vanRightTotal, vanLeftTotal);
+    const stackY = diagramY + 20;
+    const stackGap = 16;
+    const leftStackX = Math.max(35, diagramX - boxW - stackGap);
+    const rightStackX = Math.min(842 - 35 - boxW, diagramX + diagramW + stackGap);
 
-    // Middle helper text (very small, light)
-    doc.save();
-    doc.fillColor('#777777');
-    doc.fontSize(7);
-    doc.text('Right kg split between tyres', 60, diagramY + 25 + boxH - 12, { width: boxW, align: 'center' });
-    doc.text('Right kg split between tyres', 842 - 60 - boxW, diagramY + 25 + boxH - 12, { width: boxW, align: 'center' });
-    doc.restore();
+    // Car balance stack (left of car)
+    drawBalanceStack(leftStackX, stackY, carRightTotal, carLeftTotal);
+    // Trailer balance stack (right of trailer)
+    drawBalanceStack(rightStackX, stackY, vanRightTotal, vanLeftTotal);
 
     // Additional Notes block
     const notesX = 35;

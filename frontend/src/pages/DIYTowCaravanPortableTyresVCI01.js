@@ -17,6 +17,10 @@ const DIYTowCaravanPortableTyresVCI01 = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [frontLeft, setFrontLeft] = useState('');
   const [frontRight, setFrontRight] = useState('');
   const [rearLeft, setRearLeft] = useState('');
@@ -82,7 +86,7 @@ const DIYTowCaravanPortableTyresVCI01 = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 3 }}
           >
-            Weigh Tow Vehicle - Hitched to Caravan/Trailer
+            {`Weigh Tow Vehicle - Hitched to ${towSetupLabel}`}
           </Typography>
 
           <Box

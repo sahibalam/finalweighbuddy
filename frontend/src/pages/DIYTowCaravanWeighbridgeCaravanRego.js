@@ -17,6 +17,10 @@ const DIYTowCaravanWeighbridgeCaravanRego = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [rego, setRego] = useState('');
   const [state, setState] = useState('');
   const [vin, setVin] = useState('');
@@ -50,6 +54,7 @@ const DIYTowCaravanWeighbridgeCaravanRego = () => {
     navigate('/tow-caravan-weighbridge-caravan-confirm', {
       state: {
         ...baseState,
+        towSetupType: baseState?.towSetupType || towSetupType,
         caravanRego: rego,
         caravanState: state,
         caravanVin: vin
@@ -82,7 +87,7 @@ const DIYTowCaravanWeighbridgeCaravanRego = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan
+            {`Tow Vehicle and ${towSetupLabel}`}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Weighbridge - In Ground - Individual Axle Weights
@@ -92,7 +97,7 @@ const DIYTowCaravanWeighbridgeCaravanRego = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 4 }}
           >
-            Enter Caravan/Trailer Registration
+            {`Enter ${towSetupLabel} Registration`}
           </Typography>
 
           <Box sx={{ mb: 3 }}>

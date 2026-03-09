@@ -19,6 +19,10 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
 
   const baseState = location.state || {};
 
+  const towSetupType = baseState?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [rego, setRego] = useState(baseState.caravanRego || '');
   const [state, setState] = useState(baseState.caravanState || '');
   const [make, setMake] = useState('');
@@ -246,7 +250,7 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan
+            {`Tow Vehicle and ${towSetupLabel}`}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Weighbridge - In Ground - Individual Axle Weights
@@ -256,7 +260,7 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 4 }}
           >
-            Confirm Caravan/Trailer Details
+            {`Confirm ${towSetupLabel} Details`}
           </Typography>
 
           <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -374,7 +378,7 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
             }}
           >
             <Typography variant="body2" gutterBottom>
-              How to Find Your Caravan / Trailer's Weigh Capacities
+              {`How to Find Your ${towSetupLabel}'s Weigh Capacities`}
             </Typography>
             <Typography variant="body2" sx={{ fontSize: 12 }}>
               Compliance plates are usually found on the drawbar, in the front tunnel box or inside the door.
@@ -391,7 +395,7 @@ const DIYTowCaravanWeighbridgeCaravanConfirm = () => {
                 component="label"
                 disabled={uploading}
               >
-                Upload Image of Caravan/Trailer Compliance Plate
+                {`Upload Image of ${towSetupLabel} Compliance Plate`}
                 <input
                   hidden
                   type="file"

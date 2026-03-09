@@ -20,6 +20,10 @@ const DIYTowCaravanPortableTyres = () => {
   const location = useLocation();
   const [axleConfig, setAxleConfig] = useState('Single Axle');
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [singleLeft, setSingleLeft] = useState('');
   const [singleRight, setSingleRight] = useState('');
 
@@ -110,7 +114,7 @@ const DIYTowCaravanPortableTyres = () => {
           </Box>
 
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Weigh Caravan/Trailer Hitched to Tow Vehicle
+            {`Weigh ${towSetupLabel} Hitched to Tow Vehicle`}
           </Typography>
 
           <Typography variant="body2" sx={{ mb: 2 }}>

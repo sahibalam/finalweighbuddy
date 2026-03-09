@@ -13,6 +13,10 @@ const DIYTowCaravanPortableTyresVCI02 = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || 'caravan';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [frontLeft, setFrontLeft] = useState('');
   const [frontRight, setFrontRight] = useState('');
   const [rearLeft, setRearLeft] = useState('');
@@ -44,9 +48,16 @@ const DIYTowCaravanPortableTyresVCI02 = () => {
         }
       });
     } else {
+      // eslint-disable-next-line no-console
+      console.log('VCI02 -> /diy-weigh startAtPayment', {
+        weighingSelection: baseState?.weighingSelection,
+        diyWeighingSelection: baseState?.diyWeighingSelection,
+        towSetupType: baseState?.towSetupType,
+      });
       navigate('/diy-weigh', {
         state: {
           ...baseState,
+          diyWeighingSelection: baseState?.diyWeighingSelection || baseState?.weighingSelection || '',
           vci02,
           startAtPayment: true
         }
@@ -72,7 +83,7 @@ const DIYTowCaravanPortableTyresVCI02 = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 3 }}
           >
-            Disconnect Caravan/Trailer - Weigh Unhitched Tow Vehicle
+            {`Disconnect ${towSetupLabel} - Weigh Unhitched Tow Vehicle`}
           </Typography>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>

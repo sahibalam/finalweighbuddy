@@ -18,3 +18,8 @@ backend/.env
 backend/env-production.txt
 
 backend/.env
+
+.DS_Store
+backend/assets/.DS_Store
+backend/.env
+backend/uploads/
