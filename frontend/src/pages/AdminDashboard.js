@@ -110,17 +110,19 @@ const AdminDashboard = () => {
   }, [activeTab]);
 
   // Map routes to tab indices
-  const tabRoutes = [
-    '/admin/overview',
-    '/admin/users',
-    '/admin/vehicles',
-    '/admin/caravans',
-    '/admin/weighs',
-    '/admin/payments',
-    '/admin/submissions',
-    '/admin/reports',
-    '/admin/settings'
-  ];
+  const tabRoutes = user?.userType === 'superadmin'
+    ? ['/admin/overview', '/admin/users', '/superadmin/cashouts']
+    : [
+        '/admin/overview',
+        '/admin/users',
+        '/admin/vehicles',
+        '/admin/caravans',
+        '/admin/weighs',
+        '/admin/payments',
+        '/admin/submissions',
+        '/admin/reports',
+        '/admin/settings',
+      ];
 
   // Clear cache when component mounts to ensure fresh state
   useEffect(() => {
@@ -244,7 +246,7 @@ const AdminDashboard = () => {
       console.log('Fetching admin dashboard data...');
       console.log('User authenticated:', isAuthenticated, 'User type:', user?.userType);
       
-      if (!isAuthenticated || user?.userType !== 'admin') {
+      if (!isAuthenticated || (user?.userType !== 'admin' && user?.userType !== 'superadmin')) {
         throw new Error('Not authenticated as admin');
       }
       
@@ -253,7 +255,7 @@ const AdminDashboard = () => {
       return response.data.stats; // Backend returns data in 'stats' not 'data'
     },
     {
-      enabled: isAuthenticated && user?.userType === 'admin',
+      enabled: isAuthenticated && (user?.userType === 'admin' || user?.userType === 'superadmin'),
       refetchInterval: 30000, // Refetch every 30 seconds
     }
   );
@@ -311,6 +313,14 @@ const AdminDashboard = () => {
       }
     }
   );
+
+  const superadminAllowedUserTypes = ['professional', 'fleet'];
+  const visibleUsers =
+    user?.userType === 'superadmin'
+      ? (usersData?.users || []).filter((u) => superadminAllowedUserTypes.includes(u?.userType))
+      : usersData?.users || [];
+
+  const visibleUsersTotal = user?.userType === 'superadmin' ? visibleUsers.length : usersData?.total || 0;
 
   // Fetch vehicles data
   const { data: vehiclesData, isLoading: vehiclesLoading, error: vehiclesError } = useQuery(
@@ -1128,7 +1138,7 @@ const AdminDashboard = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box>
             <Typography variant="h4" gutterBottom>
-              Admin Dashboard
+              {user?.userType === 'superadmin' ? 'Super Admin Dashboard' : 'Admin Dashboard'}
             </Typography>
             <Typography variant="body1" color="text.secondary" gutterBottom>
               System overview and management
@@ -1194,94 +1204,116 @@ const AdminDashboard = () => {
           scrollButtons="auto"
           sx={{ minHeight: 64 }}
         >
-          <Tab 
-            icon={<DashboardIcon />} 
-            label="Overview" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<PeopleIcon />} 
-            label="User Management" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<CarIcon />} 
-            label="Vehicle Database" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<CaravanIcon />} 
-            label="Caravan Database" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<HistoryIcon />} 
-            label="Weigh History" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<PaymentIcon />} 
-            label="Payment Management" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={
-              <Box sx={{ position: 'relative' }}>
-                <AssignmentIcon />
-                {submissionStats?.data?.totalPending > 0 && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: -8,
-                      right: -8,
-                      backgroundColor: 'error.main',
-                      color: 'white',
-                      borderRadius: '50%',
-                      width: 20,
-                      height: 20,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      border: '2px solid white'
-                    }}
-                  >
-                    {submissionStats.data.totalPending > 99 ? '99+' : submissionStats.data.totalPending}
+          {user?.userType === 'superadmin' ? (
+            <>
+              <Tab 
+                icon={<DashboardIcon />} 
+                label="Overview" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<PeopleIcon />} 
+                label="User Management" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<MoneyIcon />} 
+                label="Cashouts" 
+                iconPosition="start"
+              />
+            </>
+          ) : (
+            <>
+              <Tab 
+                icon={<DashboardIcon />} 
+                label="Overview" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<PeopleIcon />} 
+                label="User Management" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<CarIcon />} 
+                label="Vehicle Database" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<CaravanIcon />} 
+                label="Caravan Database" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<HistoryIcon />} 
+                label="Weigh History" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<PaymentIcon />} 
+                label="Payment Management" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={
+                  <Box sx={{ position: 'relative' }}>
+                    <AssignmentIcon />
+                    {submissionStats?.data?.totalPending > 0 && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: -8,
+                          right: -8,
+                          backgroundColor: 'error.main',
+                          color: 'white',
+                          borderRadius: '50%',
+                          width: 20,
+                          height: 20,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          border: '2px solid white'
+                        }}
+                      >
+                        {submissionStats.data.totalPending > 99 ? '99+' : submissionStats.data.totalPending}
+                      </Box>
+                    )}
                   </Box>
-                )}
-              </Box>
-            }
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                Data Submissions
-                {submissionStats?.data?.totalPending > 0 && (
-                  <Chip
-                    label={`${submissionStats.data.totalPending} Pending`}
-                    color="warning"
-                    size="small"
-                    variant="outlined"
-                  />
-                )}
-              </Box>
-            }
-            iconPosition="start"
-            sx={{ 
-              minWidth: 'auto',
-              fontWeight: 'bold',
-              color: 'primary.main'
-            }}
-          />
-          <Tab 
-            icon={<AssessmentIcon />} 
-            label="Reports" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<Settings />} 
-            label="Settings" 
-            iconPosition="start"
-          />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    Data Submissions
+                    {submissionStats?.data?.totalPending > 0 && (
+                      <Chip
+                        label={`${submissionStats.data.totalPending} Pending`}
+                        color="warning"
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                }
+                iconPosition="start"
+                sx={{ 
+                  minWidth: 'auto',
+                  fontWeight: 'bold',
+                  color: 'primary.main'
+                }}
+              />
+              <Tab 
+                icon={<AssessmentIcon />} 
+                label="Reports" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<Settings />} 
+                label="Settings" 
+                iconPosition="start"
+              />
+            </>
+          )}
         </Tabs>
       </Box>
 
@@ -1376,17 +1408,7 @@ const AdminDashboard = () => {
           {/* User Management Content */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h4">User Management</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setSelectedUser({});
-              setUserDialogOpen(true);
-            }}
-          >
-            Add User
-          </Button>
-        </Box>
+          </Box>
 
           {usersError && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -1413,7 +1435,7 @@ const AdminDashboard = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-                    {usersData?.users?.map((user) => (
+                    {visibleUsers.map((user) => (
                       <TableRow key={user._id}>
                         <TableCell>{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
@@ -1450,7 +1472,7 @@ const AdminDashboard = () => {
         <TablePagination
                 rowsPerPageOptions={[5, 10, 25]}
           component="div"
-                count={usersData?.total || 0}
+                count={visibleUsersTotal}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={(event, newPage) => setPage(newPage)}
@@ -2540,7 +2562,7 @@ const AdminDashboard = () => {
                 ) : (
             <Box key={`default-${renderKey}`}>
           <Typography variant="h4" gutterBottom>
-            Admin Dashboard
+            {user?.userType === 'superadmin' ? 'Super Admin Dashboard' : 'Admin Dashboard'}
           </Typography>
           <Typography variant="body1">
             Select a tab to view the content.

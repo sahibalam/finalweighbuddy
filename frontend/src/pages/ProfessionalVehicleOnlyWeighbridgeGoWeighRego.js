@@ -24,9 +24,13 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
   const [loading, setLoading] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const axleWeigh = location.state?.axleWeigh || null;
   const goweighData = location.state?.goweighData || null;
   const preWeigh = location.state?.preWeigh || null;
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const handleContinue = async () => {
     setError('');
@@ -93,6 +97,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
           axleWeigh,
           goweighData,
           weighingSelection,
+          towSetupType,
           preWeigh,
         }
       });
@@ -118,6 +123,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
             axleWeigh,
             goweighData,
             weighingSelection,
+            towSetupType,
             preWeigh,
           }
         });
@@ -151,8 +157,10 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighRego = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            {weighingSelection === 'tow_vehicle_and_caravan'
-              ? 'Tow Vehicle and Caravan / Trailer'
+            {weighingSelection === 'tow_vehicle_and_caravan' ||
+            weighingSelection === 'tow_vehicle_and_trailer' ||
+            weighingSelection === 'tow_vehicle_and_boat'
+              ? `Tow Vehicle and ${towSetupLabel}`
               : weighingSelection === 'caravan_only_registered'
                 ? 'Caravan Trailer Only (registered)'
                 : 'Vehicle Only'}

@@ -9,14 +9,22 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighPayment = () => {
   const [paymentComplete, setPaymentComplete] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const axleWeigh = location.state?.axleWeigh || null;
   const goweighData = location.state?.goweighData || null;
   const preWeigh = location.state?.preWeigh || null;
 
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const headingLabel =
-    weighingSelection === 'tow_vehicle_and_caravan'
-      ? 'Tow Vehicle and Caravan / Trailer'
-      : 'Vehicle Only';
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat'
+      ? `Tow Vehicle and ${towSetupLabel}`
+      : weighingSelection === 'caravan_only_registered'
+        ? `${towSetupLabel} Only (registered)`
+        : 'Vehicle Only';
 
   return (
     <Box
@@ -69,6 +77,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeighPayment = () => {
                 navigate('/professional-vehicle-only-weighbridge-goweigh-rego', {
                   state: {
                     weighingSelection,
+                    towSetupType,
                     axleWeigh,
                     goweighData,
                     preWeigh,

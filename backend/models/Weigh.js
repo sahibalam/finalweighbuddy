@@ -49,6 +49,11 @@ const weighSchema = new mongoose.Schema({
     required: [true, 'Customer name is required'],
     trim: true
   },
+  location: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   customerPhone: {
     type: String,
     required: [true, 'Customer phone is required'],
@@ -187,12 +192,21 @@ const weighSchema = new mongoose.Schema({
       type: Number,
       min: [0, 'Total water litres must be non-negative'],
     },
+    axleConfig: {
+      type: String,
+      trim: true
+    },
+    towedAxleConfig: {
+      type: String,
+      trim: true
+    },
     towballHeightMm: {
       type: Number,
       min: [0, 'Tow ball height must be non-negative'],
     },
     airbagPressurePsi: {
       type: Number,
+      default: null,
       min: [0, 'Air bag pressure must be non-negative'],
     }
   },

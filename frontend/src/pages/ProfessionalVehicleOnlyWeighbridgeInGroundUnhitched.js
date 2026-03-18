@@ -7,8 +7,13 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched = () => {
   const navigate = useNavigate();
 
   const weighingSelection = location.state?.weighingSelection || 'tow_vehicle_and_caravan';
+  const towSetupType = location.state?.towSetupType || '';
   const previousAxleWeigh = location.state?.axleWeigh || null;
   const preWeigh = location.state?.preWeigh || null;
+  const axleConfig = location.state?.axleConfig || null;
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const [frontAxle, setFrontAxle] = useState('');
   const [gvmUnhitched, setGvmUnhitched] = useState('');
@@ -28,7 +33,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched = () => {
     navigate('/professional-vehicle-only-weighbridge-in-ground-payment', {
       state: {
         weighingSelection,
+        towSetupType,
         preWeigh,
+        axleConfig,
         axleWeigh,
       },
     });
@@ -67,7 +74,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundUnhitched = () => {
           </Typography>
 
           <Typography variant="body2" sx={{ mb: 3 }}>
-            Ensure Caravan/Trailer is disconnected/unhitched.
+            {`Ensure ${towSetupLabel} is disconnected/unhitched.`}
           </Typography>
 
           <Box sx={{ mb: 3 }}>

@@ -18,6 +18,10 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
   const location = useLocation();
 
   const baseState = location.state || {};
+  const towSetupType = baseState.towSetupType || '';
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const [rego, setRego] = useState(baseState.caravanRego || '');
   const [state, setState] = useState(baseState.caravanState || '');
@@ -184,6 +188,22 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
     try {
       const safeNum = (v) => (v != null && v !== '' ? Number(v) || 0 : 0);
 
+      // Register this setup under the professional -> DIY relationship so
+      // future DIY self-serve paid compliance checks can credit the weigher.
+      try {
+        const vehicleRego = baseState?.rego || '';
+        const trailerRego = rego || '';
+        if (diyClientUserId && (vehicleRego || trailerRego)) {
+          axios.post('/api/wallet/register-setup', {
+            diyUserId: diyClientUserId,
+            vehicleRego,
+            trailerRego,
+          });
+        }
+      } catch (e) {
+        // Non-blocking
+      }
+
       // Ensure we have a Vehicle document ID (required by POST /api/weighs)
       let vehicleId = baseState.vehicleMasterId || null;
 
@@ -237,6 +257,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
       const axleWeigh = baseState.axleWeigh || {};
       const vci01 = baseState.vci01 || null;
       const hitchWeigh = vci01?.hitchWeigh || null;
+      const vci02 = baseState.vci02 || null;
 
       const hitchedFront = hitchWeigh
         ? safeNum(hitchWeigh.frontLeft) + safeNum(hitchWeigh.frontRight)
@@ -250,6 +271,15 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
       const gtmMeasured = safeNum(axleWeigh.trailerGtm);
       const tbmMeasured = baseState.towBallMass != null ? safeNum(baseState.towBallMass) : 0;
       const gcmMeasured = gvmHitched + gtmMeasured;
+
+      const unhitchedWeigh = vci02?.unhitchedWeigh || null;
+      const unhitchedFrontAxle = unhitchedWeigh
+        ? safeNum(unhitchedWeigh.frontLeft) + safeNum(unhitchedWeigh.frontRight) + safeNum(unhitchedWeigh.middleLeft) + safeNum(unhitchedWeigh.middleRight)
+        : safeNum(axleWeigh.unhitchedFrontAxle);
+      const unhitchedRearAxle = unhitchedWeigh
+        ? safeNum(unhitchedWeigh.rearLeft) + safeNum(unhitchedWeigh.rearRight)
+        : safeNum(axleWeigh.unhitchedRearAxle);
+      const unhitchedGvm = unhitchedFrontAxle + unhitchedRearAxle;
 
       // Customer details: prefer the professionalClientDraft (actual end-customer)
       // so the saved Weigh record persists the correct client details.
@@ -319,14 +349,21 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
         weighId: null,
         vehicleId,
         caravanId,
+        towSetupType,
         towBallMass: tbmMeasured,
+        measuredFrontAxle: hitchedFront,
+        measuredRearAxle: hitchedRear,
+        measuredGvm: gvmHitched,
         measuredGvmHitched: gvmHitched,
+        unhitchedFrontAxle,
+        unhitchedRearAxle,
+        unhitchedGvm,
         gtmMeasured,
         atmMeasured,
         gcmMeasured,
-        axleWeigh: {
-          ...(baseState.axleWeigh || {}),
-        },
+        gtmMeasuredOverall: gtmMeasured,
+        atmMeasuredOverall: atmMeasured,
+        gcmMeasuredOverall: gcmMeasured,
         caravan: {
           rego,
           state,
@@ -376,7 +413,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan
+            {`Tow Vehicle and ${towSetupLabel}`}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Portable Scales - Individual Tyre Weights
@@ -386,7 +423,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 4 }}
           >
-            Confirm Caravan/Trailer Details
+            {`Confirm ${towSetupLabel} Details`}
           </Typography>
 
           <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -521,7 +558,7 @@ const ProfessionalTowPortableTyresCaravanConfirm = () => {
                 component="label"
                 disabled={uploading}
               >
-                Upload Image of Caravan/Trailer Compliance Plate
+                {`Upload Image of ${towSetupLabel} Compliance Plate`}
                 <input
                   hidden
                   type="file"

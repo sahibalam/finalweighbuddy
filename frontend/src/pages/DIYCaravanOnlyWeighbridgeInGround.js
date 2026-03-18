@@ -14,7 +14,7 @@ const DIYCaravanOnlyWeighbridgeInGround = () => {
 
     const axleWeigh = {
       caravanHitchedGtm: caravanHitchedGtm ? Number(caravanHitchedGtm) : null,
-      caravanUnhitchedAtm: caravanUnhitchedAtm ? Number(caravanUnhitchedAtm) : null
+      caravanUnhitchedAtm: caravanUnhitchedAtm ? Number(caravanUnhitchedAtm) : null,
     };
 
     navigate('/diy-weigh', {

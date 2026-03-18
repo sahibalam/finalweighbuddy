@@ -110,6 +110,13 @@ const CheckoutForm = ({
         setError(stripeError.message);
         onError && onError(stripeError);
       } else if (paymentIntent.status === 'succeeded') {
+        try {
+          if (typeof window !== 'undefined' && paymentIntent?.id) {
+            window.sessionStorage.setItem('weighbuddy_axle_payment_intent', paymentIntent.id);
+          }
+        } catch (e) {
+          // non-blocking
+        }
         // Confirm payment with backend
         try {
           const confirmResponse = await axios.post('/api/payments/confirm-payment', {

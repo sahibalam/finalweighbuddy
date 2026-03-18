@@ -17,6 +17,10 @@ const ProfessionalTowPortableTyresCaravanRego = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const towSetupType = location.state?.towSetupType || '';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
   const [rego, setRego] = useState('');
   const [state, setState] = useState('');
   const [vin, setVin] = useState('');
@@ -81,7 +85,7 @@ const ProfessionalTowPortableTyresCaravanRego = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Tow Vehicle and Caravan
+            {`Tow Vehicle and ${towSetupLabel}`}
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             Portable Scales - Individual Tyre Weights
@@ -91,7 +95,7 @@ const ProfessionalTowPortableTyresCaravanRego = () => {
             variant="h5"
             sx={{ fontWeight: 'bold', mb: 4 }}
           >
-            Enter Caravan/Trailer Registration
+            {`Enter ${towSetupLabel} Registration`}
           </Typography>
 
           <Box sx={{ mb: 3 }}>

@@ -42,6 +42,8 @@ const ProfessionalDashboard = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [subscription, setSubscription] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -64,6 +66,15 @@ const ProfessionalDashboard = () => {
       // Process data for analytics
       const processedData = processWeighData(weighs);
       setDashboardData(processedData);
+
+      setPaymentsLoading(true);
+      try {
+        const params = new URLSearchParams({ page: 1, limit: 5 });
+        const paymentsResponse = await axios.get(`/api/payments/history?${params}`);
+        setPayments(Array.isArray(paymentsResponse.data?.payments) ? paymentsResponse.data.payments : []);
+      } finally {
+        setPaymentsLoading(false);
+      }
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -118,11 +129,29 @@ const ProfessionalDashboard = () => {
       .slice(0, 5)
       .map(weigh => ({
         id: weigh._id,
-        customer: weigh.customer.name,
+        customer:
+          weigh?.customer?.name ||
+          weigh?.customerName ||
+          weigh?.customer?.email ||
+          weigh?.customerEmail ||
+          'Customer',
         date: new Date(weigh.createdAt).toLocaleDateString(),
         compliant: calculateCompliance(weigh),
-        vehicle: weigh.vehicleNumberPlate,
-        caravan: weigh.caravanNumberPlate
+        vehicle:
+          weigh.vehicleNumberPlate ||
+          weigh.vehicleRego ||
+          weigh?.vehicleData?.numberPlate ||
+          weigh?.weights?.vehicleNumberPlate ||
+          weigh?.weights?.raw?.vehicleNumberPlate ||
+          '',
+        caravan:
+          weigh.caravanNumberPlate ||
+          weigh.trailerRego ||
+          weigh.boatRego ||
+          weigh?.caravanData?.numberPlate ||
+          weigh?.weights?.caravanNumberPlate ||
+          weigh?.weights?.raw?.caravanNumberPlate ||
+          ''
       }));
     
     return {
@@ -229,65 +258,52 @@ const ProfessionalDashboard = () => {
         </Typography>
       </Box>
 
-      {/* Subscription Status Alert */}
-      {subscription?.status !== 'active' && (
-        <Alert 
-          severity="warning" 
-          sx={{ mb: 3 }}
-          action={
-            <Button color="inherit" size="small" onClick={() => navigate('/subscription')}>
-              Activate Subscription
-            </Button>
-          }
-        >
-          Your subscription is inactive. Activate a subscription to continue using professional features.
-        </Alert>
-      )}
-
       <Grid container spacing={3}>
-        {/* Subscription Usage Card */}
-        {subscription && (
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Business sx={{ mr: 1 }} />
-                  <Typography variant="h6">Subscription Usage</Typography>
+        {/* Payment History Card */}
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <AttachMoney sx={{ mr: 1 }} />
+                  <Typography variant="h6">Payment History</Typography>
                 </Box>
-                
-                <Typography variant="h4" color="primary" gutterBottom>
-                  {subscription.usage?.currentMonthWeighs || 0}
-                </Typography>
-                
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  of {subscription.usage?.weighLimit > 0 ? subscription.usage.weighLimit : 'unlimited'} weighs this month
-                </Typography>
-                
-                {subscription.usage?.weighLimit > 0 && (
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.min((subscription.usage.currentMonthWeighs / subscription.usage.weighLimit) * 100, 100)}
-                    color={getUsageColor()}
-                    sx={{ mt: 2, height: 8, borderRadius: 4 }}
-                  />
-                )}
-                
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                  <Chip 
-                    label={subscription.plan?.name} 
-                    color="primary" 
-                    size="small" 
-                  />
-                  <Chip 
-                    label={subscription.status} 
-                    color={subscription.status === 'active' ? 'success' : 'error'}
-                    size="small" 
-                  />
+                <Button size="small" onClick={() => navigate('/payment-history')}>
+                  View all
+                </Button>
+              </Box>
+
+              {paymentsLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={22} />
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
+              ) : payments.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No payments found.
+                </Typography>
+              ) : (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell align="right">Amount</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {payments.map((p, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{p?.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell align="right">{(p?.payment?.amount || 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
 
         {/* Total Weighs */}
         <Grid item xs={12} md={4}>
@@ -404,9 +420,8 @@ const ProfessionalDashboard = () => {
                       <TableCell>Customer</TableCell>
                       <TableCell>Date</TableCell>
                       <TableCell>Vehicle</TableCell>
-                      <TableCell>Caravan</TableCell>
+                      <TableCell>Caravan/Trailer/Boat</TableCell>
                       <TableCell>Status</TableCell>
-                      <TableCell>Action</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -423,14 +438,6 @@ const ProfessionalDashboard = () => {
                             size="small"
                           />
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            size="small"
-                            onClick={() => navigate(`/weigh/${activity.id}`)}
-                          >
-                            View Details
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -440,72 +447,6 @@ const ProfessionalDashboard = () => {
           </Card>
         </Grid>
 
-        {/* Quick Actions */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Quick Actions
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item>
-                  <Button
-                    variant="contained"
-                    startIcon={<Scale />}
-                    onClick={() => navigate('/new-weigh')}
-                  >
-                    New Weigh Entry
-                  </Button>
-                </Grid>
-                <Grid item>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Assessment />}
-                    onClick={() => navigate('/weigh-history')}
-                  >
-                    View All Reports
-                  </Button>
-                </Grid>
-                <Grid item>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AttachMoney />}
-                    onClick={() => navigate('/payment-history')}
-                  >
-                    Payment History
-                  </Button>
-                </Grid>
-                <Grid item>
-                  <Button
-                    variant="outlined"
-                    startIcon={<TrendingUp />}
-                    onClick={() => downloadAdvancedReport('excel')}
-                  >
-                    Export Excel Report
-                  </Button>
-                </Grid>
-                <Grid item>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Assessment />}
-                    onClick={() => downloadAdvancedReport('pdf')}
-                  >
-                    Export PDF Report
-                  </Button>
-                </Grid>
-                <Grid item>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Business />}
-                    onClick={() => navigate('/subscription')}
-                  >
-                    Manage Subscription
-                  </Button>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
       </Grid>
     </Container>
   );

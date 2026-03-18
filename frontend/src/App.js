@@ -8,6 +8,8 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AccountTypeSelection from './pages/AccountTypeSelection';
+import OAuthSuccess from './pages/OAuthSuccess';
+import OAuthComplete from './pages/OAuthComplete';
 import Dashboard from './pages/Dashboard';
 import FleetDashboard from './pages/FleetDashboard';
 import FleetStaffManagement from './pages/FleetStaffManagement';
@@ -61,7 +63,6 @@ import DIYVehicleOnlyWeighbridgeRego from './pages/DIYVehicleOnlyWeighbridgeRego
 import DIYVehicleOnlyWeighbridgeConfirm from './pages/DIYVehicleOnlyWeighbridgeConfirm';
 import DIYVehicleOnlyWeighbridgeResults from './pages/DIYVehicleOnlyWeighbridgeResults';
 import WeighHistory from './pages/WeighHistory';
-import WeighDetail from './pages/WeighDetail';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import VehicleSearch from './pages/VehicleSearch';
@@ -71,6 +72,8 @@ import ContactUs from './pages/ContactUs';
 import SubscriptionManagement from './pages/SubscriptionManagement';
 import PaymentHistory from './pages/PaymentHistory';
 import DIYTowCaravanAboveGroundWeights from './pages/DIYTowCaravanAboveGroundWeights';
+import ProfessionalWallet from './pages/ProfessionalWallet';
+import SuperadminCashouts from './pages/SuperadminCashouts';
 
 function App() {
 
@@ -83,6 +86,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<AccountTypeSelection />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/oauth/success" element={<OAuthSuccess />} />
+          <Route path="/oauth/complete" element={<OAuthComplete />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/contact" element={<ContactUs />} />
           
@@ -131,6 +136,22 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <PaymentHistory />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/professional-wallet" element={
+            <PrivateRoute>
+              <Layout>
+                <ProfessionalWallet />
+              </Layout>
+            </PrivateRoute>
+          } />
+
+          <Route path="/superadmin/cashouts" element={
+            <PrivateRoute superadminOnly>
+              <Layout>
+                <SuperadminCashouts />
               </Layout>
             </PrivateRoute>
           } />
@@ -536,13 +557,6 @@ function App() {
             </PrivateRoute>
           } />
           
-          <Route path="/weigh/:id" element={
-            <PrivateRoute>
-              <Layout>
-                <WeighDetail />
-              </Layout>
-            </PrivateRoute>
-          } />
           
           <Route path="/payment-history" element={
             <PrivateRoute>

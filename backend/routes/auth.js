@@ -1,12 +1,82 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { createDiyClientFromProfessional } = require('../services/professionalClientService');
+const { body, validationResult } = require('express-validator');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 const router = express.Router();
+
+const issueAuthResponse = (res, user, status = 200) => {
+  const token = user.getJwtToken();
+  return res.status(status).json({
+    success: true,
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      postcode: user.postcode,
+      userType: user.userType,
+      businessName: user.businessName,
+      abn: user.abn,
+      logoUrl: user.logoUrl || null,
+      postalAddress: user.postalAddress,
+      state: user.state,
+      subscription: user.subscription,
+      weighCount: user.weighCount,
+      freeWeighs: user.freeWeighs,
+    },
+  });
+};
+
+const buildFrontendRedirectUrl = (pathWithQuery) => {
+  const base = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const p = String(pathWithQuery || '').startsWith('/') ? String(pathWithQuery) : `/${String(pathWithQuery || '')}`;
+  return `${base}${p}`;
+};
+
+const getGoogleOAuthClient = () => {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const backendBase = (process.env.BACKEND_URL || 'http://localhost:5001').replace(/\/$/, '');
+  const redirectUri = `${backendBase}/api/auth/google/callback`;
+
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  return new OAuth2Client({
+    clientId,
+    clientSecret,
+    redirectUri,
+  });
+};
+
+const decodeGoogleIdToken = async (oauthClient, idToken) => {
+  const ticket = await oauthClient.verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
+  });
+  return ticket.getPayload();
+};
+
+const createPendingSignupToken = (payload) => {
+  const secret = process.env.JWT_SECRET || 'your-secret-key';
+  return jwt.sign(
+    {
+      purpose: 'google_pending_signup',
+      ...payload,
+    },
+    secret,
+    { expiresIn: '15m' }
+  );
+};
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -16,7 +86,7 @@ router.post('/register', [
   body('email', 'Please include a valid email').isEmail(),
   body('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
   body('phone', 'Phone number is required').not().isEmpty(),
-  body('userType', 'User type must be professional, fleet, or diy').isIn(['professional', 'fleet', 'diy']),
+  body('userType', 'User type must be professional, fleet, diy, admin, or superadmin').isIn(['professional', 'fleet', 'diy', 'admin', 'superadmin']),
   // Postcode is required for professional and fleet users; optional for DIY
   body('postcode').custom((value, { req }) => {
     if (
@@ -32,6 +102,42 @@ router.post('/register', [
       throw new Error('Business name is required for professional and fleet users');
     }
     return true;
+  }),
+  body('abn').custom((value, { req }) => {
+    if (
+      (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+      (!value || String(value).trim() === '')
+    ) {
+      throw new Error('ABN is required for professional and fleet users');
+    }
+    return true;
+  }),
+  body('logoUrl').custom((value, { req }) => {
+    if (
+      (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+      (!value || String(value).trim() === '')
+    ) {
+      throw new Error('Logo URL is required for professional and fleet users');
+    }
+    return true;
+  }),
+  body('postalAddress').custom((value, { req }) => {
+    if (
+      (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+      (!value || String(value).trim() === '')
+    ) {
+      throw new Error('Postal address is required for professional and fleet users');
+    }
+    return true;
+  }),
+  body('state').custom((value, { req }) => {
+    if (
+      (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+      (!value || String(value).trim() === '')
+    ) {
+      throw new Error('State is required for professional and fleet users');
+    }
+    return true;
   })
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -42,7 +148,7 @@ router.post('/register', [
     });
   }
 
-  const { name, email, password, phone, postcode, userType, businessName } = req.body;
+  const { name, email, password, phone, postcode, userType, businessName, logoUrl, abn, postalAddress, state } = req.body;
 
   try {
     // Check if user exists
@@ -62,7 +168,11 @@ router.post('/register', [
       phone,
       postcode,
       userType,
-      businessName: userType === 'professional' || userType === 'fleet' ? businessName : undefined
+      businessName: userType === 'professional' || userType === 'fleet' ? businessName : undefined,
+      abn: userType === 'professional' || userType === 'fleet' ? String(abn || '').trim() : undefined,
+      logoUrl: userType === 'professional' || userType === 'fleet' ? String(logoUrl || '').trim() : undefined,
+      postalAddress: userType === 'professional' || userType === 'fleet' ? String(postalAddress || '').trim() : undefined,
+      state: userType === 'professional' || userType === 'fleet' ? String(state || '').trim() : undefined,
     });
 
     await user.save();
@@ -80,7 +190,8 @@ router.post('/register', [
         phone: user.phone,
         postcode: user.postcode,
         userType: user.userType,
-        businessName: user.businessName
+        businessName: user.businessName,
+        logoUrl: user.logoUrl || null,
       }
     });
   } catch (error) {
@@ -154,6 +265,10 @@ router.post('/login', [
         postcode: user.postcode,
         userType: user.userType,
         businessName: user.businessName,
+        abn: user.abn,
+        logoUrl: user.logoUrl,
+        postalAddress: user.postalAddress,
+        state: user.state,
         subscription: user.subscription,
         weighCount: user.weighCount,
         freeWeighs: user.freeWeighs
@@ -173,7 +288,22 @@ router.post('/login', [
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route'
+      });
+    }
+
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route'
+      });
+    }
     res.json({
       success: true,
       user: {
@@ -184,6 +314,10 @@ router.get('/me', protect, async (req, res) => {
         postcode: user.postcode,
         userType: user.userType,
         businessName: user.businessName,
+        abn: user.abn,
+        logoUrl: user.logoUrl,
+        postalAddress: user.postalAddress,
+        state: user.state,
         subscription: user.subscription,
         weighCount: user.weighCount,
         freeWeighs: user.freeWeighs,
@@ -350,6 +484,29 @@ router.post('/sync-weigh-count', protect, async (req, res) => {
 // @route   POST /api/auth/create-diy-client-from-professional
 // @access  Private (professional)
 const professionalClientService = require('../services/professionalClientService');
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findUserByEmailLoose = async (email) => {
+  const emailNorm = String(email || '').trim().toLowerCase();
+  if (!emailNorm) return null;
+
+  const rx = new RegExp(`^${escapeRegex(emailNorm)}$`, 'i');
+  return User.findOne({ email: rx });
+};
+
+const logDbInfoDev = (tag) => {
+  if (process.env.NODE_ENV !== 'development') return;
+  try {
+    const conn = mongoose.connection;
+    console.log(tag, {
+      dbName: conn?.name,
+      host: conn?.host,
+    });
+  } catch (e) {
+    // ignore
+  }
+};
 router.post(
   '/create-diy-client-from-professional',
   protect,
@@ -367,7 +524,7 @@ router.post(
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { firstName, lastName, email, phone, password } = req.body;
+    const { firstName, lastName, email, phone, password, vehicleRego, trailerRego } = req.body;
 
     try {
       const result = await professionalClientService.createDiyClientFromProfessional({
@@ -378,6 +535,49 @@ router.post(
         password,
         professionalOwnerUserId: req.user.id,
       });
+
+      // Optional: register this setup under the professional so future DIY
+      // self-serve checks with the same identifiers can be credited.
+      try {
+        const normalizeRego = (value) => {
+          const v = value === undefined || value === null ? '' : String(value);
+          const trimmed = v.trim();
+          return trimmed ? trimmed.toUpperCase() : '';
+        };
+
+        const computeSetupKey = ({ vehicleRego: vRaw, trailerRego: tRaw }) => {
+          const v = normalizeRego(vRaw);
+          const t = normalizeRego(tRaw);
+          if (v && t) return `VT:${v}|${t}`;
+          if (v) return `V:${v}`;
+          if (t) return `T:${t}`;
+          return '';
+        };
+
+        const setupKey = computeSetupKey({ vehicleRego, trailerRego });
+        if (setupKey && result?.user?._id) {
+          const ProfessionalCustomerSetup = require('../models/ProfessionalCustomerSetup');
+          await ProfessionalCustomerSetup.updateOne(
+            {
+              professionalId: req.user.id,
+              diyUserId: result.user._id,
+              setupKey,
+            },
+            {
+              $setOnInsert: {
+                professionalId: req.user.id,
+                diyUserId: result.user._id,
+                setupKey,
+                vehicleRego: normalizeRego(vehicleRego) || null,
+                trailerRego: normalizeRego(trailerRego) || null,
+              },
+            },
+            { upsert: true }
+          );
+        }
+      } catch (setupErr) {
+        console.error('Error saving professional customer setup mapping:', setupErr);
+      }
 
       return res.status(201).json({
         success: true,
@@ -441,6 +641,330 @@ router.get(
       return res.status(500).json({
         success: false,
         message: 'Failed to lookup client',
+      });
+    }
+  }
+);
+
+// @desc    Start Google OAuth
+// @route   GET /api/auth/google/start
+// @access  Public
+router.get('/google/start', async (req, res) => {
+  const rid = crypto.randomBytes(6).toString('hex');
+  try {
+    const redirectModeRaw = typeof req.query.mode === 'string' ? req.query.mode : '';
+    const redirectMode = redirectModeRaw === 'signup' ? 'signup' : 'login';
+    console.log(`[GoogleOAuth:start:${rid}] hit`, {
+      mode: redirectMode,
+      hasClientId: Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID),
+      hasClientSecret: Boolean(process.env.GOOGLE_OAUTH_CLIENT_SECRET),
+      nodeEnv: process.env.NODE_ENV,
+    });
+
+    const oauthClient = getGoogleOAuthClient();
+    if (!oauthClient) {
+      console.log(`[GoogleOAuth:start:${rid}] missing oauth client`);
+      return res.status(500).json({
+        success: false,
+        message: 'Google OAuth is not configured on the server',
+      });
+    }
+
+    const state = crypto.randomBytes(16).toString('hex');
+    console.log(`[GoogleOAuth:start:${rid}] setting cookies`, {
+      statePrefix: state.slice(0, 6),
+      mode: redirectMode,
+    });
+
+    res.cookie('google_oauth_state', state, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 10 * 60 * 1000,
+    });
+
+    res.cookie('google_oauth_mode', redirectMode, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 10 * 60 * 1000,
+    });
+
+    const url = oauthClient.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'select_account',
+      scope: ['openid', 'email', 'profile'],
+      state,
+    });
+
+    console.log(`[GoogleOAuth:start:${rid}] redirecting to google`, {
+      urlPrefix: typeof url === 'string' ? url.slice(0, 60) : 'unknown',
+    });
+
+    return res.redirect(url);
+  } catch (error) {
+    console.error('Error starting Google OAuth:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to start Google OAuth',
+    });
+  }
+});
+
+// @desc    Google OAuth callback
+// @route   GET /api/auth/google/callback
+// @access  Public
+router.get('/google/callback', async (req, res) => {
+  const rid = crypto.randomBytes(6).toString('hex');
+  try {
+    logDbInfoDev(`[GoogleOAuth:callback:${rid}] db`);
+
+    console.log(`[GoogleOAuth:callback:${rid}] hit`, {
+      hasCode: typeof req.query.code === 'string' && Boolean(req.query.code),
+      hasState: typeof req.query.state === 'string' && Boolean(req.query.state),
+      queryKeys: Object.keys(req.query || {}),
+      cookieKeys: Object.keys(req.cookies || {}),
+    });
+
+    const oauthClient = getGoogleOAuthClient();
+    if (!oauthClient) {
+      console.log(`[GoogleOAuth:callback:${rid}] missing oauth client`);
+      return res.redirect(buildFrontendRedirectUrl('/login?google=not_configured'));
+    }
+
+    const stateCookie = req.cookies?.google_oauth_state;
+    const expectedState = typeof stateCookie === 'string' ? stateCookie : '';
+    const providedState = typeof req.query.state === 'string' ? req.query.state : '';
+    const mode = req.cookies?.google_oauth_mode === 'signup' ? 'signup' : 'login';
+
+    console.log(`[GoogleOAuth:callback:${rid}] state/mode check`, {
+      mode,
+      expectedStatePresent: Boolean(expectedState),
+      providedStatePresent: Boolean(providedState),
+      expectedPrefix: expectedState ? expectedState.slice(0, 6) : null,
+      providedPrefix: providedState ? providedState.slice(0, 6) : null,
+      stateMatch: Boolean(expectedState && providedState && expectedState === providedState),
+    });
+
+    if (!expectedState || !providedState || expectedState !== providedState) {
+      return res.redirect(buildFrontendRedirectUrl(`/login?google=state_mismatch&mode=${mode}`));
+    }
+
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    if (!code) {
+      return res.redirect(buildFrontendRedirectUrl(`/login?google=missing_code&mode=${mode}`));
+    }
+
+    console.log(`[GoogleOAuth:callback:${rid}] exchanging code for tokens`);
+
+    const { tokens } = await oauthClient.getToken(code);
+    const idToken = tokens?.id_token;
+    if (!idToken) {
+      return res.redirect(buildFrontendRedirectUrl(`/login?google=missing_id_token&mode=${mode}`));
+    }
+
+    console.log(`[GoogleOAuth:callback:${rid}] received id_token`, {
+      idTokenPrefix: String(idToken).slice(0, 12),
+    });
+
+    const profile = await decodeGoogleIdToken(oauthClient, idToken);
+    const email = String(profile?.email || '').toLowerCase().trim();
+    const name = String(profile?.name || '').trim();
+    const emailVerified = Boolean(profile?.email_verified);
+
+    console.log(`[GoogleOAuth:callback:${rid}] profile decoded`, {
+      email,
+      hasName: Boolean(name),
+      emailVerified,
+      mode,
+    });
+
+    if (!email) {
+      return res.redirect(buildFrontendRedirectUrl(`/login?google=missing_email&mode=${mode}`));
+    }
+
+    const existing = await findUserByEmailLoose(email);
+    if (existing) {
+      const token = existing.getJwtToken();
+      console.log(`[GoogleOAuth:callback:${rid}] existing user -> /oauth/success`, {
+        userId: existing._id,
+        userType: existing.userType,
+      });
+      return res.redirect(buildFrontendRedirectUrl(`/oauth/success?token=${encodeURIComponent(token)}`));
+    }
+
+    const pendingToken = createPendingSignupToken({
+      email,
+      name: name || email,
+      emailVerified,
+    });
+
+    console.log(`[GoogleOAuth:callback:${rid}] new user -> /oauth/complete`, {
+      email,
+      pendingPrefix: String(pendingToken).slice(0, 12),
+      mode,
+    });
+
+    return res.redirect(
+      buildFrontendRedirectUrl(`/oauth/complete?pending=${encodeURIComponent(pendingToken)}&mode=${encodeURIComponent(mode)}`)
+    );
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    return res.redirect(buildFrontendRedirectUrl('/login?google=error'));
+  }
+});
+
+// @desc    Finalize Google OAuth signup (collect required fields)
+// @route   POST /api/auth/google/finalize
+// @access  Public
+router.post(
+  '/google/finalize',
+  [
+    body('pending', 'Pending token is required').not().isEmpty(),
+    body('phone', 'Phone number is required').not().isEmpty(),
+    body('userType', 'User type must be professional, fleet, diy, admin, or superadmin').isIn(['professional', 'fleet', 'diy', 'admin', 'superadmin']),
+    body('postcode').custom((value, { req }) => {
+      if (
+        (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+        (!value || String(value).trim() === '')
+      ) {
+        throw new Error('Postcode is required for professional and fleet users');
+      }
+      return true;
+    }),
+    body('businessName').custom((value, { req }) => {
+      if ((req.body.userType === 'professional' || req.body.userType === 'fleet') && !value) {
+        throw new Error('Business name is required for professional and fleet users');
+      }
+      return true;
+    }),
+    body('abn').custom((value, { req }) => {
+      if (
+        (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+        (!value || String(value).trim() === '')
+      ) {
+        throw new Error('ABN is required for professional and fleet users');
+      }
+      return true;
+    }),
+    body('logoUrl').custom((value, { req }) => {
+      if (
+        (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+        (!value || String(value).trim() === '')
+      ) {
+        throw new Error('Logo URL is required for professional and fleet users');
+      }
+      return true;
+    }),
+    body('postalAddress').custom((value, { req }) => {
+      if (
+        (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+        (!value || String(value).trim() === '')
+      ) {
+        throw new Error('Postal address is required for professional and fleet users');
+      }
+      return true;
+    }),
+    body('state').custom((value, { req }) => {
+      if (
+        (req.body.userType === 'professional' || req.body.userType === 'fleet') &&
+        (!value || String(value).trim() === '')
+      ) {
+        throw new Error('State is required for professional and fleet users');
+      }
+      return true;
+    }),
+  ],
+  async (req, res) => {
+    const rid = crypto.randomBytes(6).toString('hex');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log(`[GoogleOAuth:finalize:${rid}] validation error`, {
+        errors: errors.array()?.map((e) => ({ msg: e.msg, param: e.param })),
+      });
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { pending, phone, userType, postcode, businessName, logoUrl, abn, postalAddress, state } = req.body;
+    try {
+      logDbInfoDev(`[GoogleOAuth:finalize:${rid}] db`);
+      console.log(`[GoogleOAuth:finalize:${rid}] hit`, {
+        userType,
+        phonePresent: Boolean(phone),
+        pendingPrefix: typeof pending === 'string' ? pending.slice(0, 12) : null,
+      });
+      const secret = process.env.JWT_SECRET || 'your-secret-key';
+      const decoded = jwt.verify(pending, secret);
+
+      if (!decoded || decoded.purpose !== 'google_pending_signup') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid pending signup token',
+        });
+      }
+
+      const email = String(decoded.email || '').toLowerCase().trim();
+      const name = String(decoded.name || '').trim() || email;
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid pending signup token',
+        });
+      }
+
+      const existing = await findUserByEmailLoose(email);
+      if (existing) {
+        console.log(`[GoogleOAuth:finalize:${rid}] user already exists, issuing token`, {
+          userId: existing._id,
+          userType: existing.userType,
+        });
+        return issueAuthResponse(res, existing, 200);
+      }
+
+      const randomPassword = crypto.randomBytes(24).toString('hex');
+      const user = new User({
+        name,
+        email,
+        phone,
+        password: randomPassword,
+        userType,
+        postcode: userType === 'professional' || userType === 'fleet' ? String(postcode || '').trim() : undefined,
+        businessName: userType === 'professional' || userType === 'fleet' ? businessName : undefined,
+        abn: userType === 'professional' || userType === 'fleet' ? String(abn || '').trim() : undefined,
+        logoUrl: userType === 'professional' || userType === 'fleet' ? String(logoUrl || '').trim() : undefined,
+        postalAddress: userType === 'professional' || userType === 'fleet' ? String(postalAddress || '').trim() : undefined,
+        state: userType === 'professional' || userType === 'fleet' ? String(state || '').trim() : undefined,
+        emailVerified: Boolean(decoded.emailVerified),
+      });
+
+      try {
+        await user.save();
+      } catch (saveError) {
+        // If unique index is not enforced or duplicates exist, this may still happen.
+        // Handle duplicate key by logging in the existing account instead of failing.
+        if (saveError && (saveError.code === 11000 || String(saveError.message || '').includes('E11000'))) {
+          const dup = await findUserByEmailLoose(email);
+          if (dup) {
+            console.log(`[GoogleOAuth:finalize:${rid}] duplicate email on save, issuing token for existing user`, {
+              userId: dup._id,
+              userType: dup.userType,
+            });
+            return issueAuthResponse(res, dup, 200);
+          }
+        }
+        throw saveError;
+      }
+
+      console.log(`[GoogleOAuth:finalize:${rid}] created user, issuing token`, {
+        userId: user._id,
+        userType: user.userType,
+      });
+      return issueAuthResponse(res, user, 201);
+    } catch (error) {
+      console.error('Google finalize error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to finalize Google signup',
       });
     }
   }

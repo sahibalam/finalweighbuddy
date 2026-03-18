@@ -7,7 +7,12 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
   const navigate = useNavigate();
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
+  const axleConfig = location.state?.axleConfig || null;
   const preWeigh = location.state?.preWeigh || null;
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const [frontAxle, setFrontAxle] = useState('');
   const [rearAxle, setRearAxle] = useState('');
@@ -24,6 +29,12 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
   const safeNum = (value) => (value !== '' && value != null ? Number(value) || 0 : 0);
 
   const handleSaveAndContinue = () => {
+    const preWeighWithAxleConfig = {
+      ...(preWeigh || {}),
+      towedAxleConfig: axleConfig || preWeigh?.towedAxleConfig || null,
+      axleConfig: axleConfig || preWeigh?.axleConfig || null,
+    };
+
     const frontAxleUnhitched = safeNum(frontAxle);
     const rearAxleUnhitched = safeNum(rearAxle);
     const gvmUnhitched = safeNum(carWeight) || frontAxleUnhitched + rearAxleUnhitched;
@@ -50,15 +61,21 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
       navigate('/professional-vehicle-only-weighbridge-goweigh-payment', {
         state: {
           weighingSelection,
+          towSetupType,
+          axleConfig,
           axleWeigh,
           goweighData: null,
-          preWeigh,
+          preWeigh: preWeighWithAxleConfig,
         },
       });
       return;
     }
 
-    if (weighingSelection === 'tow_vehicle_and_caravan') {
+    if (
+      weighingSelection === 'tow_vehicle_and_caravan' ||
+      weighingSelection === 'tow_vehicle_and_trailer' ||
+      weighingSelection === 'tow_vehicle_and_boat'
+    ) {
       const firstFront = frontAxleUnhitched;
       const firstRear = rearAxleUnhitched;
       const firstAtm = safeNum(trailerAtm);
@@ -97,17 +114,23 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
     navigate('/professional-vehicle-only-weighbridge-goweigh-payment', {
       state: {
         weighingSelection,
+        towSetupType,
+        axleConfig,
         axleWeigh,
         goweighData,
-        preWeigh,
+        preWeigh: preWeighWithAxleConfig,
       },
     });
   };
 
   let headingLabel = 'Vehicle Only';
 
-  if (weighingSelection === 'tow_vehicle_and_caravan') {
-    headingLabel = 'Tow Vehicle and Caravan / Trailer';
+  if (
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat'
+  ) {
+    headingLabel = `Tow Vehicle and ${towSetupLabel}`;
   } else if (weighingSelection === 'caravan_only_registered') {
     headingLabel = 'Caravan / Trailer Only (registered)';
   }
@@ -180,131 +203,154 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
       <Typography variant="h6" sx={{ mb: 1 }}>
         WeighBuddy Compliance Check
       </Typography>
-      <Typography variant="h6" sx={{ mb: 3 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
         Weighbridge - goweigh
       </Typography>
 
-      <Typography
-        variant="h5"
-        sx={{ mb: 3, fontWeight: 'bold' }}
-      >
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
         Follow the goweigh Procedure
       </Typography>
 
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
         First Weigh (Unhitched)
       </Typography>
-      <Typography variant="body2" sx={{ mb: 1 }}>
+
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
         Tow Vehicle Unhitched
       </Typography>
       <Box sx={{ mb: 2 }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={7}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Front Axle Unhitched</Typography>
+              <Typography sx={{ minWidth: 200, fontSize: 14, whiteSpace: 'nowrap' }}>Front Axle Unhitched</Typography>
               <TextField
                 label="Front Axle"
                 value={frontAxle}
                 onChange={(e) => setFrontAxle(e.target.value)}
-                sx={{ width: 160 }}
+                sx={{ width: 180 }}
               />
               <Typography>kg</Typography>
-              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform A</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={5}>
+            <Typography sx={{ fontSize: 14, whiteSpace: 'nowrap' }}>Platform A</Typography>
+          </Grid>
+          <Grid item xs={12} md={7}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Rear Axle Unhitched</Typography>
+              <Typography sx={{ minWidth: 200, fontSize: 14, whiteSpace: 'nowrap' }}>Rear Axle Unhitched</Typography>
               <TextField
                 label="Rear Axle"
                 value={rearAxle}
                 onChange={(e) => setRearAxle(e.target.value)}
-                sx={{ width: 160 }}
+                sx={{ width: 180 }}
               />
               <Typography>kg</Typography>
-              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform B</Typography>
             </Box>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Typography sx={{ fontSize: 14, whiteSpace: 'nowrap' }}>Platform B</Typography>
           </Grid>
         </Grid>
       </Box>
 
-      <Typography variant="body2" sx={{ mb: 1, fontSize: 14, whiteSpace: 'nowrap' }}>
-        Caravan/Trailer Unhitched
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
+        {towSetupLabel} Unhitched
       </Typography>
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Caravan / Trailer ATM</Typography>
-          <TextField
-            label="Trailer ATM"
-            value={trailerAtm}
-            onChange={(e) => setTrailerAtm(e.target.value)}
-            sx={{ width: 220 }}
-          />
-          <Typography>kg</Typography>
-          <Typography sx={{ ml: 2, fontSize: 12, whiteSpace: 'nowrap' }}>Platform C</Typography>
-        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={7}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ minWidth: 200, fontSize: 14, whiteSpace: 'nowrap' }}>
+                {towSetupLabel} ATM
+              </Typography>
+              <TextField
+                label={`${towSetupLabel} ATM`}
+                value={trailerAtm}
+                onChange={(e) => setTrailerAtm(e.target.value)}
+                sx={{ width: 180 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Typography sx={{ fontSize: 14, whiteSpace: 'nowrap' }}>Platform C</Typography>
+          </Grid>
+        </Grid>
       </Box>
 
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
         Second Weigh (Hitched)
       </Typography>
-      <Typography variant="body2" sx={{ mb: 1 }}>
+
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
         Tow Vehicle Hitched
       </Typography>
       <Box sx={{ mb: 2 }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={7}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Front Axle Hitched</Typography>
+              <Typography sx={{ minWidth: 200, fontSize: 14, whiteSpace: 'nowrap' }}>Front Axle Hitched</Typography>
               <TextField
                 label="Front Axle"
                 value={frontAxleHitched}
                 onChange={(e) => setFrontAxleHitched(e.target.value)}
-                sx={{ width: 160 }}
+                sx={{ width: 180 }}
               />
               <Typography>kg</Typography>
-              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform A</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={5}>
+            <Typography sx={{ fontSize: 14, whiteSpace: 'nowrap' }}>Platform A</Typography>
+          </Grid>
+          <Grid item xs={12} md={7}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Rear Axle Hitched</Typography>
+              <Typography sx={{ minWidth: 200, fontSize: 14, whiteSpace: 'nowrap' }}>Rear Axle Hitched</Typography>
               <TextField
                 label="Rear Axle"
                 value={rearAxleHitched}
                 onChange={(e) => setRearAxleHitched(e.target.value)}
-                sx={{ width: 160 }}
+                sx={{ width: 180 }}
               />
               <Typography>kg</Typography>
-              <Typography sx={{ ml: 1, fontSize: 12, whiteSpace: 'nowrap' }}>Platform B</Typography>
             </Box>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Typography sx={{ fontSize: 14, whiteSpace: 'nowrap' }}>Platform B</Typography>
           </Grid>
         </Grid>
       </Box>
 
-      <Typography variant="body2" sx={{ mb: 1, fontSize: 14, whiteSpace: 'nowrap' }}>
-        Caravan/Trailer Hitched
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
+        {towSetupLabel} Hitched
       </Typography>
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 140, fontSize: 14, whiteSpace: 'nowrap' }}>Caravan/Trailer GTM</Typography>
-          <TextField
-            label="Trailer GTM"
-            value={trailerGtm}
-            onChange={(e) => setTrailerGtm(e.target.value)}
-            sx={{ width: 220 }}
-          />
-          <Typography>kg</Typography>
-          <Typography sx={{ ml: 2, fontSize: 12, whiteSpace: 'nowrap' }}>Platform C</Typography>
-        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={7}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ minWidth: 200, fontSize: 14, whiteSpace: 'nowrap' }}>
+                {towSetupLabel} GTM
+              </Typography>
+              <TextField
+                label={`${towSetupLabel} GTM`}
+                value={trailerGtm}
+                onChange={(e) => setTrailerGtm(e.target.value)}
+                sx={{ width: 180 }}
+              />
+              <Typography>kg</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Typography sx={{ fontSize: 14, whiteSpace: 'nowrap' }}>Platform C</Typography>
+          </Grid>
+        </Grid>
       </Box>
 
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
         Towing Weights Summary
       </Typography>
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          <Typography sx={{ minWidth: 180, fontSize: 14, whiteSpace: 'nowrap' }}>Total Combination Weight</Typography>
+          <Typography sx={{ minWidth: 220, fontSize: 14, whiteSpace: 'nowrap' }}>Total Combination Weight</Typography>
           <TextField
             label="GCM"
             value={gcm}
@@ -314,7 +360,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
           <Typography>kg</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography sx={{ minWidth: 180 }}>Tow Ball Mass</Typography>
+          <Typography sx={{ minWidth: 220, fontSize: 14, whiteSpace: 'nowrap' }}>Tow Ball Mass</Typography>
           <TextField
             label="TBM"
             value={tbm}
@@ -325,7 +371,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
         </Box>
       </Box>
 
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
         Upload goweigh report
       </Typography>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -337,7 +383,7 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
       </Box>
 
       <Typography variant="caption" sx={{ display: 'block', mt: 2 }}>
-        Note: Each platform is calibrated to measure in 20kg increments
+        Note : Each platform is calibrated to measure in 20kg increments
       </Typography>
     </>
   );
@@ -421,6 +467,8 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
       >
         <Box sx={{ width: '100%', maxWidth: 900 }}>
           {weighingSelection === 'tow_vehicle_and_caravan'
+            || weighingSelection === 'tow_vehicle_and_trailer'
+            || weighingSelection === 'tow_vehicle_and_boat'
             ? renderTowLayout()
             : weighingSelection === 'caravan_only_registered'
               ? renderCaravanOnlyLayout()
@@ -431,7 +479,9 @@ const ProfessionalVehicleOnlyWeighbridgeGoWeigh = () => {
               variant="contained"
               onClick={handleSaveAndContinue}
               disabled={
-                weighingSelection === 'tow_vehicle_and_caravan'
+                weighingSelection === 'tow_vehicle_and_caravan' ||
+                weighingSelection === 'tow_vehicle_and_trailer' ||
+                weighingSelection === 'tow_vehicle_and_boat'
                   ? !frontAxle || !rearAxle || !trailerAtm || !frontAxleHitched || !rearAxleHitched || !trailerGtm || !gcm || !tbm
                   : weighingSelection === 'caravan_only_registered'
                     ? !trailerGtm || !trailerAtm || !tbm

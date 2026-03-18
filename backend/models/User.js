@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ['professional', 'fleet', 'diy', 'admin'],
+    enum: ['professional', 'fleet', 'diy', 'admin', 'superadmin'],
     default: 'diy'
   },
   professionalOwnerUserId: {
@@ -53,6 +53,34 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     required: function() { return this.userType === 'professional' || this.userType === 'fleet'; }
+  },
+  abn: {
+    type: String,
+    trim: true,
+    required: function () {
+      return this.userType === 'professional' || this.userType === 'fleet';
+    },
+  },
+  logoUrl: {
+    type: String,
+    trim: true,
+    required: function () {
+      return this.userType === 'professional' || this.userType === 'fleet';
+    },
+  },
+  postalAddress: {
+    type: String,
+    trim: true,
+    required: function () {
+      return this.userType === 'professional' || this.userType === 'fleet';
+    },
+  },
+  state: {
+    type: String,
+    trim: true,
+    required: function () {
+      return this.userType === 'professional' || this.userType === 'fleet';
+    },
   },
   subscription: {
     type: {

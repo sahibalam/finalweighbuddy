@@ -90,13 +90,81 @@ const DIYCaravanOnlyConfirm = () => {
     }
 
     if (!caravanComplianceImage && c.complianceImage) {
-      const url = String(c.complianceImage);
+      const url = resolveComplianceUrl(String(c.complianceImage));
       setCaravanComplianceLocalPreviewUrl('');
       setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
       setCaravanCompliancePreviewError(false);
       setCaravanComplianceImage(url);
     }
   }, [baseState.caravanFromLookup, make, model, year, gtm, atm, axleGroups, tare, vin, caravanComplianceImage]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCaravanIfMissing = async () => {
+      try {
+        const caravanFromLookup = baseState.caravanFromLookup || null;
+        if (caravanFromLookup) return;
+
+        const regoToLookup = baseState.caravanRego || rego;
+        const stateToLookup = baseState.caravanState || state;
+        if (!regoToLookup) return;
+
+        const response = await axios.get(`/api/caravans/by-plate/${encodeURIComponent(regoToLookup)}`, {
+          params: stateToLookup ? { state: stateToLookup } : {},
+        });
+
+        const foundCaravan = response.data?.data?.masterCaravan || null;
+        if (!foundCaravan || cancelled) return;
+
+        if (!make && foundCaravan.make) setMake(String(foundCaravan.make));
+        if (!model && foundCaravan.model) setModel(String(foundCaravan.model));
+        if (!year && foundCaravan.year != null) setYear(String(foundCaravan.year));
+
+        if (!gtm && (foundCaravan.gtm != null || foundCaravan.gtmCapacity != null)) {
+          setGtm(String(foundCaravan.gtm != null ? foundCaravan.gtm : foundCaravan.gtmCapacity));
+        }
+        if (!atm && (foundCaravan.atm != null || foundCaravan.atmCapacity != null)) {
+          setAtm(String(foundCaravan.atm != null ? foundCaravan.atm : foundCaravan.atmCapacity));
+        }
+
+        if (!tare && (foundCaravan.tare != null || foundCaravan.tareMass != null)) {
+          setTare(String(foundCaravan.tare != null ? foundCaravan.tare : foundCaravan.tareMass));
+        }
+
+        if (!axleGroups) {
+          const axleGroupCandidate =
+            foundCaravan.axleGroups ??
+            foundCaravan.axleGroupLoadings ??
+            foundCaravan.axleGroupLoading ??
+            foundCaravan.axleCapacity ??
+            foundCaravan.axleGroup ??
+            null;
+          if (axleGroupCandidate != null) setAxleGroups(String(axleGroupCandidate));
+        }
+
+        if ((!vin || String(vin).trim() === '') && foundCaravan.vin) {
+          setVin(String(foundCaravan.vin).toUpperCase());
+        }
+
+        if (!caravanComplianceImage && foundCaravan.complianceImage) {
+          const url = resolveComplianceUrl(String(foundCaravan.complianceImage));
+          setCaravanComplianceLocalPreviewUrl('');
+          setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
+          setCaravanCompliancePreviewError(false);
+          setCaravanComplianceImage(url);
+        }
+      } catch (error) {
+        console.error('Fallback caravan lookup failed (DIY confirm):', error?.response?.data || error);
+      }
+    };
+
+    fetchCaravanIfMissing();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseState, rego, state, make, model, year, gtm, atm, axleGroups, tare, vin, caravanComplianceImage]);
 
   useEffect(() => {
     setCaravanCompliancePreviewError(false);

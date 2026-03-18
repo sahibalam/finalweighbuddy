@@ -22,6 +22,7 @@ import {
   Lock as SecurityIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import StripePaymentForm from './StripePaymentForm';
 import { useNavigate } from 'react-router-dom';
 
@@ -44,6 +45,130 @@ const ReportPreviewAndPayment = ({
   const [processing, setProcessing] = useState(false);
   const [previewReport, setPreviewReport] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
+
+  const resolvedCustomerData = (() => {
+    if (customerData) return customerData;
+
+    try {
+      const draftRaw = localStorage.getItem('professionalClientDraft');
+      const draft = draftRaw ? JSON.parse(draftRaw) : null;
+      if (!draft || typeof draft !== 'object') return null;
+
+      const firstName = String(draft.firstName || '').trim();
+      const lastName = String(draft.lastName || '').trim();
+      const fullName = String(draft.name || '').trim() || [firstName, lastName].filter(Boolean).join(' ').trim();
+      const email = String(draft.email || '').trim();
+      const phone = String(draft.phone || '').trim();
+      const clientUserId = draft.diyClientUserId != null ? String(draft.diyClientUserId).trim() : null;
+
+      if (!fullName && !email && !phone && !clientUserId) return null;
+
+      return {
+        fullName,
+        name: fullName,
+        email,
+        phone,
+        clientUserId,
+      };
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const isCustomBuildTrailerTarePortablePaymentOnly =
+    paymentOnly &&
+    weighingSelection === 'custom_build_trailer_tare' &&
+    vehicleOnlyMethodLabel === 'Portable Scales - Individual Tyre Weights';
+
+  const isCustomBuildTrailerTareWeighbridgePaymentOnly =
+    paymentOnly &&
+    weighingSelection === 'custom_build_trailer_tare' &&
+    (vehicleOnlyMethodLabel === 'GoWeigh Weighbridge' || vehicleOnlyMethodLabel === 'Weighbridge - In Ground -');
+
+  const buildTrailerTareReportPayload = () => {
+    const tyreWeigh = vehicleData?.diyTyreWeigh || null;
+    const header = {
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      customerName: resolvedCustomerData?.fullName || resolvedCustomerData?.name || '',
+      location: '',
+      caravanRego: caravanData?.rego || caravanData?.numberPlate || '',
+      caravanMake: caravanData?.make || '',
+      caravanModel: caravanData?.model || '',
+    };
+
+    return {
+      customBuildTrailerTare: true,
+      weighingSelection: 'custom_build_trailer_tare',
+      diyWeighingSelection: 'custom_build_trailer_tare',
+      header,
+      trailerInfo: {
+        rego: header.caravanRego,
+        make: header.caravanMake,
+        model: header.caravanModel,
+      },
+      capacities: {
+        tbm: caravanData?.tbm || caravanData?.tbmCapacity || null,
+        gtm: caravanData?.gtm || null,
+        atm: caravanData?.atm || null,
+      },
+      tyreWeigh,
+      notes: preWeigh?.notes || '',
+      preWeigh: {
+        ...(preWeigh || {}),
+        axleConfig: preWeigh?.axleConfig || tyreWeigh?.axleConfig || preWeigh?.towedAxleConfig || null,
+      },
+    };
+  };
+
+  const buildTrailerTareWeighbridgePayload = () => {
+    const axleWeigh = vehicleData?.diyAxleWeigh || null;
+    const header = {
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      customerName: resolvedCustomerData?.fullName || resolvedCustomerData?.name || '',
+      location: '',
+      caravanRego: caravanData?.rego || caravanData?.numberPlate || '',
+      caravanMake: caravanData?.make || '',
+      caravanModel: caravanData?.model || '',
+    };
+
+    return {
+      customBuildTrailerTare: true,
+      weighingSelection: 'custom_build_trailer_tare',
+      diyWeighingSelection: 'custom_build_trailer_tare',
+      header,
+      trailerInfo: {
+        rego: header.caravanRego,
+        make: header.caravanMake,
+        model: header.caravanModel,
+      },
+      capacities: {
+        tbm: caravanData?.tbm || caravanData?.tbmCapacity || null,
+        gtm: caravanData?.gtm || null,
+        atm: caravanData?.atm || null,
+      },
+      axleWeigh,
+      notes: preWeigh?.notes || '',
+      preWeigh: {
+        ...(preWeigh || {}),
+        axleConfig: preWeigh?.axleConfig || preWeigh?.towedAxleConfig || null,
+      },
+      methodSelection: vehicleOnlyMethodLabel,
+    };
+  };
+
+  const triggerPdfDownload = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     // For the standard flow, generate a compliance preview.
@@ -140,7 +265,47 @@ const ReportPreviewAndPayment = ({
 
     // For payment-only flows, redirect to the appropriate next screen.
     if (paymentOnly) {
-      if (weighingSelection === 'caravan_only_registered' || weighingSelection === 'custom_build_trailer_tare') {
+      if (isCustomBuildTrailerTarePortablePaymentOnly) {
+        (async () => {
+          try {
+            const reportPayload = buildTrailerTareReportPayload();
+
+            const pdfRes = await axios.post(
+              '/api/weighs/diy-caravan-only-registered/report',
+              reportPayload,
+              { responseType: 'blob' }
+            );
+            const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
+            triggerPdfDownload(blob, 'trailer-tare-report.pdf');
+          } catch (err) {
+            console.error('Auto-download trailer tare report failed:', err?.response?.data || err);
+            window.alert('Failed to generate PDF. Please try again.');
+          }
+        })();
+        return;
+      }
+
+      if (isCustomBuildTrailerTareWeighbridgePaymentOnly) {
+        (async () => {
+          try {
+            const reportPayload = buildTrailerTareWeighbridgePayload();
+
+            const pdfRes = await axios.post(
+              '/api/weighs/diy-caravan-only-registered/weighbridge-report',
+              reportPayload,
+              { responseType: 'blob' }
+            );
+            const blob = new Blob([pdfRes.data], { type: 'application/pdf' });
+            triggerPdfDownload(blob, 'trailer-tare-report.pdf');
+          } catch (err) {
+            console.error('Auto-download trailer tare report (weighbridge) failed:', err?.response?.data || err);
+            window.alert('Failed to generate PDF. Please try again.');
+          }
+        })();
+        return;
+      }
+
+      if (weighingSelection === 'caravan_only_registered') {
         navigate('/caravan-only-rego', {
           state: {
             preWeigh,
@@ -217,14 +382,17 @@ const ReportPreviewAndPayment = ({
           amount={amount}
           currency="aud"
           reportData={{
-            customerData,
+            customerData: resolvedCustomerData,
             vehicleData,
             caravanData,
             weightsData,
             complianceResults: previewReport,
             preWeigh,
             // Flag this as the special Vehicle Only / Weighbridge Axle DIY flow
-            flowType: 'VEHICLE_ONLY_WEIGHBRIDGE_AXLE'
+            flowType:
+              weighingSelection === 'custom_build_trailer_tare'
+                ? 'TRAILER_TARE_REPORT'
+                : 'VEHICLE_ONLY_WEIGHBRIDGE_AXLE'
           }}
           onSuccess={handlePaymentSuccess}
           onError={handlePaymentError}
@@ -362,7 +530,7 @@ const ReportPreviewAndPayment = ({
             amount={20}
             currency="aud"
             reportData={{
-              customerData,
+              customerData: resolvedCustomerData,
               vehicleData,
               caravanData,
               weightsData,

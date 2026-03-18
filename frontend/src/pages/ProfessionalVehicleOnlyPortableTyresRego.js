@@ -24,10 +24,22 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
   const [loading, setLoading] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const axleWeigh = location.state?.axleWeigh || null;
   const towBallMass = location.state?.towBallMass ?? null;
   const vci01 = location.state?.vci01 || null;
+  const vci02 = location.state?.vci02 || null;
+  const axleConfig = location.state?.axleConfig || null;
+  const tyreWeigh = location.state?.tyreWeigh || null;
   const preWeigh = location.state?.preWeigh || null;
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+  const isTowFlow =
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat';
 
   const handleContinue = async () => {
     setError('');
@@ -96,8 +108,12 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
           caravanMasterId,
           axleWeigh,
           weighingSelection,
+          towSetupType,
           towBallMass,
           vci01,
+          vci02,
+          axleConfig,
+          tyreWeigh,
           preWeigh,
         }
       });
@@ -126,8 +142,11 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
             caravanMasterId: null,
             axleWeigh,
             weighingSelection,
+            towSetupType,
             towBallMass,
             vci01,
+            vci02,
+            axleConfig,
             preWeigh,
           }
         });
@@ -150,8 +169,11 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
             caravanMasterId: null,
             axleWeigh,
             weighingSelection,
+            towSetupType,
             towBallMass,
             vci01,
+            vci02,
+            axleConfig,
             preWeigh,
           }
         });
@@ -182,8 +204,8 @@ const ProfessionalVehicleOnlyPortableTyresRego = () => {
           }}
         >
           <Typography variant="h6" sx={{ mb: 1 }}>
-            {weighingSelection === 'tow_vehicle_and_caravan'
-              ? 'Tow Vehicle and Caravan / Trailer'
+            {isTowFlow
+              ? `Tow Vehicle and ${towSetupLabel}`
               : weighingSelection === 'caravan_only_registered'
                 ? 'Caravan Trailer Only (registered)'
                 : 'Vehicle Only'}

@@ -9,15 +9,28 @@ const ProfessionalVehicleOnlyPortableTyresPayment = () => {
   const [paymentComplete, setPaymentComplete] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const axleWeigh = location.state?.axleWeigh || null;
   const towBallMass = location.state?.towBallMass ?? null;
   const vci01 = location.state?.vci01 || null;
+  const vci02 = location.state?.vci02 || null;
+  const axleConfig = location.state?.axleConfig || null;
+  const tyreWeigh = location.state?.tyreWeigh || null;
   const preWeigh = location.state?.preWeigh || null;
 
-  const isTowFlow = weighingSelection === 'tow_vehicle_and_caravan';
+  const isTowFlow =
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat' ||
+    towSetupType === 'trailer' ||
+    towSetupType === 'boat' ||
+    towSetupType === 'caravan';
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const headingLabel = isTowFlow
-    ? 'Tow Vehicle and Caravan / Trailer'
+    ? `Tow Vehicle and ${towSetupLabel}`
     : 'Vehicle Only';
 
   const amount = isTowFlow ? 5.99 : 4.99;
@@ -70,9 +83,13 @@ const ProfessionalVehicleOnlyPortableTyresPayment = () => {
                 navigate('/professional-vehicle-only-portable-tyres-rego', {
                   state: {
                     weighingSelection,
+                    towSetupType,
                     axleWeigh,
                     towBallMass,
                     vci01,
+                    vci02,
+                    axleConfig,
+                    tyreWeigh,
                     preWeigh,
                   },
                 });

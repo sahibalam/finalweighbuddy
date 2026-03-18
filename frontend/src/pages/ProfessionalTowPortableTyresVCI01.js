@@ -19,11 +19,18 @@ const ProfessionalTowPortableTyresVCI01 = () => {
 
   const weighingSelection = location.state?.weighingSelection || 'tow_vehicle_and_caravan';
   const previousAxleWeigh = location.state?.axleWeigh || null;
+  const towSetupType = location.state?.towSetupType || '';
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const [frontLeft, setFrontLeft] = useState('');
   const [frontRight, setFrontRight] = useState('');
   const [rearLeft, setRearLeft] = useState('');
   const [rearRight, setRearRight] = useState('');
+
+  const [middleLeft, setMiddleLeft] = useState('');
+  const [middleRight, setMiddleRight] = useState('');
 
   const [hasWdh, setHasWdh] = useState('NO'); // 'YES' | 'NO'
   const [frontLeftWdhOff, setFrontLeftWdhOff] = useState('');
@@ -31,8 +38,9 @@ const ProfessionalTowPortableTyresVCI01 = () => {
   const [rearLeftWdhOff, setRearLeftWdhOff] = useState('');
   const [rearRightWdhOff, setRearRightWdhOff] = useState('');
 
-  // Dropdown options to mirror wireframe (Single / Dual / Triple Axle)
-  const [axleConfig, setAxleConfig] = useState('SINGLE');
+  // This dropdown represents the tow vehicle axle configuration (for tow-vehicle per-tyre inputs).
+  // Do NOT overwrite the caravan axle config coming from the caravan-tyre screen (baseState.axleConfig).
+  const [towVehicleAxleConfig, setTowVehicleAxleConfig] = useState('SINGLE');
 
   const handleContinue = () => {
     const baseState = location.state || {};
@@ -41,6 +49,8 @@ const ProfessionalTowPortableTyresVCI01 = () => {
       hitchWeigh: {
         frontLeft: frontLeft ? Number(frontLeft) : null,
         frontRight: frontRight ? Number(frontRight) : null,
+        middleLeft: middleLeft ? Number(middleLeft) : null,
+        middleRight: middleRight ? Number(middleRight) : null,
         rearLeft: rearLeft ? Number(rearLeft) : null,
         rearRight: rearRight ? Number(rearRight) : null,
       },
@@ -50,6 +60,8 @@ const ProfessionalTowPortableTyresVCI01 = () => {
           ? {
               frontLeft: frontLeftWdhOff ? Number(frontLeftWdhOff) : null,
               frontRight: frontRightWdhOff ? Number(frontRightWdhOff) : null,
+              middleLeft: null,
+              middleRight: null,
               rearLeft: rearLeftWdhOff ? Number(rearLeftWdhOff) : null,
               rearRight: rearRightWdhOff ? Number(rearRightWdhOff) : null,
             }
@@ -61,7 +73,7 @@ const ProfessionalTowPortableTyresVCI01 = () => {
         ...baseState,
         weighingSelection,
         axleWeigh: previousAxleWeigh,
-        axleConfig,
+        towVehicleAxleConfig,
         vci01,
       },
     });
@@ -94,16 +106,16 @@ const ProfessionalTowPortableTyresVCI01 = () => {
               variant="h5"
               sx={{ fontWeight: 'bold' }}
             >
-              Weigh Tow Vehicle - Hitched to Caravan/Trailer
+              {`Weigh Tow Vehicle - Hitched to ${towSetupLabel}`}
             </Typography>
 
             <FormControl size="small" sx={{ minWidth: 160 }}>
               <InputLabel id="axle-config-label">How many axles?</InputLabel>
               <Select
                 labelId="axle-config-label"
-                value={axleConfig}
+                value={towVehicleAxleConfig}
                 label="How many axles?"
-                onChange={(e) => setAxleConfig(e.target.value)}
+                onChange={(e) => setTowVehicleAxleConfig(e.target.value)}
               >
                 <MenuItem value="SINGLE">Single Axle</MenuItem>
                 <MenuItem value="DUAL">Dual Axle</MenuItem>
@@ -142,16 +154,16 @@ const ProfessionalTowPortableTyresVCI01 = () => {
             </Box>
           </Box>
 
-          {axleConfig === 'DUAL' && (
+          {towVehicleAxleConfig === 'DUAL' && (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>
-                <TextField sx={{ width: 140, mr: 1 }} />
+                <TextField value={middleLeft} onChange={(e) => setMiddleLeft(e.target.value)} sx={{ width: 140, mr: 1 }} />
                 <Typography>kg</Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Typography sx={{ minWidth: 110 }}>Middle Right Tyre</Typography>
-                <TextField sx={{ width: 140, mr: 1 }} />
+                <TextField value={middleRight} onChange={(e) => setMiddleRight(e.target.value)} sx={{ width: 140, mr: 1 }} />
                 <Typography>kg</Typography>
               </Box>
             </Box>
@@ -232,7 +244,7 @@ const ProfessionalTowPortableTyresVCI01 = () => {
                 </Box>
               </Box>
 
-              {axleConfig === 'DUAL' && (
+              {towVehicleAxleConfig === 'DUAL' && (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', rowGap: 2, columnGap: 4, mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <Typography sx={{ minWidth: 110 }}>Middle Left Tyre</Typography>

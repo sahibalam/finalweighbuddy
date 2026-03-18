@@ -12,7 +12,7 @@ const AuthContext = createContext();
 const initialState = {
   user: null,
   token: localStorage.getItem('token'),
-  isAuthenticated: false,
+  isAuthenticated: !!localStorage.getItem('token'),
   loading: true,
   error: null
 };
@@ -89,9 +89,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Load user
-  const loadUser = async () => {
-    if (state.token) {
-      setAuthToken(state.token);
+  const loadUser = async (tokenOverride) => {
+    const tokenToUse = tokenOverride || state.token || localStorage.getItem('token');
+    if (tokenToUse) {
+      setAuthToken(tokenToUse);
       try {
         const res = await axios.get('/api/auth/me');
         dispatch({
@@ -99,10 +100,21 @@ export const AuthProvider = ({ children }) => {
           payload: res.data.user
         });
       } catch (error) {
-        dispatch({
-          type: 'AUTH_ERROR',
-          payload: error.response?.data?.message || 'Authentication failed'
-        });
+        // If we have a token but /me fails transiently (e.g. during OAuth transitions),
+        // do not immediately wipe auth state; keep token and allow subsequent retries.
+        const message = error.response?.data?.message || 'Authentication failed';
+        const status = error.response?.status;
+        if (status === 401) {
+          dispatch({
+            type: 'AUTH_ERROR',
+            payload: message
+          });
+        } else {
+          dispatch({
+            type: 'AUTH_ERROR',
+            payload: message
+          });
+        }
       }
     } else {
       dispatch({ type: 'AUTH_ERROR', payload: null });
@@ -179,7 +191,16 @@ export const AuthProvider = ({ children }) => {
 
   // Load user on mount
   useEffect(() => {
-    loadUser();
+    const token = localStorage.getItem('token');
+    if (token && !state.token) {
+      // Ensure reducer state catches up if token was set outside of AuthContext (OAuth flows).
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: { token, user: state.user }
+      });
+    }
+    loadUser(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Set auth token on mount

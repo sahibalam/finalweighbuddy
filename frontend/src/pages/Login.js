@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Container,
@@ -37,8 +37,35 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login, user } = useAuth();
+  const { login, user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const hasToken = Boolean(localStorage.getItem('token'));
+    console.log('[Login] auth guard', {
+      isAuthenticated,
+      authLoading,
+      hasToken,
+      userType: user?.userType,
+    });
+
+    if (authLoading) return;
+
+    if (isAuthenticated || (hasToken && user)) {
+      const userType = user?.userType;
+      if (userType === 'professional') {
+        navigate('/professional-clients', { replace: true });
+      } else if (userType === 'fleet') {
+        navigate('/fleet', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [authLoading, isAuthenticated, navigate, user]);
+
+  const primary = '#2DC5A1';
+  const primaryLight = '#8BE0C3';
+  const heroBg = 'linear-gradient(180deg, rgba(139, 224, 195, 0.55) 0%, rgba(45, 197, 161, 0.30) 100%)';
 
   const handleChange = (e) => {
     setFormData({
@@ -71,13 +98,21 @@ const Login = () => {
     setLoading(false);
   };
 
+  const handleGoogle = () => {
+    const base = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5001'
+      : (process.env.REACT_APP_API_URL || '');
+
+    window.location.href = `${base}/api/auth/google/start?mode=login`;
+  };
+
   return (
     <Box
       sx={{
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: heroBg,
         position: 'relative',
         overflow: 'hidden',
         '&::before': {
@@ -171,9 +206,9 @@ const Login = () => {
                   >
                     <DirectionsCar sx={{ 
                       fontSize: 60, 
-                      color: '#FFD700',
+                      color: primary,
                       mb: 1,
-                      filter: 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.5))'
+                      filter: 'drop-shadow(0 0 8px rgba(45, 197, 161, 0.35))'
                     }} />
                   </motion.div>
                   
@@ -184,8 +219,8 @@ const Login = () => {
                     sx={{ 
                       fontWeight: 800,
                       letterSpacing: 1,
-                      color: 'white',
-                      textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                      color: '#111827',
+                      textShadow: '0 2px 10px rgba(17, 24, 39, 0.10)',
                       mb: 1
                     }}
                   >
@@ -196,7 +231,7 @@ const Login = () => {
                     variant="h5" 
                     sx={{ 
                       fontWeight: 500,
-                      color: '#FFD700',
+                      color: '#111827',
                       mb: 2
                     }}
                   >
@@ -206,7 +241,7 @@ const Login = () => {
                   <Typography 
                     variant="body1" 
                     sx={{ 
-                      color: 'rgba(255,255,255,0.9)',
+                      color: '#374151',
                       maxWidth: '500px',
                       mx: { xs: 'auto', md: 0 },
                       lineHeight: 1.7,
@@ -231,13 +266,14 @@ const Login = () => {
                         transition={{ duration: 0.5, delay: 0.3 + i * 0.1 }}
                       >
                         <Box sx={{
-                          bgcolor: 'rgba(255,255,255,0.1)',
+                          bgcolor: 'rgba(255,255,255,0.65)',
                           px: 2,
                           py: 1,
                           borderRadius: 2,
-                          backdropFilter: 'blur(5px)'
+                          backdropFilter: 'blur(6px)',
+                          border: '1px solid rgba(17, 24, 39, 0.08)',
                         }}>
-                          <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
+                          <Typography variant="body2" sx={{ color: '#111827', fontWeight: 600 }}>
                             {text}
                           </Typography>
                         </Box>
@@ -273,7 +309,7 @@ const Login = () => {
                       left: 0,
                       right: 0,
                       height: '6px',
-                      background: 'linear-gradient(90deg, #667eea, #764ba2)',
+                      background: `linear-gradient(90deg, ${primaryLight}, ${primary})`,
                     }
                   }}
                 >
@@ -284,9 +320,9 @@ const Login = () => {
                     sx={{ 
                       fontWeight: 700,
                       mt: 1,
-                      color: '#5d5dff',
+                      color: primary,
                       textAlign: 'center',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      background: `linear-gradient(135deg, ${primaryLight} 0%, ${primary} 100%)`,
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent'
                     }}
@@ -354,8 +390,8 @@ const Login = () => {
                         '& .MuiOutlinedInput-root': {
                           borderRadius: 2,
                           '&.Mui-focused fieldset': {
-                            borderColor: '#667eea',
-                            boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)'
+                            borderColor: primary,
+                            boxShadow: '0 0 0 2px rgba(45, 197, 161, 0.20)'
                           }
                         }
                       }}
@@ -394,8 +430,8 @@ const Login = () => {
                         '& .MuiOutlinedInput-root': {
                           borderRadius: 2,
                           '&.Mui-focused fieldset': {
-                            borderColor: '#667eea',
-                            boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)'
+                            borderColor: primary,
+                            boxShadow: '0 0 0 2px rgba(45, 197, 161, 0.20)'
                           }
                         }
                       }}
@@ -416,11 +452,11 @@ const Login = () => {
                         borderRadius: 2,
                         fontWeight: 700,
                         fontSize: '1.1rem',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                        background: `linear-gradient(135deg, ${primaryLight} 0%, ${primary} 100%)`,
+                        boxShadow: '0 4px 15px rgba(45, 197, 161, 0.35)',
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #5a70d9 0%, #6a42a3 100%)',
-                          boxShadow: '0 6px 20px rgba(102, 126, 234, 0.6)',
+                          background: `linear-gradient(135deg, ${primaryLight} 0%, ${primary} 100%)`,
+                          boxShadow: '0 6px 20px rgba(45, 197, 161, 0.50)',
                           transform: 'translateY(-2px)'
                         },
                         transition: 'all 0.3s ease',
@@ -447,21 +483,47 @@ const Login = () => {
                         'Sign In'
                       )}
                     </Button>
-                    
+
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      fullWidth
+                      disabled={loading}
+                      sx={{
+                        mt: 1.5,
+                        textTransform: 'none',
+                        fontWeight: 800,
+                        borderRadius: 2,
+                        py: 1.2,
+                        backgroundColor: '#ffffff',
+                        color: '#111827',
+                        border: '1px solid rgba(17, 24, 39, 0.12)',
+                        boxShadow: '0 10px 22px rgba(14, 30, 50, 0.08)',
+                        '&:hover': {
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 14px 30px rgba(14, 30, 50, 0.12)',
+                          transform: 'translateY(-1px)',
+                        },
+                        transition: 'transform 160ms ease, box-shadow 160ms ease',
+                      }}
+                      onClick={handleGoogle}
+                    >
+                      Continue with Google
+                    </Button>
+
                     <Box sx={{ textAlign: 'center', mt: 2 }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      <Typography variant="body2" color="text.secondary">
                         Don't have an account?{' '}
-                        <Link 
-                          component={RouterLink} 
-                          to="/register" 
+                        <Link
+                          component={RouterLink}
+                          to="/signup"
                           variant="body2"
-                          sx={{ 
+                          sx={{
                             fontWeight: 600,
+                            color: '#2DC5A1',
                             textDecoration: 'none',
-                            color: '#764ba2',
                             '&:hover': {
-                              textDecoration: 'underline',
-                              color: '#5a42a3'
+                              textDecoration: 'underline'
                             }
                           }}
                         >

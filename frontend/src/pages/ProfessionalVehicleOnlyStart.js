@@ -7,18 +7,34 @@ const ProfessionalVehicleOnlyStart = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
+  const axleConfig = location.state?.axleConfig || null;
 
 let headingLabel = 'Vehicle Only';
 
-if (weighingSelection === 'tow_vehicle_and_caravan') {
-  headingLabel = 'Tow Vehicle and Caravan / Trailer';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+if (
+  weighingSelection === 'tow_vehicle_and_caravan' ||
+  weighingSelection === 'tow_vehicle_and_trailer' ||
+  weighingSelection === 'tow_vehicle_and_boat'
+) {
+  headingLabel = `Tow Vehicle and ${towSetupLabel}`;
 } else if (weighingSelection === 'caravan_only_registered') {
   headingLabel = 'Caravan/Trailer Only (Registered)';
 }
 
   const handleSaveAndContinue = () => {
     if (!method) return;
-    navigate('/professional-vehicle-only-info', { state: { method, weighingSelection } });
+    navigate('/professional-vehicle-only-info', {
+      state: {
+        method,
+        weighingSelection,
+        towSetupType,
+        axleConfig,
+      },
+    });
   };
 
   return (

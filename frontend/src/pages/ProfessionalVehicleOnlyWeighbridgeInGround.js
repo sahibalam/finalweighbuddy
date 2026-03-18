@@ -7,7 +7,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
   const navigate = useNavigate();
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const preWeigh = location.state?.preWeigh || null;
+  const axleConfig = location.state?.axleConfig || null;
   const [frontAxle, setFrontAxle] = useState('');
   const [gvm, setGvm] = useState('');
 
@@ -28,11 +30,17 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
 
     // Tow Vehicle + Caravan flow: this screen is the "hitched" step.
     // After capturing hitched values, go to the unhitched tow-vehicle screen.
-    if (weighingSelection === 'tow_vehicle_and_caravan') {
+    if (
+      weighingSelection === 'tow_vehicle_and_caravan' ||
+      weighingSelection === 'tow_vehicle_and_trailer' ||
+      weighingSelection === 'tow_vehicle_and_boat'
+    ) {
       navigate('/professional-vehicle-only-weighbridge-in-ground-unhitched', {
         state: {
           weighingSelection,
+          towSetupType,
           preWeigh,
+          axleConfig,
           axleWeigh: {
             frontAxleHitched: frontAxleValue,
             gvmHitched: gvmValue,
@@ -53,6 +61,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
         state: {
           weighingSelection,
           preWeigh,
+          axleConfig,
           axleWeigh: {
             trailerGtm,
             trailerAtm,
@@ -69,7 +78,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
     navigate('/professional-vehicle-only-weighbridge-in-ground-payment', {
       state: {
         weighingSelection,
+        towSetupType,
         preWeigh,
+        axleConfig,
         axleWeigh: {
           frontAxleUnhitched,
           gvmUnhitched,
@@ -80,8 +91,15 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
 
   let headingLabel = 'Vehicle Only';
 
-  if (weighingSelection === 'tow_vehicle_and_caravan') {
-    headingLabel = 'Tow Vehicle and Caravan / Trailer';
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+  if (
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat'
+  ) {
+    headingLabel = `Tow Vehicle and ${towSetupLabel}`;
   } else if (weighingSelection === 'caravan_only_registered') {
     headingLabel = 'Caravan / Trailer Only (registered)';
   }
@@ -149,7 +167,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
         variant="h5"
         sx={{ mb: 3, fontWeight: 'bold' }}
       >
-        Weigh Tow Vehicle Hitched to Caravan/Trailer First
+        {`Weigh Tow Vehicle Hitched to ${towSetupLabel} First`}
       </Typography>
 
       <Box sx={{ mb: 3 }}>
@@ -314,7 +332,9 @@ const ProfessionalVehicleOnlyWeighbridgeInGround = () => {
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 900 }}>
-          {weighingSelection === 'tow_vehicle_and_caravan'
+          {weighingSelection === 'tow_vehicle_and_caravan' ||
+          weighingSelection === 'tow_vehicle_and_trailer' ||
+          weighingSelection === 'tow_vehicle_and_boat'
             ? renderTowLayout()
             : weighingSelection === 'caravan_only_registered'
               ? renderCaravanOnlyLayout()

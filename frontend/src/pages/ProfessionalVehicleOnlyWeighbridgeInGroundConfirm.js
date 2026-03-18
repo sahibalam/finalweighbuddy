@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { UPLOADS_BASE_URL } from '../utils/apiConfig';
 
 const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   const location = useLocation();
@@ -52,7 +53,24 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
   const [caravanComplianceLocalPreviewIsPdf, setCaravanComplianceLocalPreviewIsPdf] = useState(false);
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const preWeigh = location.state?.preWeigh || null;
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+  const resolveUploadsUrl = (value) => {
+    if (!value) return '';
+    const raw = String(value).trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+    if (raw.startsWith('/uploads/')) {
+      const base = String(UPLOADS_BASE_URL || '').trim();
+      if (!base) return raw;
+      return `${base.replace(/\/$/, '')}${raw}`;
+    }
+    return raw;
+  };
 
   // Hydrate from rego lookup state
   useEffect(() => {
@@ -110,7 +128,7 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
       (weighingSelection === 'caravan_only_registered' || weighingSelection === 'tow_vehicle_and_caravan') &&
       caravan.complianceImage
     ) {
-      const url = String(caravan.complianceImage);
+      const url = resolveUploadsUrl(caravan.complianceImage);
 
       console.log('✅ prefill complianceImage (in-ground)', url);
       setCaravanComplianceLocalPreviewUrl('');
@@ -437,8 +455,23 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
     };
 
     const axleWeigh = location.state?.axleWeigh || null;
+    const axleConfig = location.state?.axleConfig || null;
 
     createDiyClient().finally(() => {
+      // Register this setup under the professional -> DIY relationship so
+      // future DIY self-serve paid compliance checks can credit the weigher.
+      try {
+        if (clientUserId && rego) {
+          axios.post('/api/wallet/register-setup', {
+            diyUserId: clientUserId,
+            vehicleRego: rego,
+            trailerRego: null,
+          });
+        }
+      } catch (e) {
+        // Non-blocking
+      }
+
       const baseState = {
         rego,
         state,
@@ -465,17 +498,23 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
         weighingSelection,
         axleWeigh,
         preWeigh,
+        axleConfig,
       };
 
-      // For tow vehicle + caravan flows, this screen is only the *vehicle*
-      // confirmation step. The next step must capture/confirm the caravan
+      // For tow vehicle + towed-unit flows, this screen is only the *vehicle*
+      // confirmation step. The next step must capture/confirm the towed-unit
       // details (rego + compliance details) before showing results.
-      if (weighingSelection === 'tow_vehicle_and_caravan') {
+      if (
+        weighingSelection === 'tow_vehicle_and_caravan' ||
+        weighingSelection === 'tow_vehicle_and_trailer' ||
+        weighingSelection === 'tow_vehicle_and_boat'
+      ) {
         const existingCaravan = location.state?.caravanFromLookup || location.state?.caravan || null;
 
         navigate('/professional-vehicle-only-weighbridge-in-ground-caravan-rego', {
           state: {
             ...baseState,
+            towSetupType,
             caravanFromLookup: existingCaravan,
           },
         });
@@ -806,8 +845,10 @@ const ProfessionalVehicleOnlyWeighbridgeInGroundConfirm = () => {
             : (
               <>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {weighingSelection === 'tow_vehicle_and_caravan'
-                    ? 'Tow Vehicle and Caravan / Trailer'
+                  {weighingSelection === 'tow_vehicle_and_caravan' ||
+                  weighingSelection === 'tow_vehicle_and_trailer' ||
+                  weighingSelection === 'tow_vehicle_and_boat'
+                    ? `Tow Vehicle and ${towSetupLabel}`
                     : 'Vehicle Only'}
                 </Typography>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>

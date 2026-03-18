@@ -86,6 +86,14 @@ const Layout = ({ children }) => {
         { text: 'Settings', icon: <Settings />, path: '/admin/settings' }
       ];
     }
+
+    if (user?.userType === 'superadmin') {
+      return [
+        { text: 'Overview', icon: <Dashboard />, path: '/admin/overview' },
+        { text: 'Users', icon: <People />, path: '/admin/users' },
+        { text: 'Cashouts', icon: <Payments />, path: '/superadmin/cashouts' },
+      ];
+    }
     
     if (user?.userType === 'professional') {
       return [
@@ -93,6 +101,11 @@ const Layout = ({ children }) => {
           text: 'Dashboard',
           icon: <Dashboard />,
           path: '/dashboard'
+        },
+        {
+          text: 'Wallet',
+          icon: <Payments />,
+          path: '/professional-wallet'
         },
         {
           text: 'Subscription',
@@ -125,14 +138,9 @@ const Layout = ({ children }) => {
     if (user?.userType === 'fleet' && isFleetManagerSection) {
       return [
         {
-          text: 'Weigh History',
-          icon: <History />,
-          path: '/fleet/weigh-history'
-        },
-        {
-          text: 'Payment History',
-          icon: <Payments />,
-          path: '/fleet/payment-history'
+          text: 'Dashboard',
+          icon: <Dashboard />,
+          path: '/fleet/dashboard'
         },
         {
           text: 'Staff Management',
@@ -140,15 +148,10 @@ const Layout = ({ children }) => {
           path: '/fleet/staff'
         },
         {
-          text: 'Asset Management',
-          icon: <Assignment />,
-          path: '/fleet/assets'
+          text: 'Weigh Records',
+          icon: <Scale />,
+          path: '/fleet/weighs'
         },
-        {
-          text: 'New Weigh',
-          icon: <Add />,
-          path: '/new-weigh'
-        }
       ];
     }
     
@@ -196,6 +199,17 @@ const Layout = ({ children }) => {
               }}
             >
               New Weigh
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="small"
+              onClick={() => {
+                navigate('/professional-wallet');
+                setMobileOpen(false);
+              }}
+            >
+              Wallet
             </Button>
             <Button
               variant="outlined"

@@ -169,6 +169,7 @@ const NewWeigh = () => {
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [createdWeighId, setCreatedWeighId] = useState(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState('');
   // Fleet flow: optional customer draft created from FleetStaffManagement
   const [fleetCustomerDraft, setFleetCustomerDraft] = useState(null);
 
@@ -182,12 +183,6 @@ const NewWeigh = () => {
   const { user } = useAuth();
   const { stripe, loading: stripeLoading } = useStripe();
   
-  // Debug: Check if Stripe key is loaded
-  useEffect(() => {
-    console.log('Stripe publishable key:', 'pk_test_51RtkJxQIoLE8hev1341PsYzfvMA601wnHDV2mV2QT9iLIh7V6iZ1WSIsCmzL5CiqDNcmZL8KailgObH0ozdoQS6F009JIHecNx');
-    console.log('Stripe instance:', stripe);
-  }, [stripe]);
-
   // Remove global cache clearing to prevent freezing other pages after visiting New Weigh
   // useEffect(() => {
   //   queryClient.clear();
@@ -200,6 +195,36 @@ const NewWeigh = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!navigator?.geolocation) return;
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos?.coords?.latitude;
+          const lon = pos?.coords?.longitude;
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+          const label = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+          if (cancelled) return;
+          setCurrentLocation(label);
+        } catch (e) {
+          // ignore
+        }
+      },
+      () => {
+        // ignore
+      },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Load any Fleet customer draft (created from FleetStaffManagement "Create new User")
   // so that we can attach clientUserId to New Weigh submissions for fleet flows.
   useEffect(() => {
@@ -207,7 +232,6 @@ const NewWeigh = () => {
     try {
       const raw = window.localStorage.getItem('weighbuddy_fleetCustomerDraft');
       if (!raw) {
-        console.log('NewWeigh: no weighbuddy_fleetCustomerDraft found in localStorage');
         return;
       }
       const parsed = JSON.parse(raw);
@@ -219,18 +243,10 @@ const NewWeigh = () => {
       const clientUserId = parsed.clientUserId ? String(parsed.clientUserId).trim() : null;
 
       if (fullName || email || phone || clientUserId) {
-        console.log('NewWeigh: loaded fleetCustomerDraft from localStorage', {
-          fullName,
-          email,
-          phone,
-          clientUserId,
-        });
         setFleetCustomerDraft({ fullName, email, phone, clientUserId });
-      } else {
-        console.log('NewWeigh: parsed fleetCustomerDraft is effectively empty', parsed);
       }
     } catch (e) {
-      console.error('NewWeigh: failed to parse weighbuddy_fleetCustomerDraft from localStorage', e);
+      // ignore
     }
   }, []);
 
@@ -243,17 +259,6 @@ const NewWeigh = () => {
     // operator should enter the end client's details manually, and those
     // values will be sent as customerName/Phone/Email.
     if (user.userType === 'fleet' || user.fleetOwnerUserId) {
-      // Debug: log that we're intentionally NOT prefilling for fleet flows
-      // so that customerName/Phone/Email comes from the operator.
-      console.log('NewWeigh customer prefill skipped for fleet context', {
-        userType: user.userType,
-        fleetOwnerUserId: user.fleetOwnerUserId || null,
-        currentCustomerFields: {
-          customerName: formData.customerName,
-          customerEmail: formData.customerEmail,
-          customerPhone: formData.customerPhone,
-        },
-      });
       return;
     }
 
@@ -322,12 +327,9 @@ const NewWeigh = () => {
     }
 
     try {
-      console.log('Searching vehicles for:', query);
       const response = await axios.get(`/api/vehicles/search?make=${query}`);
-      console.log('Vehicle search response:', response.data);
       setVehicleResults(response.data.vehicles || []);
     } catch (error) {
-      console.error('Error searching vehicles:', error);
       setVehicleResults([]);
     }
   };
@@ -340,12 +342,9 @@ const NewWeigh = () => {
     }
     
     try {
-      console.log('Searching caravans for:', query);
       const response = await axios.get(`/api/caravans/search?make=${query}`);
-      console.log('Caravan search response:', response.data);
       setCaravanResults(response.data.caravans || []);
     } catch (error) {
-      console.error('Error searching caravans:', error);
       setCaravanResults([]);
     }
   };
@@ -534,48 +533,201 @@ const NewWeigh = () => {
       const { data } = await axios.get(`/api/weighs/${createdWeighId}`);
       const weigh = data?.weigh;
       if (!weigh) throw new Error('Weigh data not found');
+      const triggerPdfDownload = (blob, filename) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      };
 
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const green = [195, 230, 203];
-      const yellow = [255, 244, 163];
-      const red = [255, 205, 210];
-      const grey = [240, 240, 240];
-      const drawBox = (x, y, w, h, color) => { doc.setFillColor(color[0], color[1], color[2]); doc.rect(x, y, w, h, 'F'); doc.setDrawColor(0); doc.rect(x, y, w, h); };
+      const safeNum = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
 
-      const comp = weigh.compliance || {}; const vehComp = comp.vehicle || {}; const cavComp = comp.caravan || {}; const combComp = comp.combination || {};
-      const v = weigh.vehicle || weigh.vehicleData || {}; const c = weigh.caravan || weigh.caravanData || {}; const w = weigh.weights || {};
-      const vehicleOnly = vehComp.gvm?.actual ?? (w.totalVehicle || weigh.vehicleWeightUnhitched || 0);
-      const caravanOnly = cavComp.gtm?.actual ?? (w.totalCaravan || weigh.caravanWeight || 0);
-      const gvmAttached = combComp.gcm?.actual ?? (w.grossCombination || 0);
-      const tbm = w.tbm || weigh.towBallWeight || Math.max(0, gvmAttached - vehicleOnly);
-      const measuredATM = cavComp.atm?.actual ?? (caravanOnly + tbm);
-      const gtmMeasured = cavComp.gtm?.actual ?? caravanOnly;
-      const gcmMeasured = combComp.gcm?.actual ?? (vehicleOnly + measuredATM);
-      const gvmLimit = vehComp.gvm?.limit ?? (v.gvm || 0);
-      const gcmLimit = combComp.gcm?.limit ?? (v.gcm || 0);
-      const btcLimit = v.btc || 0; const tbmLimit = v.tbm || (c.atm ? (c.atm || 0) * 0.1 : 0);
-      const atmLimit = cavComp.atm?.limit ?? (c.atm || 0); const gtmLimit = cavComp.gtm?.limit ?? (c.gtm || 0);
-      const statusText = (measured, limit) => measured <= limit ? 'OK' : 'OVER';
-      const statusColor = (measured, limit) => measured <= limit ? green : red;
+      const raw =
+        (weigh.rawWeighData && typeof weigh.rawWeighData === 'object' ? weigh.rawWeighData : null) ||
+        (weigh.raw && typeof weigh.raw === 'object' ? weigh.raw : null) ||
+        null;
 
-      doc.setFontSize(18); doc.text('WeighBuddy • Detailed Compliance Report', 10, 15);
-      doc.setFontSize(11); doc.text(`Report ID: ${weigh._id || '-'}`, 10, 22); doc.text(`Date: ${weigh.createdAt ? new Date(weigh.createdAt).toLocaleDateString('en-AU') : '-'}`, 90, 22); doc.text(`Customer: ${weigh.customer?.name || weigh.customerName || 'DIY User'}`, 170, 22);
+      const methodSelection =
+        weigh.methodSelection ||
+        weigh.method ||
+        raw?.methodSelection ||
+        raw?.method ||
+        '';
 
-      const startX = 10; const startY = 35; const colW = 40; const gap = 6;
-      const drawMetric = (label, measured, limit, x) => { drawBox(x, startY, colW, 8, grey); doc.setFontSize(11); doc.text(label, x + 3, startY + 5.5); drawBox(x, startY + 9, colW, 9, yellow); doc.setFontSize(10); doc.text(`Compliance: ${limit || 0}`, x + 3, startY + 15); drawBox(x, startY + 19, colW, 9, grey); doc.text(`Measured: ${Math.round(measured)}`, x + 3, startY + 25); const diff = (limit || 0) - (measured || 0); drawBox(x, startY + 29, colW, 9, statusColor(measured || 0, limit || 0)); doc.text(`Result: ${diff}`, x + 3, startY + 35); doc.text(statusText(measured || 0, limit || 0), x + colW - 10, startY + 35); };
+      const v = weigh.vehicle || weigh.vehicleData || {};
+      const c = weigh.caravan || weigh.caravanData || {};
+      const w = weigh.weights || {};
+      const preWeigh =
+        weigh.preWeigh && typeof weigh.preWeigh === 'object'
+          ? weigh.preWeigh
+          : raw?.preWeigh && typeof raw.preWeigh === 'object'
+            ? raw.preWeigh
+            : null;
 
-      const frontAxleMeasured = vehComp.frontAxle?.actual ?? (w.frontAxle || 0); const frontAxleLimit = vehComp.frontAxle?.limit ?? 0; const rearAxleMeasured = vehComp.rearAxle?.actual ?? (w.rearAxle || 0); const rearAxleLimit = vehComp.rearAxle?.limit ?? 0;
-      let x = startX; drawMetric('Front Axle', frontAxleMeasured, frontAxleLimit, x); x += colW + gap; drawMetric('GVM', vehicleOnly, gvmLimit, x); x += colW + gap; drawMetric('Rear Axle', rearAxleMeasured, rearAxleLimit, x); x += colW + gap; drawMetric('TBM', tbm, tbmLimit, x); x += colW + gap; drawMetric('GCM', gcmMeasured, gcmLimit, x); x += colW + gap; drawMetric('GTM', gtmMeasured, gtmLimit, x); x += colW + gap;
+      const weighingSelection =
+        weigh.weighingSelection ||
+        weigh.diyWeighingSelection ||
+        raw?.weighingSelection ||
+        raw?.diyWeighingSelection ||
+        // Fallback: if this page is used for tow+caravan flow, default to tow+caravan
+        'tow_vehicle_and_caravan';
+      const diyWeighingSelection =
+        weigh.diyWeighingSelection ||
+        weigh.weighingSelection ||
+        raw?.diyWeighingSelection ||
+        raw?.weighingSelection ||
+        weighingSelection;
 
-      const axlesX = x; const axlesY = startY; const axlesW = colW; drawBox(axlesX, axlesY, axlesW, 8, grey); doc.setFontSize(11); doc.text('Axles', axlesX + 3, axlesY + 5.5); const cavFront = cavComp.frontAxleGroup?.actual ?? (w.frontAxleGroup || 0); const cavRear = cavComp.rearAxleGroup?.actual ?? (w.rearAxleGroup || 0); drawBox(axlesX, axlesY + 9, axlesW, 9, yellow); doc.setFontSize(10); doc.text(`${Math.round(cavFront)}   ${Math.round(cavRear)}`, axlesX + 3, axlesY + 15); drawBox(axlesX, axlesY + 19, axlesW, 9, grey); doc.text('Measured', axlesX + 3, axlesY + 25); drawBox(axlesX, axlesY + 29, axlesW, 9, green); doc.text('OK', axlesX + axlesW - 10, axlesY + 35); x += colW + gap;
-      drawMetric('ATM', measuredATM, atmLimit, x); x += colW + gap; drawMetric('BTC', gtmMeasured, btcLimit, x); x += colW + gap;
+      const tyreWeigh = weigh.tyreWeigh || raw?.tyreWeigh || null;
+      const vci01 = raw?.vci01 || weigh.vci01 || null;
+      const vci02 = raw?.vci02 || weigh.vci02 || null;
 
-      const advisoryX = startX; const advisoryY = startY + 42; const advisoryW = 2 * colW + gap; drawBox(advisoryX, advisoryY, advisoryW, 36, grey); doc.setFontSize(11); doc.text('Advisory Only', advisoryX + 3, advisoryY + 6); const vanToCar = vehicleOnly > 0 ? Math.round((caravanOnly / vehicleOnly) * 100) : 0; const tbmPct = atmLimit > 0 ? Math.round((tbm / atmLimit) * 100) : 0; doc.setFontSize(10); doc.text(`Van to Car Ratio <85%   ${vanToCar}%`, advisoryX + 3, advisoryY + 14); doc.text(`Tow Ball % 8 to 10%     ${tbmPct}%`, advisoryX + 3, advisoryY + 21); const possibleSpare = Math.max(0, atmLimit - measuredATM); doc.text(`Actual Axle Group      ${gtmMeasured}`, advisoryX + 3, advisoryY + 28); doc.text(`Possible Spare Capacity ${possibleSpare}`, advisoryX + 3, advisoryY + 35);
-      const btcPanelX = advisoryX + advisoryW + gap; drawBox(btcPanelX, advisoryY, colW + 10, 36, grey); doc.setFontSize(11); doc.text('Advisory BTC Ratio', btcPanelX + 3, advisoryY + 6); const btcRatio = btcLimit > 0 ? Math.round((gtmMeasured / btcLimit) * 100) : 0; doc.setFontSize(10); doc.text('IDEAL < 80%', btcPanelX + 3, advisoryY + 14); doc.text(`${btcRatio}%`, btcPanelX + 3, advisoryY + 22);
-      const defsX = btcPanelX + (colW + 10) + gap; const defsW = 260 - defsX; drawBox(defsX, advisoryY, defsW, 36, grey); doc.setFontSize(9); doc.text('IMPORTANT', defsX + 3, advisoryY + 6); doc.text('Information provided is true and correct at the time of weighing.', defsX + 3, advisoryY + 12); doc.text('This document is advisory only and cannot be used for licensing or insurance purposes.', defsX + 3, advisoryY + 17); doc.text('Resolve any overloading issues before driving the vehicle further.', defsX + 3, advisoryY + 22);
-      doc.setFontSize(9); const legendY = advisoryY + 40; doc.text('(GVM) Gross Vehicle Mass: laden vehicle weight as measured under its wheels.', 10, legendY); doc.text('(TBM) Tow Ball Mass: weight imposed on the tow vehicle by coupling.', 10, legendY + 5); doc.text('(GTM) Gross Trailer Mass: weight of the laden caravan on its wheels.', 10, legendY + 10); doc.text('(ATM) Aggregate Trailer Mass: total of caravan including TBM.', 10, legendY + 15); doc.text('(GCM) Gross Combined Mass: total weight of both tow vehicle and caravan.', 10, legendY + 20); doc.text('(BTC) Braked Towing Capacity: maximum weight allowed to tow as per vehicle.', 10, legendY + 25);
+      const isTowCaravanPortableIndividualTyres =
+        (weighingSelection === 'tow_vehicle_and_caravan' || weighingSelection === 'tow_vehicle_and_trailer' || weighingSelection === 'tow_vehicle_and_boat') &&
+        (methodSelection === 'Portable Scales - Individual Tyre Weights' || Boolean(tyreWeigh) || Boolean(vci01) || Boolean(vci02));
 
-      doc.save(`weigh-report-${createdWeighId}.pdf`);
+      const gvmHitched = safeNum(w.totalVehicle) || safeNum(weigh.vehicleWeightHitched) || 0;
+      const frontMeasured = safeNum(w.frontAxle) || safeNum(weigh.frontAxle) || 0;
+      const rearMeasured = safeNum(w.rearAxle) || safeNum(weigh.rearAxle) || 0;
+      const gvmAttached = safeNum(w.grossCombination) || safeNum(weigh.grossCombination) || 0;
+      const tbmMeasured = safeNum(w.tbm) || safeNum(weigh.towBallWeight) || 0;
+      const gtmMeasured = safeNum(w.totalCaravan) || safeNum(weigh.caravanWeight) || 0;
+      const atmMeasured = Math.max(0, gtmMeasured + tbmMeasured);
+      const gcmMeasured = gvmAttached || Math.max(0, gvmHitched + gtmMeasured);
+
+      const gvmCapacity = safeNum(v.gvm) || 0;
+      const frontCapacity = safeNum(v.fawr) || safeNum(v.frontAxleCapacity) || 0;
+      const rearCapacity = safeNum(v.rawr) || safeNum(v.rearAxleCapacity) || 0;
+      const tbmCapacity = safeNum(v.tbm) || 0;
+      const gcmCapacity = safeNum(v.gcm) || 0;
+      const btcCapacity = safeNum(v.btc) || 0;
+      const atmCapacity = safeNum(c.atm) || 0;
+      const gtmCapacity = safeNum(c.gtm) || 0;
+
+      const vanToCarRatioPctForPdf = gvmHitched > 0 ? (gtmMeasured / gvmHitched) * 100 : null;
+      const towBallPctForPdf = atmMeasured > 0 ? (tbmMeasured / atmMeasured) * 100 : null;
+      const btcPctForPdf = btcCapacity > 0 ? (atmMeasured / btcCapacity) * 100 : null;
+
+      const reportPayload = {
+        weighingSelection,
+        diyWeighingSelection,
+        methodSelection,
+        header: {
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          customerName: formData.customerName,
+          location: currentLocation || weigh?.location || '',
+          carRego: formData.vehicleNumberPlate,
+          carMake: formData.vehicleDescription,
+          carModel: '',
+          caravanRego: formData.caravanNumberPlate,
+          caravanMake: formData.caravanDescription,
+          caravanModel: '',
+        },
+        compliance: {
+          frontAxle: frontCapacity,
+          gvm: gvmCapacity,
+          rearAxle: rearCapacity,
+          tbm: tbmCapacity,
+          atm: atmCapacity,
+          gtm: gtmCapacity,
+          gcm: gcmCapacity,
+          btc: btcCapacity,
+        },
+        weightsRecorded: {
+          frontAxle: frontMeasured,
+          gvm: gvmHitched,
+          rearAxle: rearMeasured,
+          tbm: tbmMeasured,
+          atm: atmMeasured,
+          gtm: gtmMeasured,
+          gcm: gcmMeasured,
+          btc: atmMeasured,
+        },
+        capacity: {
+          frontAxle: frontCapacity - frontMeasured,
+          gvm: gvmCapacity - gvmHitched,
+          rearAxle: rearCapacity - rearMeasured,
+          tbm: tbmCapacity - tbmMeasured,
+          atm: atmCapacity - atmMeasured,
+          gtm: gtmCapacity - gtmMeasured,
+          gcm: gcmCapacity - gcmMeasured,
+          btc: btcCapacity - atmMeasured,
+        },
+        result: {
+          frontAxle: frontCapacity > 0 ? frontMeasured <= frontCapacity : true,
+          gvm: gvmCapacity > 0 ? gvmHitched <= gvmCapacity : true,
+          rearAxle: rearCapacity > 0 ? rearMeasured <= rearCapacity : true,
+          tbm: tbmCapacity > 0 ? tbmMeasured <= tbmCapacity : true,
+          atm: atmCapacity > 0 ? atmMeasured <= atmCapacity : true,
+          gtm: gtmCapacity > 0 ? gtmMeasured <= gtmCapacity : true,
+          gcm: gcmCapacity > 0 ? gcmMeasured <= gcmCapacity : true,
+          btc: btcCapacity > 0 ? atmMeasured <= btcCapacity : true,
+        },
+        carInfo: {
+          fuelLevel: preWeigh?.fuelLevel ?? null,
+          passengersFront: preWeigh?.passengersFront ?? 0,
+          passengersRear: preWeigh?.passengersRear ?? 0,
+        },
+        advisory: {
+          vanToCarRatioPct: vanToCarRatioPctForPdf != null ? Number(vanToCarRatioPctForPdf) : null,
+          towBallPct: towBallPctForPdf != null ? Number(towBallPctForPdf) : null,
+          btcPct: btcPctForPdf != null ? Number(btcPctForPdf) : null,
+        },
+        tyreWeigh: (() => {
+          const t = tyreWeigh;
+          if (t && typeof t === 'object') {
+            const axleConfig =
+              preWeigh?.towedAxleConfig ||
+              raw?.preWeigh?.towedAxleConfig ||
+              weigh?.towedAxleConfig ||
+              raw?.towedAxleConfig ||
+              preWeigh?.axleConfig ||
+              raw?.preWeigh?.axleConfig ||
+              t.axleConfig ||
+              null;
+            return {
+              ...t,
+              axleConfig,
+            };
+          }
+          return t;
+        })(),
+        vci01,
+        vci02,
+        notes: weigh.notes || raw?.notes || preWeigh?.notes || '',
+        additionalNotes: weigh.notes || raw?.notes || preWeigh?.notes || '',
+      };
+
+      const endpoints = isTowCaravanPortableIndividualTyres
+        ? [
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-1',
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-2',
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-3',
+          ]
+        : [
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-1',
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-2',
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-3',
+          ];
+
+      const mergedPdf = await PDFDocument.create();
+      for (const url of endpoints) {
+        const resp = await axios.post(url, reportPayload, { responseType: 'arraybuffer' });
+        const srcPdf = await PDFDocument.load(resp.data);
+        const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+        pages.forEach((p) => mergedPdf.addPage(p));
+      }
+      const mergedBytes = await mergedPdf.save();
+      const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+      triggerPdfDownload(mergedBlob, `weigh-report-${createdWeighId}.pdf`);
       setSuccess('Report downloaded successfully!');
     } catch (error) {
       setError('Error downloading report. Please try again from the Weigh History page.');
@@ -586,69 +738,42 @@ const NewWeigh = () => {
 
   // Handle form submission
   const handleSubmit = async (clientPayment) => {
-    console.log('🔍 handleSubmit called with clientPayment:', clientPayment);
     try {
       setLoading(true);
       setError('');
 
       // Validate required selections
-      console.log('🔍 Validation checks:');
-      console.log('selectedVehicle:', selectedVehicle);
-      console.log('selectedCaravan:', selectedCaravan);
-      console.log('vehicleNumberPlate:', formData.vehicleNumberPlate);
-      console.log('caravanNumberPlate:', formData.caravanNumberPlate);
-      console.log('vehicleNoModsConfirmed:', vehicleNoModsConfirmed);
-      console.log('caravanNoModsConfirmed:', caravanNoModsConfirmed);
-      console.log('disclaimerAccepted:', disclaimerAccepted);
-
       if (!selectedVehicle) {
-        console.log('❌ Validation failed: No vehicle selected');
         setError('Please select a vehicle');
         return;
       }
 
       if (!selectedCaravan) {
-        console.log('❌ Validation failed: No caravan selected');
         setError('Please select a caravan');
         return;
       }
 
       if (!formData.vehicleNumberPlate || !formData.caravanNumberPlate) {
-        console.log('❌ Validation failed: Missing number plates');
         setError('Please enter both vehicle and caravan number plates');
         return;
       }
 
       if (!vehicleNoModsConfirmed || !caravanNoModsConfirmed) {
-        console.log('❌ Validation failed: Modifications not confirmed');
         setError('Please confirm no modifications for both vehicle and caravan');
         return;
       }
 
       if (!disclaimerAccepted) {
-        console.log('❌ Validation failed: Disclaimer not accepted');
         setError('Please accept the disclaimer to proceed');
         return;
       }
-
-      console.log('✅ All validations passed');
-
-      // Debug current fleetCustomerDraft + user context before building payload
-      console.log('NewWeigh: clientUserId wiring debug (before payload build)', {
-        userDebug: {
-          id: user?.id || null,
-          email: user?.email || null,
-          userType: user?.userType || null,
-          fleetOwnerUserId: user?.fleetOwnerUserId || null,
-        },
-        fleetCustomerDraft,
-      });
 
       // Construct weigh data without circular references
       const weighData = {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
         customerEmail: formData.customerEmail,
+        location: currentLocation || '',
 
         vehicleId: selectedVehicle._id,
         caravanId: selectedCaravan._id,
@@ -684,69 +809,22 @@ const NewWeigh = () => {
           ? { clientUserId: fleetCustomerDraft.clientUserId }
           : {}),
       };
+      
+      // Reset selections
+      setSelectedVehicle(null);
+      setSelectedCaravan(null);
+      setVehicleNoModsConfirmed(false);
+      setCaravanNoModsConfirmed(false);
+      setVehicleSearch('');
+      setCaravanSearch('');
+      setVehicleResults([]);
+      setCaravanResults([]);
+      
+      // Navigate to weigh history after a short delay
+      setTimeout(() => {
+        navigate('/weigh-history');
+      }, 3000);
 
-      console.log('NewWeigh: final weighData (including any clientUserId):', JSON.stringify(weighData, null, 2));
-      console.log('📤 Making API call to /api/weighs...', {
-        userDebug: {
-          userType: user?.userType || null,
-          fleetOwnerUserId: user?.fleetOwnerUserId || null,
-          userName: user?.name || null,
-          userPhone: user?.phone || null,
-        },
-        customerFieldsFromForm: {
-          customerName: formData.customerName,
-          customerPhone: formData.customerPhone,
-          customerEmail: formData.customerEmail,
-        },
-        clientUserIdFromDraft: fleetCustomerDraft?.clientUserId || null,
-      });
-
-      const response = await axios.post('/api/weighs', weighData);
-
-      if (response.data.success) {
-        console.log('✅ Weigh entry created successfully!');
-        console.log('Weigh ID:', response.data.weigh._id);
-        setSuccess('Weigh entry created successfully! Click "Download Report" to get your compliance report.');
-        setPaymentCompleted(true);
-        setCreatedWeighId(response.data.weigh._id); // Store the weigh ID
-        
-        // Reset form
-        setFormData({
-          customerName: '',
-          customerPhone: '',
-          customerEmail: '',
-          vehicleId: '',
-          caravanId: '',
-          vehicleNumberPlate: '',
-          caravanNumberPlate: '',
-          weights: {
-            frontAxle: '',
-            rearAxle: '',
-            totalVehicle: '',
-            totalCaravan: '',
-            grossCombination: '',
-            tbm: '',
-            vehicleOnlyFrontAxle: '',
-            vehicleOnlyRearAxle: ''
-          },
-          notes: ''
-        });
-        
-        // Reset selections
-        setSelectedVehicle(null);
-        setSelectedCaravan(null);
-        setVehicleNoModsConfirmed(false);
-        setCaravanNoModsConfirmed(false);
-        setVehicleSearch('');
-        setCaravanSearch('');
-        setVehicleResults([]);
-        setCaravanResults([]);
-        
-        // Navigate to weigh history after a short delay
-        setTimeout(() => {
-          navigate('/weigh-history');
-        }, 3000);
-      }
     } catch (error) {
       console.error('Error creating weigh entry:', error);
       setError(error.response?.data?.message || 'Error creating weigh entry');

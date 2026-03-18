@@ -7,7 +7,11 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
   const navigate = useNavigate();
 
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
   const preWeigh = location.state?.preWeigh || null;
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const [weights, setWeights] = useState({
     frontLeft: '',
@@ -34,10 +38,16 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
       const frontAxleUnhitched = safeNum(weights.frontLeft) + safeNum(weights.frontRight);
       const rearAxleUnhitchedBase = safeNum(weights.rearLeft) + safeNum(weights.rearRight);
       const rearAxleUnhitchedMiddle = safeNum(weights.middleLeft) + safeNum(weights.middleRight);
-      const rearAxleUnhitched =
-        axleConfig === 'dual'
-          ? rearAxleUnhitchedBase + rearAxleUnhitchedMiddle
-          : rearAxleUnhitchedBase;
+      const rearAxleUnhitched = rearAxleUnhitchedBase + rearAxleUnhitchedMiddle;
+
+      const tyreWeigh = {
+        frontLeft: safeNum(weights.frontLeft),
+        frontRight: safeNum(weights.frontRight),
+        rearLeft: safeNum(weights.rearLeft),
+        rearRight: safeNum(weights.rearRight),
+        middleLeft: safeNum(weights.middleLeft),
+        middleRight: safeNum(weights.middleRight),
+      };
 
       const axleWeigh = {
         frontAxleUnhitched,
@@ -48,6 +58,7 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         state: {
           weighingSelection,
           axleWeigh,
+          tyreWeigh,
           preWeigh,
         },
       });
@@ -75,6 +86,43 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         safeNum(weights.rearRight);
     }
 
+    const tyreWeigh = (() => {
+      if (axleConfig === 'single') {
+        return {
+          axleConfig: 'Single Axle',
+          single: {
+            left: safeNum(weights.frontLeft),
+            right: safeNum(weights.frontRight),
+          },
+        };
+      }
+      if (axleConfig === 'dual') {
+        return {
+          axleConfig: 'Dual Axle',
+          dual: {
+            frontLeft: safeNum(weights.frontLeft),
+            frontRight: safeNum(weights.frontRight),
+            rearLeft: safeNum(weights.rearLeft),
+            rearRight: safeNum(weights.rearRight),
+          },
+        };
+      }
+      if (axleConfig === 'triple') {
+        return {
+          axleConfig: 'Triple Axle',
+          triple: {
+            frontLeft: safeNum(weights.frontLeft),
+            frontRight: safeNum(weights.frontRight),
+            middleLeft: safeNum(weights.middleLeft),
+            middleRight: safeNum(weights.middleRight),
+            rearLeft: safeNum(weights.rearLeft),
+            rearRight: safeNum(weights.rearRight),
+          },
+        };
+      }
+      return null;
+    })();
+
     const axleWeigh = {
       trailerGtm: caravanGtm,
     };
@@ -86,8 +134,11 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
       navigate('/professional-vehicle-only-portable-tyres-payment', {
         state: {
           weighingSelection,
+          towSetupType,
           axleWeigh,
           towBallMass: towBallMassNum || null,
+          axleConfig,
+          tyreWeigh,
           preWeigh,
         },
       });
@@ -98,7 +149,10 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
     navigate('/professional-tow-portable-tyres-vci01', {
       state: {
         weighingSelection,
+        towSetupType,
         axleWeigh,
+        axleConfig,
+        tyreWeigh,
         preWeigh,
       },
     });
@@ -106,8 +160,12 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
 
   let headingLabel = 'Vehicle Only';
 
-  if (weighingSelection === 'tow_vehicle_and_caravan') {
-    headingLabel = 'Tow Vehicle and Caravan / Trailer';
+  if (
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat'
+  ) {
+    headingLabel = `Tow Vehicle and ${towSetupLabel}`;
   } else if (weighingSelection === 'caravan_only_registered') {
     headingLabel = 'Caravan / Trailer Only (registered)';
   }
@@ -121,106 +179,86 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
         Portable Scales - Individual Tyre Weights
       </Typography>
 
-      <Box sx={{ maxWidth: 220, mb: 3 }}>
-        <FormControl fullWidth size="small">
-          <InputLabel id="axle-config-label">How many axles?</InputLabel>
-          <Select
-            labelId="axle-config-label"
-            label="How many axles?"
-            value={axleConfig}
-            onChange={(e) => setAxleConfig(e.target.value)}
-          >
-            <MenuItem value="single">Single Axle</MenuItem>
-            <MenuItem value="dual">Dual Axle</MenuItem>
-            <MenuItem value="triple">Triple Axle</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
-
-      <Typography
-        variant="h5"
-        sx={{ textAlign: 'center', mb: 4, fontWeight: 'bold' }}
-      >
-        Weigh Tow Vehicle - Hitched to Caravan/Trailer
+      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
+        Weigh Vehicle
       </Typography>
 
-      <Grid container spacing={3} justifyContent="center" sx={{ mb: 4 }}>
-        <Grid item xs={12} md={5}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+      <Grid container spacing={3} sx={{ mb: 3, maxWidth: 520 }}>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextField
               label="Front Left Tyre"
               value={weights.frontLeft}
               onChange={handleChange('frontLeft')}
-              sx={{ width: '70%' }}
+              sx={{ width: '80%' }}
             />
             <Typography variant="body1">kg</Typography>
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextField
-              label="Rear Left Tyre"
-              value={weights.rearLeft}
-              onChange={handleChange('rearLeft')}
-              sx={{ width: '70%' }}
+              label="Front Right Tyre"
+              value={weights.frontRight}
+              onChange={handleChange('frontRight')}
+              sx={{ width: '80%' }}
             />
             <Typography variant="body1">kg</Typography>
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={5}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextField
-              label="Front Right Tyre"
-              value={weights.frontRight}
-              onChange={handleChange('frontRight')}
-              sx={{ width: '70%' }}
+              label="Rear Left Tyre"
+              value={weights.rearLeft}
+              onChange={handleChange('rearLeft')}
+              sx={{ width: '80%' }}
             />
             <Typography variant="body1">kg</Typography>
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <TextField
               label="Rear Right Tyre"
               value={weights.rearRight}
               onChange={handleChange('rearRight')}
-              sx={{ width: '70%' }}
+              sx={{ width: '80%' }}
             />
             <Typography variant="body1">kg</Typography>
           </Box>
         </Grid>
       </Grid>
 
-      <Typography
-        variant="body2"
-        sx={{ textAlign: 'center', mb: 2 }}
-      >
-        Note: If your tow vehicle has a dual rear axle, select Dual Axle above and enter the middle axle below.
+      <Typography variant="caption" sx={{ display: 'block', mb: 2, maxWidth: 520 }}>
+        Note: If your tow vehicle has a dual rear axle, enter middle axle below.
       </Typography>
 
-      {axleConfig === 'dual' && (
-        <Grid container spacing={3} justifyContent="center" sx={{ mb: 4 }}>
-          <Grid item xs={12} md={5}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <TextField
-                label="Middle Left Tyre"
-                value={weights.middleLeft}
-                onChange={handleChange('middleLeft')}
-                sx={{ width: '70%' }}
-              />
-              <Typography variant="body1">kg</Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={5}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <TextField
-                label="Middle Right Tyre"
-                value={weights.middleRight}
-                onChange={handleChange('middleRight')}
-                sx={{ width: '70%' }}
-              />
-              <Typography variant="body1">kg</Typography>
-            </Box>
-          </Grid>
+      <Grid container spacing={3} sx={{ mb: 2, maxWidth: 520 }}>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <TextField
+              label="Middle Left Tyre"
+              value={weights.middleLeft}
+              onChange={handleChange('middleLeft')}
+              sx={{ width: '80%' }}
+            />
+            <Typography variant="body1">kg</Typography>
+          </Box>
         </Grid>
-      )}
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <TextField
+              label="Middle Right Tyre"
+              value={weights.middleRight}
+              onChange={handleChange('middleRight')}
+              sx={{ width: '80%' }}
+            />
+            <Typography variant="body1">kg</Typography>
+          </Box>
+        </Grid>
+      </Grid>
     </>
   );
 
@@ -451,6 +489,8 @@ const ProfessionalVehicleOnlyPortableTyres = () => {
       >
         <Box sx={{ width: '100%', maxWidth: 900 }}>
           {(weighingSelection === 'tow_vehicle_and_caravan' ||
+            weighingSelection === 'tow_vehicle_and_trailer' ||
+            weighingSelection === 'tow_vehicle_and_boat' ||
             weighingSelection === 'caravan_only_registered')
             ? renderTowLayout()
             : renderVehicleOnlyLayout()}

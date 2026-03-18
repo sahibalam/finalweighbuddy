@@ -8,6 +8,7 @@ const ProfessionalVehicleOnlyInfo = () => {
 
   const method = location.state?.method || '';
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
+  const towSetupType = location.state?.towSetupType || '';
 
   const [fuelPercent, setFuelPercent] = useState('');
   const [frontPassengers, setFrontPassengers] = useState('');
@@ -20,6 +21,8 @@ const ProfessionalVehicleOnlyInfo = () => {
   const [waterTotalLitres, setWaterTotalLitres] = useState('');
   const [towballHeightMm, setTowballHeightMm] = useState('');
   const [airbagPressurePsi, setAirbagPressurePsi] = useState('');
+
+  const [axleConfig, setAxleConfig] = useState(location.state?.axleConfig || 'single');
 
   useEffect(() => {
     // Try to hydrate from any pending client saved earlier
@@ -47,11 +50,18 @@ const ProfessionalVehicleOnlyInfo = () => {
 
   let headingLabel = 'Vehicle Only';
 
-if (weighingSelection === 'tow_vehicle_and_caravan') {
-  headingLabel = 'Tow Vehicle and Caravan / Trailer';
-} else if (weighingSelection === 'caravan_only_registered') {
-  headingLabel = 'Caravan/Trailer Only (Registered)';
-}
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+  if (
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat'
+  ) {
+    headingLabel = `Tow Vehicle and ${towSetupLabel}`;
+  } else if (weighingSelection === 'caravan_only_registered') {
+    headingLabel = 'Caravan/Trailer Only (Registered)';
+  }
 
   const handleContinue = () => {
     if (!method) {
@@ -82,6 +92,8 @@ if (weighingSelection === 'tow_vehicle_and_caravan') {
       navigate('/professional-vehicle-only-portable-tyres', {
         state: {
           weighingSelection,
+          towSetupType,
+          axleConfig,
           preWeigh,
         },
       });
@@ -89,6 +101,8 @@ if (weighingSelection === 'tow_vehicle_and_caravan') {
       navigate('/professional-vehicle-only-weighbridge-in-ground', {
         state: {
           weighingSelection,
+          towSetupType,
+          axleConfig,
           preWeigh,
         },
       });
@@ -96,6 +110,8 @@ if (weighingSelection === 'tow_vehicle_and_caravan') {
       navigate('/professional-vehicle-only-weighbridge-goweigh', {
         state: {
           weighingSelection,
+          towSetupType,
+          axleConfig,
           preWeigh,
         },
       });
@@ -131,6 +147,28 @@ if (weighingSelection === 'tow_vehicle_and_caravan') {
         >
           Important information to start the weighing process
         </Typography>
+
+        {(weighingSelection === 'tow_vehicle_and_caravan' ||
+          weighingSelection === 'tow_vehicle_and_trailer' ||
+          weighingSelection === 'tow_vehicle_and_boat' ||
+          weighingSelection === 'caravan_only_registered') &&
+          (method === 'weighbridge-in-ground' || method === 'weighbridge-goweigh') && (
+            <Box sx={{ maxWidth: 320, mb: 4 }}>
+              <FormControl fullWidth>
+                <InputLabel id="axle-config-label">How many axles?</InputLabel>
+                <Select
+                  labelId="axle-config-label"
+                  label="How many axles?"
+                  value={axleConfig}
+                  onChange={(e) => setAxleConfig(e.target.value)}
+                >
+                  <MenuItem value="single">Single Axle</MenuItem>
+                  <MenuItem value="dual">Dual Axle</MenuItem>
+                  <MenuItem value="triple">Triple Axle</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          )}
 
      {weighingSelection !== 'caravan_only_registered' && (
   <>
@@ -191,10 +229,12 @@ if (weighingSelection === 'tow_vehicle_and_caravan') {
 )}
 
         {(weighingSelection === 'tow_vehicle_and_caravan' ||
-  weighingSelection === 'caravan_only_registered') && (
+          weighingSelection === 'tow_vehicle_and_trailer' ||
+          weighingSelection === 'tow_vehicle_and_boat' ||
+          weighingSelection === 'caravan_only_registered') && (
           <>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>
-              Water in Caravan/Trailer
+              {`Water in ${towSetupLabel}`}
             </Typography>
             <Grid container spacing={3} sx={{ mb: 3 }}>
               <Grid item xs={12} md={4}>
@@ -242,7 +282,9 @@ if (weighingSelection === 'tow_vehicle_and_caravan') {
     </Box>
   </Grid>
 
-  {weighingSelection === 'tow_vehicle_and_caravan' && (
+  {(weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat') && (
     <Grid item xs={12} md={6}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Typography variant="subtitle1" sx={{ minWidth: 140 }}>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Container, TextField, Button } from '@mui/material';
+import { Box, Paper, Typography, Container, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const DIYCaravanOnlyInfo = () => {
@@ -11,6 +11,7 @@ const DIYCaravanOnlyInfo = () => {
   const [waterTotalLitres, setWaterTotalLitres] = useState('');
   const [notes, setNotes] = useState('');
   const [vin, setVin] = useState('');
+  const [axleConfig, setAxleConfig] = useState('Single Axle');
 
   const isCustomBuildTrailerTare = location.state?.customBuildTrailerTare || false;
 
@@ -18,12 +19,28 @@ const DIYCaravanOnlyInfo = () => {
     const baseState = location.state || {};
     const { methodSelection } = baseState;
 
+    const methodSelectionStr = String(methodSelection || '');
+    const lowerMethodSelection = methodSelectionStr.toLowerCase();
+    const isWeighbridgeMethod =
+      methodSelectionStr === 'Weighbridge - In Ground -' ||
+      methodSelectionStr === 'Weighbridge - In Ground - Individual Axle Weights' ||
+      methodSelectionStr === 'Weighbridge - goweigh' ||
+      methodSelectionStr === 'GoWeigh Weighbridge' ||
+      methodSelectionStr === 'Above Ground Weighbridge' ||
+      lowerMethodSelection.startsWith('weighbridge - in ground') ||
+      lowerMethodSelection.includes('goweigh');
+
+    const shouldIncludeAxleConfig =
+      isWeighbridgeMethod ||
+      (isCustomBuildTrailerTare && methodSelection !== 'Portable Scales - Individual Tyre Weights');
+
     const preWeigh = {
       waterTankCount: waterTankCount || null,
       waterTankFullCount: waterTankFullCount || null,
       waterTotalLitres: waterTotalLitres || null,
       notes,
       vin: vin || null,
+      axleConfig: shouldIncludeAxleConfig ? axleConfig : null,
     };
 
     let nextPath = '';
@@ -98,6 +115,52 @@ const DIYCaravanOnlyInfo = () => {
               <Typography variant="body1">Ltrs</Typography>
             </Box>
           )}
+
+          {(() => {
+            const baseState = location.state || {};
+            const methodSelection = baseState.methodSelection || '';
+            const methodSelectionStr = String(methodSelection || '');
+            const lowerMethodSelection = methodSelectionStr.toLowerCase();
+            const isWeighbridgeMethod =
+              methodSelectionStr === 'Weighbridge - In Ground -' ||
+              methodSelectionStr === 'Weighbridge - In Ground - Individual Axle Weights' ||
+              methodSelectionStr === 'Weighbridge - goweigh' ||
+              methodSelectionStr === 'GoWeigh Weighbridge' ||
+              methodSelectionStr === 'Above Ground Weighbridge' ||
+              lowerMethodSelection.startsWith('weighbridge - in ground') ||
+              lowerMethodSelection.includes('goweigh');
+
+            const showAxleConfigForCustomBuildTrailerTare =
+              isCustomBuildTrailerTare && methodSelection !== 'Portable Scales - Individual Tyre Weights';
+
+            const showAxleConfigForCaravanOnlyRegistered =
+              !isCustomBuildTrailerTare &&
+              methodSelection !== 'Portable Scales - Individual Tyre Weights' &&
+              (isWeighbridgeMethod || !methodSelectionStr);
+
+            if (!showAxleConfigForCaravanOnlyRegistered && !showAxleConfigForCustomBuildTrailerTare) return null;
+
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+                <Typography variant="body1" sx={{ minWidth: 200 }}>
+                  Axle Configuration
+                </Typography>
+                <FormControl sx={{ width: 220 }}>
+                  <InputLabel id="axle-config-label">Select</InputLabel>
+                  <Select
+                    labelId="axle-config-label"
+                    value={axleConfig}
+                    label="Select"
+                    onChange={(e) => setAxleConfig(e.target.value)}
+                  >
+                    <MenuItem value="Single Axle">Single Axle</MenuItem>
+                    <MenuItem value="Dual Axle">Dual Axle</MenuItem>
+                    <MenuItem value="Triple Axle">Triple Axle</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            );
+          })()}
 
           {/* Shared Additional Information/Notes area */}
           <Box sx={{ mb: 3 }}>

@@ -44,7 +44,7 @@ const upload = multer({
 // ==================== DASHBOARD & OVERVIEW ====================
 
 // Get dashboard statistics (legacy endpoint for frontend compatibility)
-router.get('/dashboard', protect, authorize('admin'), async (req, res) => {
+router.get('/dashboard', protect, authorize('admin', 'superadmin'), async (req, res) => {
   console.log('🔍 === Admin Dashboard Request ===');
   console.log('Request URL:', req.url);
   console.log('Request Method:', req.method);
@@ -171,7 +171,7 @@ router.get('/overview', protect, authorize('admin'), async (req, res) => {
 // ==================== USER MANAGEMENT ====================
 
 // Get all users with pagination
-router.get('/users', protect, authorize('admin'), async (req, res) => {
+router.get('/users', protect, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -594,7 +594,7 @@ router.put('/payments/:id/status', protect, authorize('admin'), async (req, res)
 // ==================== USER MANAGEMENT ====================
 
 // Get all users with pagination
-router.get('/users', protect, authorize('admin'), async (req, res) => {
+router.get('/users', protect, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;

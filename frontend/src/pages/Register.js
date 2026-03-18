@@ -36,6 +36,7 @@ import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
+import axios from 'axios';
 
 const Register = () => {
   const location = useLocation();
@@ -85,9 +86,18 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({});
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogle = () => {
+    const base = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5001'
+      : (process.env.REACT_APP_API_URL || '');
+
+    window.location.href = `${base}/api/auth/google/start?mode=signup`;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -150,6 +160,9 @@ const Register = () => {
       if (!formData.abn.trim()) {
         newErrors.abn = 'ABN is required';
       }
+      if (!formData.logoUrl.trim()) {
+        newErrors.logoUrl = 'Logo URL is required';
+      }
       if (!formData.postalAddress.trim()) {
         newErrors.postalAddress = 'Postal address is required';
       }
@@ -194,6 +207,10 @@ const Register = () => {
       payload.name = `${formData.firstName} ${formData.lastName}`.trim();
       payload.businessName = formData.companyName;
       payload.postcode = formData.postCode;
+      payload.abn = formData.abn;
+      payload.logoUrl = formData.logoUrl;
+      payload.postalAddress = formData.postalAddress;
+      payload.state = formData.stateField;
     }
 
     const result = await register(payload);
@@ -216,10 +233,52 @@ const Register = () => {
 
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0];
-    setFormData({
-      ...formData,
-      logoUrl: file ? file.name : ''
-    });
+    if (!file) {
+      setFormData({
+        ...formData,
+        logoUrl: ''
+      });
+      return;
+    }
+
+    const uploadLogo = async () => {
+      setLogoUploading(true);
+      setError('');
+      try {
+        const data = new FormData();
+        data.append('file', file);
+        const res = await axios.post('/api/uploads/logo', data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data?.success && res.data?.url) {
+          setFormData((prev) => ({
+            ...prev,
+            logoUrl: res.data.url,
+          }));
+        } else {
+          setError('Failed to upload logo. Please try again.');
+          setFormData((prev) => ({
+            ...prev,
+            logoUrl: ''
+          }));
+        }
+      } catch (err) {
+        console.error('Logo upload failed:', err);
+        const message =
+          err.response?.data?.message ||
+          'Failed to upload logo. Please try a different image.';
+        setError(message);
+        setFormData((prev) => ({
+          ...prev,
+          logoUrl: ''
+        }));
+      } finally {
+        setLogoUploading(false);
+      }
+    };
+
+    uploadLogo();
   };
 
   const renderFormFields = () => {
@@ -255,7 +314,7 @@ const Register = () => {
             </Grid>
           </Grid>
 
-          {formData.userType === 'professional' && (
+          {(formData.userType === 'professional' || formData.userType === 'fleet') && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="body2" sx={{ mb: 0.5 }}>
                 Logo
@@ -264,8 +323,9 @@ const Register = () => {
                 variant="outlined"
                 component="label"
                 fullWidth
+                disabled={logoUploading}
               >
-                {formData.logoUrl || 'Upload Logo'}
+                {logoUploading ? 'Uploading...' : (formData.logoUrl ? 'Logo uploaded' : 'Upload Logo')}
                 <input
                   type="file"
                   hidden
@@ -808,47 +868,35 @@ const Register = () => {
                       type="submit"
                       fullWidth
                       variant="contained"
-                      size="large"
-                      disabled={loading}
-                      startIcon={loading ? null : <RocketLaunch />}
-                      endIcon={loading ? null : <ArrowForward />}
-                      sx={{ 
-                        mt: 3, 
-                        mb: 2, 
-                        py: 1.5,
+                      disabled={loading || logoUploading}
+                      sx={{ mt: 3, mb: 2 }}
+                    >
+                      {loading ? <CircularProgress size={24} /> : 'Create Account'}
+                    </Button>
+
+                    <Button
+                      fullWidth
+                      onClick={handleGoogle}
+                      disabled={loading || logoUploading}
+                      sx={{
+                        mb: 2,
+                        textTransform: 'none',
+                        fontWeight: 800,
                         borderRadius: 2,
-                        fontWeight: 700,
-                        fontSize: '1.1rem',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                        py: 1.2,
+                        backgroundColor: '#ffffff',
+                        color: '#111827',
+                        border: '1px solid rgba(17, 24, 39, 0.12)',
+                        boxShadow: '0 10px 22px rgba(14, 30, 50, 0.08)',
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #5a70d9 0%, #6a42a3 100%)',
-                          boxShadow: '0 6px 20px rgba(102, 126, 234, 0.6)',
-                          transform: 'translateY(-2px)'
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 14px 30px rgba(14, 30, 50, 0.12)',
+                          transform: 'translateY(-1px)',
                         },
-                        transition: 'all 0.3s ease',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: 0,
-                          left: '-100%',
-                          width: '100%',
-                          height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-                          transition: 'left 0.7s ease',
-                        },
-                        '&:hover::before': {
-                          left: '100%'
-                        }
+                        transition: 'transform 160ms ease, box-shadow 160ms ease',
                       }}
                     >
-                      {loading ? (
-                        <CircularProgress size={24} sx={{ color: 'white' }} />
-                      ) : (
-                        'Create Account'
-                      )}
+                      Continue with Google
                     </Button>
                     
                     <Box sx={{ textAlign: 'center', mt: 2 }}>

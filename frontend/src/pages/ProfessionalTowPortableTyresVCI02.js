@@ -12,6 +12,10 @@ const ProfessionalTowPortableTyresVCI02 = () => {
   const preWeigh = location.state?.preWeigh || null;
   const axleConfig = location.state?.axleConfig || 'SINGLE';
   const isDualAxle = axleConfig === 'DUAL' || axleConfig === 'Dual Axle';
+  const towSetupType = location.state?.towSetupType || '';
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
 
   const [frontLeft, setFrontLeft] = useState('');
   const [frontRight, setFrontRight] = useState('');
@@ -27,10 +31,25 @@ const ProfessionalTowPortableTyresVCI02 = () => {
     const rearUnhitched = safeNum(rearLeft) + safeNum(rearRight);
     const gvmUnhitched = frontUnhitched + rearUnhitched;
 
+    const vci02 = {
+      unhitchedWeigh: {
+        frontLeft: frontLeft ? Number(frontLeft) : null,
+        frontRight: frontRight ? Number(frontRight) : null,
+        middleLeft: isDualAxle ? (middleLeft ? Number(middleLeft) : null) : null,
+        middleRight: isDualAxle ? (middleRight ? Number(middleRight) : null) : null,
+        rearLeft: rearLeft ? Number(rearLeft) : null,
+        rearRight: rearRight ? Number(rearRight) : null,
+      },
+      axleConfig,
+    };
+
     navigate('/professional-vehicle-only-portable-tyres-payment', {
       state: {
         weighingSelection,
+        towSetupType,
         vci01,
+        vci02,
+        axleConfig,
         axleWeigh: {
           ...previousAxleWeigh,
           unhitchedFrontAxle: frontUnhitched,
@@ -72,7 +91,7 @@ const ProfessionalTowPortableTyresVCI02 = () => {
             variant="h5"
             sx={{ mb: 2, fontWeight: 'bold' }}
           >
-            Disconnect Caravan/Trailer - Weigh Unhitched Tow Vehicle
+            {`Disconnect ${towSetupLabel} - Weigh Unhitched Tow Vehicle`}
           </Typography>
 
           <Box

@@ -62,6 +62,7 @@ const METHOD_OPTIONS = {
   // Trailer tare report for Rover/Custom Build (professional flow)
   custom_build_trailer_tare: [
     'Portable Scales - Individual Tyre Weights',
+    'Weighbridge - In Ground -',
     'GoWeigh Weighbridge'
   ]
 };

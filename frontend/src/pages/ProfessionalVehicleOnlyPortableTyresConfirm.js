@@ -54,8 +54,33 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
   const weighingSelection = location.state?.weighingSelection || 'vehicle_only';
   const towBallMass = location.state?.towBallMass ?? null;
   const vci01 = location.state?.vci01 || null;
+  const vci02 = location.state?.vci02 || null;
+  const axleConfig = location.state?.axleConfig || null;
+  const tyreWeigh = location.state?.tyreWeigh || null;
   const preWeigh = location.state?.preWeigh || null;
   const vehicleMasterId = location.state?.vehicleMasterId || null;
+  const towSetupType = location.state?.towSetupType || '';
+
+  const towSetupLabel =
+    towSetupType === 'boat' ? 'Boat' : towSetupType === 'trailer' ? 'Trailer' : 'Caravan';
+
+  const isTowFlow =
+    weighingSelection === 'tow_vehicle_and_caravan' ||
+    weighingSelection === 'tow_vehicle_and_trailer' ||
+    weighingSelection === 'tow_vehicle_and_boat';
+
+  const resolveUploadsUrl = (value) => {
+    if (!value) return '';
+    const raw = String(value).trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (raw.startsWith('/uploads')) {
+      const base = String(axios?.defaults?.baseURL || '').trim();
+      if (!base) return raw;
+      return `${base.replace(/\/$/, '')}${raw}`;
+    }
+    return raw;
+  };
 
   useEffect(() => {
     const stateData = location.state || {};
@@ -98,8 +123,15 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       if (!caravanGtm && caravan.gtm != null) setCaravanGtm(String(caravan.gtm));
       if (!caravanAtm && caravan.atm != null) setCaravanAtm(String(caravan.atm));
 
-      if (!caravanAxleGroups && (caravan.axleCapacity != null || caravan.axleGroupLoading != null)) {
-        setCaravanAxleGroups(String(caravan.axleCapacity != null ? caravan.axleCapacity : caravan.axleGroupLoading));
+      if (!caravanAxleGroups) {
+        const axleGroupCandidate =
+          caravan.axleGroups ??
+          caravan.axleGroupLoadings ??
+          caravan.axleGroupLoading ??
+          caravan.axleCapacity ??
+          caravan.axleGroup ??
+          null;
+        if (axleGroupCandidate != null) setCaravanAxleGroups(String(axleGroupCandidate));
       }
 
       if (!caravanTare && (caravan.tare != null || caravan.tareMass != null)) {
@@ -111,7 +143,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       }
 
       if (!caravanComplianceImage && caravan.complianceImage) {
-        const url = String(caravan.complianceImage);
+        const url = resolveUploadsUrl(caravan.complianceImage);
 
         console.log('✅ prefill complianceImage (portable tyres)', url);
         setCaravanComplianceLocalPreviewUrl('');
@@ -157,10 +189,15 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
         if (!caravanGtm && (foundCaravan.gtm != null || foundCaravan.gtmCapacity != null)) {
           setCaravanGtm(String(foundCaravan.gtm != null ? foundCaravan.gtm : foundCaravan.gtmCapacity));
         }
-        if (!caravanAxleGroups && (foundCaravan.axleCapacity != null || foundCaravan.axleGroupLoading != null)) {
-          setCaravanAxleGroups(
-            String(foundCaravan.axleCapacity != null ? foundCaravan.axleCapacity : foundCaravan.axleGroupLoading)
-          );
+        if (!caravanAxleGroups) {
+          const axleGroupCandidate =
+            foundCaravan.axleGroups ??
+            foundCaravan.axleGroupLoadings ??
+            foundCaravan.axleGroupLoading ??
+            foundCaravan.axleCapacity ??
+            foundCaravan.axleGroup ??
+            null;
+          if (axleGroupCandidate != null) setCaravanAxleGroups(String(axleGroupCandidate));
         }
         if (!caravanTare && (foundCaravan.tare != null || foundCaravan.tareMass != null)) {
           setCaravanTare(String(foundCaravan.tare != null ? foundCaravan.tare : foundCaravan.tareMass));
@@ -168,7 +205,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
         if (!vin && foundCaravan.vin) setVin(String(foundCaravan.vin).toUpperCase());
 
         if (!caravanComplianceImage && foundCaravan.complianceImage) {
-          const url = String(foundCaravan.complianceImage);
+          const url = resolveUploadsUrl(foundCaravan.complianceImage);
           console.log('✅ prefill complianceImage via fallback (portable tyres)', url);
           setCaravanComplianceLocalPreviewUrl('');
           setCaravanComplianceLocalPreviewIsPdf(url.toLowerCase().endsWith('.pdf'));
@@ -388,6 +425,20 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
     const gvmMeasured = frontMeasured + rearMeasured;
 
     createDiyClient().finally(() => {
+      // Register this setup under the professional -> DIY relationship so
+      // future DIY self-serve paid compliance checks can credit the weigher.
+      try {
+        if (clientUserId && rego) {
+          axios.post('/api/wallet/register-setup', {
+            diyUserId: clientUserId,
+            vehicleRego: rego,
+            trailerRego: null,
+          });
+        }
+      } catch (e) {
+        // Non-blocking
+      }
+
       const fuelLevel = preWeigh?.fuelLevel ?? '';
       const passengersFront = preWeigh?.passengersFront ?? '';
       const passengersRear = preWeigh?.passengersRear ?? '';
@@ -408,6 +459,9 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
         towBallMass,
         axleWeigh,
         vci01,
+        vci02,
+        axleConfig,
+        tyreWeigh,
         measuredFrontAxle: frontMeasured,
         measuredRearAxle: rearMeasured,
         measuredGvm: gvmMeasured,
@@ -470,6 +524,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
       navigate('/professional-tow-portable-tyres-caravan-rego', {
         state: {
           ...baseState,
+          towSetupType,
           alreadySaved: false,
           weighId: null,
         },
@@ -741,9 +796,7 @@ const ProfessionalVehicleOnlyPortableTyresConfirm = () => {
             : (
               <>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  {weighingSelection === 'tow_vehicle_and_caravan'
-                    ? 'Tow Vehicle and Caravan / Trailer'
-                    : 'Vehicle Only'}
+                  {isTowFlow ? `Tow Vehicle and ${towSetupLabel}` : 'Vehicle Only'}
                 </Typography>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   Portable Scales - Individual Tyre Weights

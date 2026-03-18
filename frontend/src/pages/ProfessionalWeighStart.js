@@ -18,12 +18,12 @@ const ProfessionalWeighStart = () => {
         break;
       case 'tow-vehicle-trailer':
         navigate('/professional-weigh-vehicle-only', {
-          state: { weighingSelection: 'tow_vehicle_and_caravan', towSetupType: 'trailer' },
+          state: { weighingSelection: 'tow_vehicle_and_trailer', towSetupType: 'trailer' },
         });
         break;
       case 'tow-vehicle-boat':
         navigate('/professional-weigh-vehicle-only', {
-          state: { weighingSelection: 'tow_vehicle_and_caravan', towSetupType: 'boat' },
+          state: { weighingSelection: 'tow_vehicle_and_boat', towSetupType: 'boat' },
         });
         break;
       case 'vehicle-only':

@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CircularProgress, Box } from '@mui/material';
 
-const PrivateRoute = ({ children, adminOnly = false }) => {
+const PrivateRoute = ({ children, adminOnly = false, superadminOnly = false }) => {
   const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
@@ -23,7 +23,11 @@ const PrivateRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/login" />;
   }
 
-  if (adminOnly && user?.userType !== 'admin') {
+  if (superadminOnly && user?.userType !== 'superadmin') {
+    return <Navigate to="/dashboard" />;
+  }
+
+  if (adminOnly && user?.userType !== 'admin' && user?.userType !== 'superadmin') {
     return <Navigate to="/dashboard" />;
   }
 

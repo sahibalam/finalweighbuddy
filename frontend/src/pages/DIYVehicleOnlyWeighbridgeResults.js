@@ -17,12 +17,82 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const [currentLocation, setCurrentLocation] = useState('');
+  const [geoFailed, setGeoFailed] = useState(false);
+
   const [isFinishing, setIsFinishing] = useState(false);
+  const [paymentTransactionId, setPaymentTransactionId] = useState('');
+
+  const resolvePaymentTransactionId = () => {
+    const fromState =
+      location.state?.transactionId ||
+      location.state?.paymentResult?.transactionId ||
+      location.state?.paymentResult?.transactionId;
+
+    if (fromState) return fromState;
+
+    if (typeof window === 'undefined' || embedded) return '';
+    try {
+      return window.sessionStorage.getItem('weighbuddy_axle_payment_intent') || '';
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const resolvePaymentTransactionIdForSave = () => {
+    const tx = resolvePaymentTransactionId();
+    return tx || paymentTransactionId || '';
+  };
 
   // Professional flow: hydrate client details from localStorage draft created on ProfessionalClientStart
   const [clientInfo, setClientInfo] = useState(null);
   // Fleet flow: hydrate customer draft created from FleetStaffManagement "Create new User".
   const [fleetCustomerDraft, setFleetCustomerDraft] = useState(null);
+
+  useEffect(() => {
+    const tx = resolvePaymentTransactionId();
+    if (tx) {
+      setPaymentTransactionId(tx);
+      if (typeof window !== 'undefined' && !embedded) {
+        try {
+          window.sessionStorage.setItem('weighbuddy_axle_payment_intent', tx);
+        } catch (e) {
+          // non-blocking
+        }
+      }
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!navigator?.geolocation) return;
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        try {
+          const lat = pos?.coords?.latitude;
+          const lon = pos?.coords?.longitude;
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+          const label = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+          if (cancelled) return;
+          setCurrentLocation(label);
+          setGeoFailed(false);
+        } catch (e) {
+          // ignore
+        }
+      },
+      () => {
+        if (cancelled) return;
+        setGeoFailed(true);
+      },
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 3600000 }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -102,6 +172,11 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   const resolvedState = useMemo(() => {
     return overrideState || (hasLocationState ? location.state : persistedState) || {};
   }, [hasLocationState, location.state, overrideState, persistedState]);
+
+  const resolvedLocationLabel =
+    currentLocation ||
+    resolvedState?.location ||
+    (geoFailed ? 'Location unavailable' : '');
 
   useEffect(() => {
     if (!overrideState && hasLocationState) {
@@ -238,6 +313,17 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       return loggedInDiyClient;
     }
 
+    // Fleet manager flow: when a fleet user created a client via FleetStaffManagement,
+    // prefer that drafted customer identity for the results header.
+    if (user?.userType === 'fleet' && fleetCustomerDraft) {
+      const fullName = String(fleetCustomerDraft.fullName || '').trim();
+      const fEmail = String(fleetCustomerDraft.email || '').trim();
+      const fPhone = String(fleetCustomerDraft.phone || '').trim();
+      if (fullName || fEmail || fPhone) {
+        return { fullName, email: fEmail, phone: fPhone };
+      }
+    }
+
     if (clientInfo && (clientInfo.fullName || clientInfo.email || clientInfo.phone)) {
       return clientInfo;
     }
@@ -251,7 +337,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       email,
       phone,
     };
-  }, [clientInfo, customerName, customerEmail, customerPhone, embedded, loggedInDiyClient]);
+  }, [clientInfo, customerName, customerEmail, customerPhone, embedded, fleetCustomerDraft, loggedInDiyClient, user?.userType]);
 
   const resolvedFuelLevel =
     fuelLevel !== '' && fuelLevel != null
@@ -480,6 +566,25 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     safeNum(resolvedState && resolvedState.unhitchedFrontAxle) > 0 ||
     safeNum(resolvedState && resolvedState.unhitchedRearAxle) > 0;
 
+  // For live (non-embedded) professional portable tow flows we still want to
+  // trust the unhitched totals forwarded via navigation state.
+  const shouldUseUnhitchedFromState =
+    hasUnhitchedFromState &&
+    (methodSelection === 'Portable Scales - Individual Tyre Weights' ||
+      Boolean(resolvedState && resolvedState.vci02));
+
+  const isVehicleOnlyPortableTyres =
+    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
+    (
+      weighingSelection === 'vehicle_only' ||
+      effectiveDiyWeighingSelection === 'vehicle_only' ||
+      (weighingSelection !== 'tow_vehicle_and_caravan' &&
+        weighingSelection !== 'tow_vehicle_and_trailer' &&
+        weighingSelection !== 'tow_vehicle_and_boat' &&
+        tyreWeigh &&
+        typeof tyreWeigh === 'object')
+    );
+
   if (
     embedded &&
     methodSelection === 'Portable Scales - Individual Tyre Weights' &&
@@ -503,44 +608,98 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
       hitchedRearAxle = rearMeasured || Math.max(0, gvmMeasured - frontMeasured);
     }
   } else if (
-    embedded &&
-    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
     (weighingSelection === 'tow_vehicle_and_caravan' ||
       weighingSelection === 'tow_vehicle_and_trailer' ||
       weighingSelection === 'tow_vehicle_and_boat') &&
+    methodSelection === 'Portable Scales - Individual Tyre Weights' &&
     hasUnhitchedFromState
   ) {
-    frontMeasured = Number(measuredFrontAxle) || 0;
-    rearMeasured = Number(measuredRearAxle) || 0;
-    gvmMeasured = Number(measuredGvm) || (frontMeasured + rearMeasured);
+    // Live (non-embedded) professional portable tow flows forward hitched/unhitched
+    // totals via navigation state. Use them to populate both sections.
+    const hitchedFrontFromState = safeNum(resolvedState && resolvedState.measuredFrontAxle);
+    const hitchedRearFromState = safeNum(resolvedState && resolvedState.measuredRearAxle);
+    const hitchedGvmFromState = safeNum(resolvedState && resolvedState.measuredGvm);
 
-    if (gvmMeasured > 0) {
-      gvmHitched = gvmMeasured;
-      hitchedFrontAxle = frontMeasured;
-      hitchedRearAxle = rearMeasured || Math.max(0, gvmMeasured - frontMeasured);
-    }
+    hitchedFrontAxle = hitchedFrontFromState;
+    hitchedRearAxle =
+      hitchedRearFromState != null && hitchedRearFromState > 0
+        ? hitchedRearFromState
+        : hitchedGvmFromState != null && hitchedGvmFromState > 0
+          ? Math.max(0, hitchedGvmFromState - hitchedFrontAxle)
+          : 0;
+    gvmHitched =
+      hitchedGvmFromState != null && hitchedGvmFromState > 0
+        ? hitchedGvmFromState
+        : hitchedFrontAxle + hitchedRearAxle;
 
     const unhitchedGvmFromState = safeNum(resolvedState && resolvedState.unhitchedGvm);
-    const unhitchedFrontFromState = safeNum(resolvedState && resolvedState.unhitchedFrontAxle);
-    const unhitchedRearFromState = safeNum(resolvedState && resolvedState.unhitchedRearAxle);
+    const unhitchedFrontAxleFromState = safeNum(resolvedState && resolvedState.unhitchedFrontAxle);
+    const unhitchedRearAxleFromState = safeNum(resolvedState && resolvedState.unhitchedRearAxle);
 
-    unhitchedFrontAxle = unhitchedFrontFromState || hitchedFrontAxle;
+    unhitchedFrontAxle = unhitchedFrontAxleFromState;
     unhitchedRearAxle =
-      unhitchedRearFromState != null && unhitchedRearFromState > 0
-        ? unhitchedRearFromState
-        : unhitchedGvmFromState != null && unhitchedGvmFromState > 0
-          ? Math.max(0, unhitchedGvmFromState - unhitchedFrontAxle)
-          : hitchedRearAxle;
+      unhitchedRearAxleFromState != null
+        ? unhitchedRearAxleFromState
+        : unhitchedGvmFromState != null && unhitchedFrontAxle != null
+          ? unhitchedGvmFromState - unhitchedFrontAxle
+          : 0;
     gvmUnhitched =
       unhitchedGvmFromState != null && unhitchedGvmFromState > 0
         ? unhitchedGvmFromState
         : unhitchedFrontAxle + unhitchedRearAxle;
+
+    // Trailer measured weights (GTM/ATM/TBM/GCM)
+    const trailerGtmFromState = safeNum(resolvedState && resolvedState.gtmMeasuredOverall);
+    const trailerGtmFromAxleWeigh = safeNum(resolvedState && resolvedState.axleWeigh && resolvedState.axleWeigh.trailerGtm);
+    const resolvedTrailerGtm = trailerGtmFromState || trailerGtmFromAxleWeigh;
+
+    const tbmFromState = safeNum(resolvedState && resolvedState.towBallMass);
+    if (tbmFromState > 0) {
+      tbm = tbmFromState;
+    } else if (gvmHitched > 0 && gvmUnhitched > 0) {
+      tbm = Math.max(0, gvmHitched - gvmUnhitched);
+    }
+
+    if (resolvedTrailerGtm > 0) {
+      gtmMeasured = resolvedTrailerGtm;
+    }
+    if (gtmMeasured > 0 && tbm > 0) {
+      atmMeasured = gtmMeasured + tbm;
+    }
+    if (gvmHitched > 0 && gtmMeasured > 0) {
+      gcmMeasured = gvmHitched + gtmMeasured;
+    }
+    if ((!tbm || tbm <= 0) && gvmHitched > 0 && gvmUnhitched > 0) {
+      tbm = Math.max(0, gvmHitched - gvmUnhitched);
+    }
   } else if (methodSelection === 'Portable Scales - Individual Tyre Weights') {
-    // For portable scales, we treat measuredFrontAxle and measuredRearAxle
-    // as the front and rear axle totals, and GVM is their sum.
-    frontMeasured = Number(measuredFrontAxle) || 0;
-    rearMeasured = Number(measuredRearAxle) || 0;
-    gvmMeasured = frontMeasured + rearMeasured;
+    if (isVehicleOnlyPortableTyres) {
+      // Vehicle-only portable tyres: derive axle totals + GVM from the 4-tyre values.
+      const t = tyreWeigh && typeof tyreWeigh === 'object' ? tyreWeigh : null;
+      const fl = safeNum(t?.frontLeft);
+      const fr = safeNum(t?.frontRight);
+      const rl = safeNum(t?.rearLeft);
+      const rr = safeNum(t?.rearRight);
+
+      const computedFront = fl + fr;
+      const computedRear = rl + rr;
+      const computedGvm = computedFront + computedRear;
+
+      const measuredFrontFromState = Number(measuredFrontAxle) || 0;
+      const measuredRearFromState = Number(measuredRearAxle) || 0;
+      const measuredGvmFromState = Number(measuredGvm) || 0;
+
+      // Prefer explicit measured values if they exist; otherwise use computed.
+      frontMeasured = measuredFrontFromState || computedFront;
+      rearMeasured = measuredRearFromState || computedRear;
+      gvmMeasured = measuredGvmFromState || computedGvm || (frontMeasured + rearMeasured);
+    } else {
+      // For portable scales, we treat measuredFrontAxle and measuredRearAxle
+      // as the front and rear axle totals, and GVM is their sum.
+      frontMeasured = Number(measuredFrontAxle) || 0;
+      rearMeasured = Number(measuredRearAxle) || 0;
+      gvmMeasured = frontMeasured + rearMeasured;
+    }
   } else if (methodSelection === 'Weighbridge - goweigh') {
     // GoWeigh method: use user-provided front axle and GVM, with
     // Rear Axle Unhitched derived from:
@@ -554,6 +713,27 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     frontMeasured = Number(measuredFrontAxle) || 0;
     gvmMeasured = Number(measuredGvm) || 0;
     rearMeasured = gvmMeasured - frontMeasured;
+  }
+
+  // TBM fallback (global): if an explicit TBM wasn't provided, but we do have
+  // both hitched and unhitched tow vehicle totals, derive TBM from their delta.
+  // This avoids TBM showing 0 in portable tow flows when towBallMass is null.
+  if (
+    (weighingSelection === 'tow_vehicle_and_caravan' ||
+      weighingSelection === 'tow_vehicle_and_trailer' ||
+      weighingSelection === 'tow_vehicle_and_boat') &&
+    (!tbm || tbm <= 0) &&
+    gvmHitched > 0 &&
+    gvmUnhitched > 0
+  ) {
+    tbm = Math.max(0, gvmHitched - gvmUnhitched);
+  }
+
+  // Vehicle-only Weighbridge Above Ground: this method only captures total vehicle weight
+  // (GVM). No front axle reading is collected, so front/rear axle values should be N/A.
+  if (weighingSelection === 'vehicle_only' && methodSelection === 'Weighbridge - Above Ground') {
+    frontMeasured = null;
+    rearMeasured = null;
   }
 
   // Capacity (Info-Agent / lookup) values for Weights Recorded row
@@ -634,6 +814,20 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     if (gcmMeasured === 0 && baseGvmForGcm > 0 && gtmMeasured > 0) {
       gcmMeasured = baseGvmForGcm + gtmMeasured;
     }
+  }
+
+  // Final TBM fallback for tow flows: some downstream logic can legitimately
+  // overwrite `tbm` (e.g. caravan-only derivations). For tow flows, always prefer
+  // deriving TBM from hitched/unhitched GVM when an explicit towBallMass wasn't provided.
+  if (
+    (weighingSelection === 'tow_vehicle_and_caravan' ||
+      weighingSelection === 'tow_vehicle_and_trailer' ||
+      weighingSelection === 'tow_vehicle_and_boat') &&
+    (!tbm || tbm <= 0) &&
+    gvmHitched > 0 &&
+    gvmUnhitched > 0
+  ) {
+    tbm = Math.max(0, gvmHitched - gvmUnhitched);
   }
 
   if (weighingSelection === 'caravan_only_registered') {
@@ -1277,7 +1471,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
   }
 
   let hasTowVehicleHitchedMeasured =
-    weighingSelection === 'tow_vehicle_and_caravan' &&
+    (weighingSelection === 'tow_vehicle_and_caravan' ||
+      weighingSelection === 'tow_vehicle_and_trailer' ||
+      weighingSelection === 'tow_vehicle_and_boat') &&
     (gvmHitched > 0 || hitchedFrontAxle > 0 || hitchedRearAxle > 0);
 
   // Embedded history for tow+caravan (especially professional in-ground)
@@ -1418,7 +1614,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     weighingSelection === 'tow_vehicle_and_trailer' ||
     weighingSelection === 'tow_vehicle_and_boat'
       ? gvmCapacityNum
-      : gvmMeasured;
+      : gvmCapacityNum;
 
   const measuredGvmForComparison =
     weighingSelection === 'tow_vehicle_and_caravan' ||
@@ -1451,6 +1647,20 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     if (atmMeasured > 0 && gtmMeasured > 0) {
       tbm = atmMeasured - gtmMeasured;
     }
+  }
+
+  // FINAL TBM fallback (live + embedded): for tow flows where an explicit TBM
+  // was not provided, derive it from hitched vs unhitched GVM so the TBM
+  // measured column never shows 0 when both totals exist.
+  if (
+    (weighingSelection === 'tow_vehicle_and_caravan' ||
+      weighingSelection === 'tow_vehicle_and_trailer' ||
+      weighingSelection === 'tow_vehicle_and_boat') &&
+    (!tbm || tbm <= 0) &&
+    gvmHitched > 0 &&
+    gvmUnhitched > 0
+  ) {
+    tbm = Math.max(0, gvmHitched - gvmUnhitched);
   }
 
   // Debug: inspect measured values feeding the Compliance / Measured columns
@@ -1499,6 +1709,20 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
     isTowCaravanAdvisoryMethod && atmMeasured > 0 ? (tbm / atmMeasured) * 100 : null;
   const btcPct =
     isTowCaravanAdvisoryMethod && btcCapacityNum ? (atmMeasured / btcCapacityNum) * 100 : null;
+
+  const resolveTowAdvisory = () => {
+    const gvmHitchedNum = Number(gvmHitched) || 0;
+    const gtmMeasuredNum = Number(gtmMeasured) || 0;
+    const tbmNum = Number(tbm) || 0;
+    const atmMeasuredNum = Number(atmMeasured) || 0;
+    const btcCapacityNumLocal = Number(btcCapacityNum) || 0;
+
+    return {
+      vanToCarRatioPct: gvmHitchedNum > 0 ? (gtmMeasuredNum / gvmHitchedNum) * 100 : null,
+      towBallPct: atmMeasuredNum > 0 ? (tbmNum / atmMeasuredNum) * 100 : null,
+      btcPct: btcCapacityNumLocal > 0 ? (atmMeasuredNum / btcCapacityNumLocal) * 100 : null,
+    };
+  };
 
   // Capacity row: difference (capacity - measured)
   const frontCapacityDiff = frontCapacity - frontMeasured;
@@ -1565,11 +1789,85 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
 
   const handleDownloadReport = async () => {
     try {
-      const isTowSetupPortable =
-        (effectiveDiyWeighingSelection === 'tow_vehicle_and_caravan' ||
-          effectiveDiyWeighingSelection === 'tow_vehicle_and_trailer' ||
-          effectiveDiyWeighingSelection === 'tow_vehicle_and_boat') &&
+      const resolvedTyreWeigh =
+        resolvedState?.tyreWeigh || portableSessionTyreWeigh || null;
+
+      const rawTyreWeighCandidate =
+        (resolvedState?.weights && typeof resolvedState.weights === 'object'
+          ? (resolvedState.weights.tyreWeigh ||
+              (resolvedState.weights.raw && typeof resolvedState.weights.raw === 'object'
+                ? resolvedState.weights.raw.tyreWeigh
+                : null) ||
+              null)
+          : null) ||
+        (resolvedState?.raw && typeof resolvedState.raw === 'object' ? resolvedState.raw.tyreWeigh : null) ||
+        (resolvedState?.rawWeighData && typeof resolvedState.rawWeighData === 'object'
+          ? resolvedState.rawWeighData.tyreWeigh
+          : null) ||
+        null;
+
+      const resolvedMethodSelection =
+        methodSelection ||
+        resolvedState?.methodSelection ||
+        resolvedState?.weights?.methodSelection ||
+        resolvedState?.weights?.diyMethodSelection ||
+        resolvedState?.raw?.methodSelection ||
+        resolvedState?.rawWeighData?.methodSelection ||
+        '';
+
+      const resolvedWeighingSelection =
+        effectiveDiyWeighingSelection ||
+        resolvedState?.diyWeighingSelection ||
+        resolvedState?.weighingSelection ||
+        resolvedState?.raw?.weighingSelection ||
+        resolvedState?.rawWeighData?.weighingSelection ||
+        '';
+
+      const hasTowPortableSignals =
+        Boolean(resolvedTyreWeigh) ||
+        Boolean(rawTyreWeighCandidate) ||
+        Boolean(resolvedState?.vci01 || portableSessionVci01) ||
+        Boolean(resolvedState?.vci02 || portableSessionVci02);
+
+      const isTowCaravanPortable =
+        (resolvedWeighingSelection === 'tow_vehicle_and_caravan' ||
+          resolvedWeighingSelection === 'tow_vehicle_and_trailer' ||
+          resolvedWeighingSelection === 'tow_vehicle_and_boat') &&
+        (
+          resolvedMethodSelection === 'Portable Scales - Individual Tyre Weights' ||
+          (hasTowPortableSignals && String(resolvedMethodSelection || '').toLowerCase().includes('portable'))
+        );
+
+      // eslint-disable-next-line no-console
+      console.log('Results: Download Report debug', {
+        resolvedWeighingSelection,
+        effectiveDiyWeighingSelection,
+        weighingSelection,
+        resolvedMethodSelection,
+        methodSelection,
+        hasTowPortableSignals,
+        hasResolvedTyreWeigh: Boolean(resolvedTyreWeigh),
+        hasRawTyreWeighCandidate: Boolean(rawTyreWeighCandidate),
+        axleConfigLabel: resolvedTyreWeigh?.axleConfig || rawTyreWeighCandidate?.axleConfig || null,
+        resolvedStateAxleConfig: resolvedState?.axleConfig ?? null,
+        resolvedStateTyreWeighType: resolvedState?.tyreWeigh == null ? null : typeof resolvedState.tyreWeigh,
+        resolvedStateTyreWeighValue: resolvedState?.tyreWeigh ?? null,
+        hasVci01: Boolean(resolvedState?.vci01 || portableSessionVci01),
+        hasVci02: Boolean(resolvedState?.vci02 || portableSessionVci02),
+        resolvedStateKeys: resolvedState && typeof resolvedState === 'object' ? Object.keys(resolvedState) : null,
+      });
+
+      const isTowSetupPortable = isTowCaravanPortable;
+
+      const isCaravanOnlyRegisteredPortable =
+        effectiveDiyWeighingSelection === 'caravan_only_registered' &&
         methodSelection === 'Portable Scales - Individual Tyre Weights';
+
+      const isCaravanOnlyRegisteredWeighbridge =
+        effectiveDiyWeighingSelection === 'caravan_only_registered' &&
+        (String(methodSelection || '').startsWith('Weighbridge - In Ground') ||
+          String(methodSelection || '').toLowerCase().includes('goweigh') ||
+          String(methodSelection || '').toLowerCase().includes('above ground'));
 
       const isTowSetupWeighbridgePdf =
         (effectiveDiyWeighingSelection === 'tow_vehicle_and_caravan' ||
@@ -1578,19 +1876,71 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         (
           methodSelection ===
             'Weighbridge - In Ground - Tow Vehicle and Trailer are level and Individual Axle Weights can be recorded' ||
+          methodSelection === 'Weighbridge - In Ground - Individual Axle Weights' ||
           methodSelection === 'Weighbridge - goweigh' ||
           methodSelection ===
             'Weighbridge - Above Ground - Single Cell - Tow Vehicle and Trailer are no level limiting the ability to record individual axle weights.'
         );
-      const resolvedTyreWeigh =
-        resolvedState?.tyreWeigh || portableSessionTyreWeigh || null;
-      const axleConfigLabel = resolvedTyreWeigh?.axleConfig;
-      const isSingleOrDualOrTripleAxle =
-        axleConfigLabel === 'Single Axle' ||
-        axleConfigLabel === 'Dual Axle' ||
-        axleConfigLabel === 'Triple Axle';
+      const axleConfigLabel = resolvedTyreWeigh?.axleConfig || rawTyreWeighCandidate?.axleConfig;
+      const inferAxleConfig = (rawValue) => {
+        if (rawValue == null) return null;
+        const s = String(rawValue).trim();
+        if (!s) return null;
+        const lower = s.toLowerCase();
+        if (lower === 'dual') return 'Dual Axle';
+        if (lower === 'single') return 'Single Axle';
+        if (lower === 'triple') return 'Triple Axle';
+        if (lower === 'dual axle') return 'Dual Axle';
+        if (lower === 'single axle') return 'Single Axle';
+        if (lower === 'triple axle') return 'Triple Axle';
+        if (lower === 'dual' || lower === 'd') return 'Dual Axle';
+        if (lower === 'single' || lower === 's') return 'Single Axle';
+        if (lower === 'triple' || lower === 't') return 'Triple Axle';
+        if (lower.includes('triple')) return 'Triple Axle';
+        if (lower.includes('dual')) return 'Dual Axle';
+        if (lower.includes('single')) return 'Single Axle';
+        if (s === '1') return 'Single Axle';
+        if (s === '2') return 'Dual Axle';
+        if (s === '3') return 'Triple Axle';
+        const parts = s
+          .split(/[^0-9]+/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (parts.length === 2) return 'Dual Axle';
+        if (parts.length === 3) return 'Triple Axle';
+        if (parts.length === 1) return 'Single Axle';
+        return null;
+      };
 
-      if (isTowSetupPortable && isSingleOrDualOrTripleAxle) {
+      const inferredTowedAxleConfig =
+        resolvedState?.preWeigh?.towedAxleConfig ||
+        resolvedState?.preWeigh?.axleConfig ||
+        resolvedState?.axleConfig ||
+        resolvedState?.caravan?.axleGroups ||
+        resolvedState?.caravanFromLookup?.axleGroups ||
+        resolvedState?.caravanFromLookup?.axleGroupLoadings ||
+        resolvedState?.caravanFromLookup?.axleGroupLoading ||
+        resolvedState?.caravanFromLookup?.numberOfAxles ||
+        resolvedState?.caravanFromLookup?.numberOfAxle ||
+        null;
+      const inferredAxleConfigLabel = inferAxleConfig(inferredTowedAxleConfig);
+
+      const effectiveAxleConfigLabel = inferAxleConfig(axleConfigLabel) || inferredAxleConfigLabel;
+      const isSingleOrDualOrTripleAxle =
+        effectiveAxleConfigLabel === 'Single Axle' ||
+        effectiveAxleConfigLabel === 'Dual Axle' ||
+        effectiveAxleConfigLabel === 'Triple Axle';
+
+      if (isTowSetupPortable) {
+        // eslint-disable-next-line no-console
+        console.log('Results: Download Report branch', {
+          branch: 'tow_portable_single_dual_triple',
+          endpoints: [
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-1',
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-2',
+            '/api/weighs/diy-tow-caravan-portable-single-axle/report-3',
+          ],
+        });
         let notesFromSession = '';
         if (typeof window !== 'undefined' && !embedded) {
           try {
@@ -1630,8 +1980,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           '';
 
         const reportPayload = {
-          weighingSelection,
-          diyWeighingSelection: effectiveDiyWeighingSelection,
+          weighingSelection: resolvedWeighingSelection || weighingSelection,
+          diyWeighingSelection: resolvedWeighingSelection || effectiveDiyWeighingSelection,
+          methodSelection: resolvedMethodSelection,
           header: {
             date: new Date().toLocaleDateString(),
             customerName: effectiveClient?.fullName || '',
@@ -1642,7 +1993,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             caravanRego: caravan?.rego || '',
             caravanMake: caravan?.make || '',
             caravanModel: caravan?.model || '',
-            location: '',
+            location: resolvedLocationLabel,
           },
           compliance: {
             frontAxle: frontCapacity || 0,
@@ -1655,9 +2006,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             btc: btcCapacityNum || 0,
           },
           weightsRecorded: {
-            frontAxle: frontMeasured || 0,
-            gvm: gvmHitched || gvmMeasured || 0,
-            rearAxle: rearMeasured || 0,
+            frontAxle: frontMeasured != null ? frontMeasured : null,
+            gvm: (gvmHitched || gvmMeasured) != null ? (gvmHitched || gvmMeasured) : null,
+            rearAxle: rearMeasured != null ? rearMeasured : null,
             tbm: tbm || 0,
             atm: atmMeasured || 0,
             gtm: gtmMeasured || 0,
@@ -1690,11 +2041,69 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             passengersRear: Number(resolvedPassengersRear) || 0,
           },
           advisory: {
-            vanToCarRatioPct: vanToCarRatioPct != null ? Number(vanToCarRatioPct) : null,
-            towBallPct: towBallPct != null ? Number(towBallPct) : null,
-            btcPct: btcPct != null ? Number(btcPct) : null,
+            vanToCarRatioPct: resolveTowAdvisory().vanToCarRatioPct,
+            towBallPct: resolveTowAdvisory().towBallPct,
+            btcPct: resolveTowAdvisory().btcPct,
           },
-          tyreWeigh: resolvedTyreWeigh,
+          tyreWeigh: (() => {
+            const preferredTyreWeigh =
+              (resolvedState?.tyreWeigh && typeof resolvedState.tyreWeigh === 'object'
+                ? resolvedState.tyreWeigh
+                : null) ||
+              (rawTyreWeighCandidate && typeof rawTyreWeighCandidate === 'object'
+                ? rawTyreWeighCandidate
+                : null) ||
+              (portableSessionTyreWeigh && typeof portableSessionTyreWeigh === 'object'
+                ? portableSessionTyreWeigh
+                : null) ||
+              (resolvedTyreWeigh && typeof resolvedTyreWeigh === 'object' ? resolvedTyreWeigh : null) ||
+              null;
+
+            const base = preferredTyreWeigh && typeof preferredTyreWeigh === 'object' ? preferredTyreWeigh : {};
+            const axleConfig =
+              effectiveAxleConfigLabel ||
+              inferAxleConfig(resolvedState?.axleConfig) ||
+              (base && typeof base === 'object' ? inferAxleConfig(base.axleConfig) : null) ||
+              null;
+
+            // Some professional flows do not provide tyreWeigh, only VCI + axleWeigh.trailerGtm.
+            // The PDF templates use axleConfig to decide which caravan image/table to render.
+            // Provide a minimal shape for dual/triple so page 3 doesn't fall back to single axle.
+            const gtmCandidate =
+              (() => {
+                const n = Number(resolvedState?.axleWeigh?.trailerGtm);
+                return Number.isFinite(n) ? n : null;
+              })() || null;
+
+            if (axleConfig === 'Dual Axle') {
+              return {
+                ...base,
+                axleConfig,
+                dual: base.dual || (gtmCandidate != null ? { frontLeft: gtmCandidate / 4, frontRight: gtmCandidate / 4, rearLeft: gtmCandidate / 4, rearRight: gtmCandidate / 4 } : undefined),
+              };
+            }
+
+            if (axleConfig === 'Triple Axle') {
+              return {
+                ...base,
+                axleConfig,
+                triple: base.triple || (gtmCandidate != null ? { frontLeft: gtmCandidate / 6, frontRight: gtmCandidate / 6, middleLeft: gtmCandidate / 6, middleRight: gtmCandidate / 6, rearLeft: gtmCandidate / 6, rearRight: gtmCandidate / 6 } : undefined),
+              };
+            }
+
+            if (axleConfig === 'Single Axle') {
+              return {
+                ...base,
+                axleConfig,
+                single: base.single || (gtmCandidate != null ? { left: gtmCandidate / 2, right: gtmCandidate / 2 } : undefined),
+              };
+            }
+
+            return {
+              ...base,
+              axleConfig,
+            };
+          })(),
           vci01: resolvedState?.vci01 || portableSessionVci01 || null,
           vci02: resolvedState?.vci02 || portableSessionVci02 || null,
           notes: notesFromPreWeigh,
@@ -1735,12 +2144,286 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         return;
       }
 
+      if (isCaravanOnlyRegisteredWeighbridge) {
+        const preWeighForCaravanOnly =
+          resolvedState?.preWeigh && typeof resolvedState.preWeigh === 'object'
+            ? resolvedState.preWeigh
+            : location?.state?.preWeigh && typeof location.state.preWeigh === 'object'
+              ? location.state.preWeigh
+              : null;
+
+        const notesForCaravanOnlyPdf =
+          resolvedState?.notes ||
+          preWeighForCaravanOnly?.notes ||
+          '';
+
+        const measuredTbmForPdf =
+          (typeof caravanMeasuredTbm === 'number' && caravanMeasuredTbm > 0 ? caravanMeasuredTbm : 0) ||
+          (typeof tbm === 'number' && tbm > 0 ? tbm : 0) ||
+          (resolvedState?.towBallMass != null ? Number(resolvedState.towBallMass) || 0 : 0) ||
+          (resolvedState?.axleWeigh?.towballMass != null ? Number(resolvedState.axleWeigh.towballMass) || 0 : 0) ||
+          (resolvedState?.axleWeigh?.towBallMass != null ? Number(resolvedState.axleWeigh.towBallMass) || 0 : 0) ||
+          (resolvedState?.axleWeigh?.tbm != null ? Number(resolvedState.axleWeigh.tbm) || 0 : 0) ||
+          (location?.state?.towBallMass != null ? Number(location.state.towBallMass) || 0 : 0) ||
+          (location?.state?.axleWeigh?.towballMass != null ? Number(location.state.axleWeigh.towballMass) || 0 : 0) ||
+          (location?.state?.axleWeigh?.towBallMass != null ? Number(location.state.axleWeigh.towBallMass) || 0 : 0) ||
+          (location?.state?.axleWeigh?.tbm != null ? Number(location.state.axleWeigh.tbm) || 0 : 0) ||
+          0;
+
+        const axleWeighForCaravanOnlyPdf = {
+          ...(resolvedState?.axleWeigh && typeof resolvedState.axleWeigh === 'object'
+            ? resolvedState.axleWeigh
+            : location?.state?.axleWeigh && typeof location.state.axleWeigh === 'object'
+              ? location.state.axleWeigh
+              : {}),
+          towballMass: measuredTbmForPdf,
+          towBallMass: measuredTbmForPdf,
+          tbm: measuredTbmForPdf,
+        };
+
+        // eslint-disable-next-line no-console
+        console.log('DIYResults caravan-only weighbridge PDF payload debug', {
+          measuredTbmForPdf,
+          resolvedStateTowBallMass: resolvedState?.towBallMass ?? null,
+          resolvedStateTbm: resolvedState?.tbm ?? null,
+          resolvedAxleWeigh: resolvedState?.axleWeigh ?? null,
+          locationTowBallMass: location?.state?.towBallMass ?? null,
+          locationTbm: location?.state?.tbm ?? null,
+          locationAxleWeigh: location?.state?.axleWeigh ?? null,
+          axleWeighForCaravanOnlyPdf,
+        });
+
+        const response = await axios.post('/api/weighs/diy-caravan-only-registered/weighbridge-report', {
+          methodSelection,
+          header: {
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            customerName: effectiveClient?.fullName || '',
+            location: resolvedLocationLabel,
+            caravanRego: caravan?.rego || '',
+            caravanMake: caravan?.make || '',
+            caravanModel: caravan?.model || '',
+          },
+          trailerInfo: {
+            rego: caravan?.rego || '',
+            make: caravan?.make || '',
+            model: caravan?.model || '',
+          },
+          capacities: {
+            tbm: caravan?.tbm || caravan?.tbmCapacity || null,
+            gtm: caravan?.gtm || null,
+            atm: caravan?.atm || null,
+          },
+          tbmMeasured: measuredTbmForPdf,
+          axleWeigh: axleWeighForCaravanOnlyPdf,
+          preWeigh: preWeighForCaravanOnly || null,
+          waterTanks: {
+            count: preWeighForCaravanOnly?.waterTankCount ?? null,
+            fullCount: preWeighForCaravanOnly?.waterTankFullCount ?? null,
+            litres: preWeighForCaravanOnly?.waterTotalLitres ?? null,
+          },
+          notes: notesForCaravanOnlyPdf,
+        }, { responseType: 'blob' });
+
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        triggerPdfDownload(blob, 'weigh-results.pdf');
+        return;
+      }
+
+      if (isCaravanOnlyRegisteredPortable) {
+        const preWeighForCaravanOnly =
+          resolvedState?.preWeigh && typeof resolvedState.preWeigh === 'object'
+            ? resolvedState.preWeigh
+            : location?.state?.preWeigh && typeof location.state.preWeigh === 'object'
+              ? location.state.preWeigh
+              : null;
+
+        const inferTrailerTyreWeighForPdf = (measuredGtmCandidate) => {
+          if (tyreWeigh && typeof tyreWeigh === 'object') {
+            return {
+              ...tyreWeigh,
+              axleConfig: tyreWeigh.axleConfig || resolvedState?.axleConfig || null,
+            };
+          }
+
+          const axleConfigRaw =
+            resolvedState?.axleConfig ||
+            preWeighForCaravanOnly?.axleConfig ||
+            preWeighForCaravanOnly?.towedAxleConfig ||
+            null;
+          const axleConfig = inferAxleConfig(axleConfigRaw);
+
+          if (!axleConfig) return null;
+
+          const gtmMeasuredCandidate =
+            measuredGtmCandidate != null ? Number(measuredGtmCandidate) || 0 : 0;
+          const frontMeasuredCandidate =
+            resolvedState?.measuredFrontAxle != null ? Number(resolvedState.measuredFrontAxle) || 0 : 0;
+          const rearMeasuredCandidate =
+            resolvedState?.measuredRearAxle != null ? Number(resolvedState.measuredRearAxle) || 0 : 0;
+
+          // Prefer using a GTM total if we have one, because many caravan-only portable flows
+          // do not populate measuredFrontAxle/measuredRearAxle, leaving them as 0.
+          const totalForDistribution =
+            gtmMeasuredCandidate > 0
+              ? gtmMeasuredCandidate
+              : (frontMeasuredCandidate || 0) + (rearMeasuredCandidate || 0);
+
+          // For caravan-only portable flows, measuredFrontAxle/measuredRearAxle commonly
+          // represent the front-axle-group and rear-axle-group totals. Split each group
+          // evenly L/R so the PDF has non-null tyre points to render, and ensure axleConfig
+          // selects the correct diagram.
+          if (axleConfig === 'Single Axle') {
+            const half = (totalForDistribution || 0) / 2;
+            return {
+              axleConfig,
+              single: {
+                left: half,
+                right: half,
+              },
+            };
+          }
+
+          if (axleConfig === 'Dual Axle') {
+            // With only a GTM total, distribute evenly across 4 tyres.
+            // If we do have axle-group splits, keep those.
+            const hasAxleSplits = (frontMeasuredCandidate || 0) > 0 || (rearMeasuredCandidate || 0) > 0;
+            const perTyreEven = (totalForDistribution || 0) / 4;
+            const halfFront = hasAxleSplits ? (frontMeasuredCandidate || 0) / 2 : perTyreEven;
+            const halfRear = hasAxleSplits ? (rearMeasuredCandidate || 0) / 2 : perTyreEven;
+            return {
+              axleConfig,
+              dual: {
+                frontLeft: halfFront,
+                frontRight: halfFront,
+                rearLeft: halfRear,
+                rearRight: halfRear,
+              },
+            };
+          }
+
+          if (axleConfig === 'Triple Axle') {
+            const perTyre = (totalForDistribution || 0) / 6;
+            return {
+              axleConfig,
+              triple: {
+                frontLeft: perTyre,
+                frontRight: perTyre,
+                middleLeft: perTyre,
+                middleRight: perTyre,
+                rearLeft: perTyre,
+                rearRight: perTyre,
+              },
+            };
+          }
+
+          return null;
+        };
+
+        const notesForCaravanOnlyPdf =
+          resolvedState?.notes ||
+          preWeighForCaravanOnly?.notes ||
+          '';
+
+        const measuredTbmForPdf =
+          (resolvedState?.towBallMass != null ? Number(resolvedState.towBallMass) || 0 : 0) ||
+          (tyreWeigh?.rightTowBallWeight != null ? Number(tyreWeigh.rightTowBallWeight) || 0 : 0) ||
+          0;
+
+        const measuredGtmForPdf =
+          caravanMeasuredGtm != null ? Number(caravanMeasuredGtm) || 0 : 0;
+
+        const measuredAtmForPdf =
+          (caravanMeasuredAtm != null ? Number(caravanMeasuredAtm) || 0 : 0) ||
+          ((measuredGtmForPdf || 0) + (measuredTbmForPdf || 0));
+
+        const tyreWeighForPdf = inferTrailerTyreWeighForPdf(measuredGtmForPdf);
+
+        const response = await axios.post('/api/weighs/diy-caravan-only-registered/report', {
+          customBuildTrailerTare: false,
+          weighingSelection: 'caravan_only_registered',
+          diyWeighingSelection: 'caravan_only_registered',
+          header: {
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            customerName: effectiveClient?.fullName || '',
+            location: currentLocation || resolvedState?.location || '',
+            caravanRego: caravan?.rego || '',
+            caravanMake: caravan?.make || '',
+            caravanModel: caravan?.model || '',
+          },
+          trailerInfo: {
+            rego: caravan?.rego || '',
+            make: caravan?.make || '',
+            model: caravan?.model || '',
+          },
+          capacities: {
+            tbm: caravan?.tbm || caravan?.tbmCapacity || null,
+            gtm: caravan?.gtm || null,
+            atm: caravan?.atm || null,
+          },
+          waterTanks: {
+            count: preWeighForCaravanOnly?.waterTankCount ?? null,
+            fullCount: preWeighForCaravanOnly?.waterTankFullCount ?? null,
+            litres: preWeighForCaravanOnly?.waterTotalLitres ?? null,
+          },
+          towBallMass: measuredTbmForPdf,
+          gtmMeasured: measuredGtmForPdf,
+          atmMeasured: measuredAtmForPdf,
+          tyreWeigh: tyreWeighForPdf && typeof tyreWeighForPdf === 'object'
+            ? {
+                ...tyreWeighForPdf,
+                rightTowBallWeight:
+                  tyreWeighForPdf.rightTowBallWeight != null
+                    ? tyreWeighForPdf.rightTowBallWeight
+                    : measuredTbmForPdf,
+                gtmMeasured: measuredGtmForPdf,
+                atmMeasured: measuredAtmForPdf,
+              }
+            : null,
+          notes: notesForCaravanOnlyPdf,
+        }, {
+          responseType: 'blob'
+        });
+
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        triggerPdfDownload(blob, 'weigh-results.pdf');
+        return;
+      }
+
       if (isTowSetupWeighbridgePdf) {
         const towedAxleConfig =
           resolvedState?.towedAxleConfig ||
           resolvedState?.preWeigh?.towedAxleConfig ||
-          resolvedState?.tyreWeigh?.axleConfig ||
-          '';
+          location?.state?.towedAxleConfig ||
+          location?.state?.preWeigh?.towedAxleConfig ||
+          (() => {
+            if (typeof window === 'undefined' || embedded) return null;
+            try {
+              const raw = window.sessionStorage.getItem('weighbuddy_diy_tow_preweigh');
+              const parsed = raw ? JSON.parse(raw) : null;
+              return parsed?.towedAxleConfig || null;
+            } catch (e) {
+              return null;
+            }
+          })() ||
+          null;
+
+        const unhitchedFrontForPdf =
+          resolvedState && resolvedState.unhitchedFrontAxle != null
+            ? Number(resolvedState.unhitchedFrontAxle) || 0
+            : Number(unhitchedFrontAxle) || 0;
+        const unhitchedRearForPdf =
+          resolvedState && resolvedState.unhitchedRearAxle != null
+            ? Number(resolvedState.unhitchedRearAxle) || 0
+            : Number(unhitchedRearAxle) || 0;
+
+        const unhitchedWeighForPdf = {
+          frontLeft: unhitchedFrontForPdf / 2,
+          frontRight: unhitchedFrontForPdf / 2,
+          rearLeft: unhitchedRearForPdf / 2,
+          rearRight: unhitchedRearForPdf / 2,
+        };
 
         const towBallMassForPdf =
           resolvedState && resolvedState.towBallMass != null
@@ -1760,18 +2443,23 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           }
         }
 
-        if (!towedAxleConfig) {
-          window.alert('Axle configuration is missing. Please go back and select Single/Dual/Triple axle.');
-          return;
-        }
+        const resolvedTowedAxleConfig =
+          inferAxleConfig(towedAxleConfig) ||
+          inferAxleConfig(resolvedState?.preWeigh?.towedAxleConfig) ||
+          inferAxleConfig(resolvedState?.preWeigh?.axleConfig) ||
+          inferAxleConfig(resolvedState?.axleConfig) ||
+          inferAxleConfig(resolvedState?.caravan?.axleGroups) ||
+          inferAxleConfig(resolvedState?.caravanFromLookup?.axleGroups) ||
+          'Single Axle';
 
         const reportPayload = {
           weighingSelection,
           diyWeighingSelection: effectiveDiyWeighingSelection,
           report2RenderMode: 'A_ONLY',
+          methodSelection,
           header: {
             date: new Date().toLocaleDateString(),
-            customerName: resolvedState?.customerName || '',
+            customerName: effectiveClient?.fullName || resolvedState?.customerName || customerName || '',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             location: resolvedState?.location || '',
             carRego: rego,
@@ -1792,9 +2480,9 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             btc: btcCapacity === '' ? 0 : Number(btcCapacity) || 0,
           },
           weightsRecorded: {
-            frontAxle: Number(measuredFrontAxle) || 0,
+            frontAxle: Number(hitchedFrontAxle || frontMeasured || measuredFrontAxle) || 0,
             gvm: Number(gvmHitched || measuredGvm) || 0,
-            rearAxle: Number(measuredRearAxle) || 0,
+            rearAxle: Number(hitchedRearAxle || rearMeasured || measuredRearAxle) || 0,
             tbm: towBallMassForPdf,
             atm: Number(atmMeasured || 0),
             gtm: Number(gtmMeasured || 0),
@@ -1827,26 +2515,100 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             passengersRear: resolvedState?.preWeigh?.passengersRear ?? 0,
           },
           advisory: {
-            vanToCarRatioPct: vanToCarRatioPct != null ? Number(vanToCarRatioPct) : null,
-            towBallPct: towBallPct != null ? Number(towBallPct) : null,
-            btcPct: btcPct != null ? Number(btcPct) : null,
+            vanToCarRatioPct: resolveTowAdvisory().vanToCarRatioPct,
+            towBallPct: resolveTowAdvisory().towBallPct,
+            btcPct: resolveTowAdvisory().btcPct,
           },
-          tyreWeigh: {
-            axleConfig: towedAxleConfig,
+          tyreWeigh: (() => {
+            const base = { axleConfig: resolvedTowedAxleConfig };
+            const gtmCandidate = (() => {
+              const n = Number(resolvedState?.axleWeigh?.trailerGtm);
+              return Number.isFinite(n) ? n : null;
+            })();
+
+            if (gtmCandidate == null) return base;
+
+            if (resolvedTowedAxleConfig === 'Dual Axle') {
+              return {
+                ...base,
+                dual: {
+                  frontLeft: gtmCandidate / 4,
+                  frontRight: gtmCandidate / 4,
+                  rearLeft: gtmCandidate / 4,
+                  rearRight: gtmCandidate / 4,
+                },
+              };
+            }
+
+            if (resolvedTowedAxleConfig === 'Triple Axle') {
+              return {
+                ...base,
+                triple: {
+                  frontLeft: gtmCandidate / 6,
+                  frontRight: gtmCandidate / 6,
+                  middleLeft: gtmCandidate / 6,
+                  middleRight: gtmCandidate / 6,
+                  rearLeft: gtmCandidate / 6,
+                  rearRight: gtmCandidate / 6,
+                },
+              };
+            }
+
+            return {
+              ...base,
+              single: {
+                left: gtmCandidate / 2,
+                right: gtmCandidate / 2,
+              },
+            };
+          })(),
+          vci01: (() => {
+            const existing = resolvedState?.vci01;
+            if (existing && typeof existing === 'object') return existing;
+
+            const frontAxleTotal =
+              (() => {
+                const n = Number(hitchedFrontAxle || frontMeasured || measuredFrontAxle);
+                return Number.isFinite(n) ? n : null;
+              })();
+            const rearAxleTotal =
+              (() => {
+                const n = Number(hitchedRearAxle || rearMeasured || measuredRearAxle);
+                return Number.isFinite(n) ? n : null;
+              })();
+
+            if (frontAxleTotal == null && rearAxleTotal == null) return null;
+
+            const hitchWeigh = {
+              frontLeft: frontAxleTotal != null ? frontAxleTotal / 2 : null,
+              frontRight: frontAxleTotal != null ? frontAxleTotal / 2 : null,
+              rearLeft: rearAxleTotal != null ? rearAxleTotal / 2 : null,
+              rearRight: rearAxleTotal != null ? rearAxleTotal / 2 : null,
+            };
+
+            return { hitchWeigh };
+          })(),
+          vci02: {
+            ...(resolvedState?.vci02 || {}),
+            unhitchedWeigh: unhitchedWeighForPdf,
           },
-          vci01: resolvedState?.vci01 || null,
-          vci02: resolvedState?.vci02 || null,
           notes: notesFromPreWeigh,
         };
 
         const endpoints = [
-          '/api/weighs/diy-tow-caravan-portable-single-axle/report-1',
-          '/api/weighs/diy-tow-caravan-portable-single-axle/report-2',
+          {
+            url: '/api/weighs/diy-tow-caravan-portable-single-axle/report-1',
+            filename: 'diy-tow-caravan-weighbridge-1.pdf',
+          },
+          {
+            url: '/api/weighs/diy-tow-caravan-portable-single-axle/report-2',
+            filename: 'diy-tow-caravan-weighbridge-2.pdf',
+          },
         ];
 
         const mergedPdf = await PDFDocument.create();
-        for (const url of endpoints) {
-          const resp = await axios.post(url, reportPayload, { responseType: 'arraybuffer' });
+        for (const ep of endpoints) {
+          const resp = await axios.post(ep.url, reportPayload, { responseType: 'arraybuffer' });
           const srcPdf = await PDFDocument.load(resp.data);
           const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
           pages.forEach((p) => mergedPdf.addPage(p));
@@ -1858,13 +2620,23 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
         return;
       }
 
+      const transactionId = resolvePaymentTransactionIdForSave();
       const response = await axios.post('/api/weighs/diy-vehicle-only/report', {
+        header: {
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          customerName: effectiveClient?.fullName || customerName || '',
+          location: resolvedState?.location || '',
+          carRego: rego || '',
+          carMake: description || '',
+        },
         vehicleInfo: {
           rego,
           state,
           description,
           vin
         },
+        tyreWeigh: resolvedTyreWeigh || null,
         measured: {
           front: frontMeasured,
           gvm: gvmMeasured,
@@ -1885,7 +2657,12 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           passengersFront: Number(resolvedPassengersFront) || 0,
           passengersRear: Number(resolvedPassengersRear) || 0
         },
-        notes: '',
+        payment: {
+          method: 'stripe',
+          status: 'completed',
+          transactionId: transactionId || undefined,
+        },
+        notes: resolvedState?.notes || resolvedState?.preWeigh?.notes || '',
         methodSelection
       }, {
         responseType: 'blob'
@@ -2058,19 +2835,74 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
             }
           : null;
 
+        const effectiveTowedAxleConfigForSave =
+          resolvedState?.towedAxleConfig ||
+          resolvedState?.preWeigh?.towedAxleConfig ||
+          location?.state?.towedAxleConfig ||
+          location?.state?.preWeigh?.towedAxleConfig ||
+          (() => {
+            if (typeof window === 'undefined' || embedded) return null;
+            try {
+              const raw = window.sessionStorage.getItem('weighbuddy_diy_tow_preweigh');
+              const parsed = raw ? JSON.parse(raw) : null;
+              return parsed?.towedAxleConfig || null;
+            } catch (e) {
+              return null;
+            }
+          })() ||
+          null;
+
+        const effectiveAxleConfigForSave =
+          resolvedState?.axleConfig ||
+          resolvedState?.preWeigh?.axleConfig ||
+          location?.state?.axleConfig ||
+          location?.state?.preWeigh?.axleConfig ||
+          (() => {
+            if (typeof window === 'undefined' || embedded) return null;
+            try {
+              const raw = window.sessionStorage.getItem('weighbuddy_diy_tow_preweigh');
+              const parsed = raw ? JSON.parse(raw) : null;
+              return parsed?.axleConfig || null;
+            } catch (e) {
+              return null;
+            }
+          })() ||
+          null;
+
+        const inferTowedAxleConfigLabelFromAxleConfig = (candidate) => {
+          if (candidate == null) return null;
+          if (typeof candidate === 'string') {
+            const s = candidate.trim().toLowerCase();
+            if (!s) return null;
+            if (s === 'triple' || s.includes('triple')) return 'Triple Axle';
+            if (s === 'dual' || s.includes('dual')) return 'Dual Axle';
+            if (s === 'single' || s.includes('single')) return 'Single Axle';
+          }
+          return null;
+        };
+
+        const inferredTowedAxleConfigLabelForSave =
+          inferTowedAxleConfigLabelFromAxleConfig(effectiveAxleConfigForSave);
+
         const payload = {
           vehicleSummary,
           caravanSummary,
           weights: normalizedWeights,
-          preWeigh: preWeigh || {
-            fuelLevel: resolvedFuelLevel === '' ? null : Number(resolvedFuelLevel),
-            passengersFront: Number(resolvedPassengersFront) || 0,
-            passengersRear: Number(resolvedPassengersRear) || 0
+          preWeigh: {
+            ...(preWeigh || {
+              fuelLevel: resolvedFuelLevel === '' ? null : Number(resolvedFuelLevel),
+              passengersFront: Number(resolvedPassengersFront) || 0,
+              passengersRear: Number(resolvedPassengersRear) || 0,
+            }),
+            axleConfig: (preWeigh && preWeigh.axleConfig) ? preWeigh.axleConfig : effectiveAxleConfigForSave,
+            towedAxleConfig: (preWeigh && preWeigh.towedAxleConfig)
+              ? preWeigh.towedAxleConfig
+              : (effectiveTowedAxleConfigForSave || inferredTowedAxleConfigLabelForSave),
           },
           payment: {
             method: 'stripe',
             status: 'completed',
-            transactionId: location.state?.transactionId || location.state?.paymentResult?.transactionId || undefined,
+            transactionId: resolvePaymentTransactionIdForSave() || undefined,
           },
           modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
           ...(outgoingCustomer
@@ -2152,7 +2984,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           payment: {
             method: 'stripe',
             status: 'completed',
-            transactionId: location.state?.transactionId || location.state?.paymentResult?.transactionId || undefined,
+            transactionId: paymentTransactionId || undefined,
           },
           modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
           ...(outgoingCustomer
@@ -2225,7 +3057,7 @@ const DIYVehicleOnlyWeighbridgeResults = ({ overrideState, embedded = false } = 
           payment: {
             method: 'stripe',
             status: 'completed',
-            transactionId: location.state?.transactionId || location.state?.paymentResult?.transactionId || undefined,
+            transactionId: resolvePaymentTransactionIdForSave() || undefined,
           },
           modifiedVehicleImages: Array.isArray(modifiedImages) ? modifiedImages : [],
           ...(outgoingCustomer

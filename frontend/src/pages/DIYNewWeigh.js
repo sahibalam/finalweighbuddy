@@ -1,29 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Paper,
+  Container,
   Typography,
-  Button,
+  Paper,
   Stepper,
   Step,
   StepLabel,
-  Container,
   useTheme,
   Alert,
   Grid,
   Card,
   CardContent,
+  Button,
+  IconButton,
   Backdrop,
   CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  IconButton
+  DialogActions
 } from '@mui/material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowBack } from '@mui/icons-material';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { ArrowBack } from '@mui/icons-material';
 
 // Components
 import WeighingMethodSelection from '../components/WeighingMethodSelection';
@@ -290,6 +290,76 @@ const DIYNewWeigh = () => {
     calculateCompliance();
   };
 
+  const handleFinishTrailerTareReport = async () => {
+    try {
+      if (loading) return;
+      setLoading(true);
+
+      const resolvedTyreWeigh = tyreWeigh || vehicleData?.diyTyreWeigh || null;
+      const resolvedCaravanRego =
+        String(
+          caravanData?.rego ||
+            caravanData?.numberPlate ||
+            preWeigh?.rego ||
+            preWeigh?.caravanRego ||
+            ''
+        ).trim();
+      const resolvedCaravanState =
+        String(caravanData?.state || preWeigh?.state || preWeigh?.caravanState || '-').trim() || '-';
+      const header = {
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        customerName: '',
+        location: '',
+        caravanRego: resolvedCaravanRego,
+        caravanMake: caravanData?.make || '',
+        caravanModel: caravanData?.model || '',
+      };
+
+      const payload = {
+        vehicleSummary: null,
+        caravanSummary: {
+          description: (header.caravanMake || header.caravanModel)
+            ? `${header.caravanMake || ''} ${header.caravanModel || ''}`.trim()
+            : '',
+          rego: header.caravanRego || '',
+          state: resolvedCaravanState,
+          vin: '',
+          make: header.caravanMake || '',
+          model: header.caravanModel || '',
+          year: null,
+          atm: caravanData?.atm || null,
+          gtm: caravanData?.gtm || null,
+          axleGroups: caravanData?.axleGroups || null,
+          tare: caravanData?.tare || null,
+          complianceImage: caravanData?.complianceImage || null,
+          atmMeasured: Number(axleWeigh?.trailerAtm || axleWeigh?.caravanUnhitchedAtm) || null,
+          gtmMeasured: Number(axleWeigh?.trailerGtm || axleWeigh?.caravanHitchedGtm || axleWeigh?.gtm) || null,
+          tbmMeasured: Number(axleWeigh?.towballMass || axleWeigh?.tbm) || null,
+        },
+        weights: {
+          weightsType: 'diy_caravan_only',
+          diyMethodSelection: vehicleOnlyMethodLabel,
+          diyWeighingSelection: weighingSelection,
+          raw: {
+            axleWeigh: axleWeigh || null,
+            tyreWeigh: resolvedTyreWeigh || null,
+            methodSelection: vehicleOnlyMethodLabel,
+            diyWeighingSelection: weighingSelection,
+          },
+        },
+        preWeigh: preWeigh || null,
+      };
+
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Failed to save trailer tare report:', err?.response?.data || err);
+      window.alert('Failed to save record. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePaymentComplete = (result) => {
     // result comes from StripePaymentForm: { transactionId, reportId }
     if (result?.reportId) {
@@ -327,6 +397,21 @@ const DIYNewWeigh = () => {
     }
 
     console.log('Step is valid, proceeding to next step');
+
+    // Finish behavior for the custom build trailer tare report payment-only flow:
+    // after payment completes, the bottom-right Finish button should save and redirect.
+    const isLastNonSkippedStep = activeStep === lastNonSkippedIndex;
+    if (
+      isLastNonSkippedStep &&
+      paymentStatus === 'completed' &&
+      weighingSelection === 'custom_build_trailer_tare' &&
+      (vehicleOnlyMethodLabel === 'Portable Scales - Individual Tyre Weights' ||
+        vehicleOnlyMethodLabel === 'GoWeigh Weighbridge' ||
+        vehicleOnlyMethodLabel === 'Weighbridge - In Ground -')
+    ) {
+      handleFinishTrailerTareReport();
+      return;
+    }
 
     // Determine the current logical step from the full steps array
     const currentStepIndexInSteps = activeStep;

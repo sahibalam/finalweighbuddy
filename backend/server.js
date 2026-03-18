@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const cookieParser = require('cookie-parser');
 
 require('dotenv').config();
 const path = require('path');
@@ -19,6 +20,9 @@ const reportRoutes = require('./routes/reports');
 const uploadRoutes = require('./routes/uploads');
 const submissionRoutes = require('./routes/submissions');
 const fleetStaffRoutes = require('./routes/fleetStaff');
+const walletRoutes = require('./routes/wallet');
+const walletMappingRoutes = require('./routes/walletMapping');
+const superadminRoutes = require('./routes/superadmin');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -41,6 +45,7 @@ app.use(
   })
 );
 app.use(compression());
+app.use(cookieParser());
 
 //CORS configuration
 console.log('�� CORS Configuration:');
@@ -90,6 +95,9 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/wallet', walletMappingRoutes);
+app.use('/api/superadmin', superadminRoutes);
 
 // Serve uploaded files statically with CORS headers
 app.use('/uploads', (req, res, next) => {
