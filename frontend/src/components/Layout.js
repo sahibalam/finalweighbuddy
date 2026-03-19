@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import axios from 'axios';
 import {
   AppBar,
   Box,
@@ -52,6 +53,28 @@ const Layout = ({ children }) => {
   const location = useLocation();
 
   const isFleetManagerSection = user?.userType === 'fleet' && location.pathname.startsWith('/fleet');
+
+  const resolvedProfileLogoUrl = useMemo(() => {
+    const raw =
+      (user?.userType === 'professional' && user?.logoUrl ? String(user.logoUrl) : '') ||
+      (user?.fleetOwnerUserId?.logoUrl ? String(user.fleetOwnerUserId.logoUrl) : '') ||
+      (user?.logoUrl ? String(user.logoUrl) : '');
+    const cleaned = raw.trim();
+    if (!cleaned) return null;
+
+    // If backend stored a relative uploads path (e.g. /uploads/logos/xyz.png),
+    // it must be resolved against the API base URL (localhost:5001 in dev)
+    // since the React app runs on localhost:3000.
+    const isHttp = /^https?:\/\//i.test(cleaned);
+    if (isHttp) return cleaned;
+    const base = String(axios?.defaults?.baseURL || '').trim();
+    if (!base) return cleaned;
+    const baseNoSlash = base.endsWith('/') ? base.slice(0, -1) : base;
+    const pathWithSlash = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+    return `${baseNoSlash}${pathWithSlash}`;
+  }, [user]);
+
+  const [profileLogoFailed, setProfileLogoFailed] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -180,9 +203,12 @@ const Layout = ({ children }) => {
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          WeighBuddy
-        </Typography>
+        <Box
+          component="img"
+          src="/images/weighbuddy%20logo%20green%20background.png"
+          alt="WeighBuddy"
+          sx={{ height: 40, width: 'auto' }}
+        />
       </Toolbar>
       <Divider />
 
@@ -293,7 +319,23 @@ const Layout = ({ children }) => {
               onClick={handleProfileMenuOpen}
               color="inherit"
             >
-              <AccountCircle />
+              {resolvedProfileLogoUrl && !profileLogoFailed ? (
+                <Box
+                  component="img"
+                  src={resolvedProfileLogoUrl}
+                  alt="Account logo"
+                  sx={{
+                    height: 32,
+                    width: 32,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    bgcolor: '#ffffff',
+                  }}
+                  onError={() => setProfileLogoFailed(true)}
+                />
+              ) : (
+                <AccountCircle />
+              )}
             </IconButton>
           </Box>
         </Toolbar>

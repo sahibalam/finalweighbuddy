@@ -559,46 +559,6 @@ const Profile = () => {
             </CardContent>
           </Card>
         </Grid>
-
-        {/* Preferences */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                <SettingsIcon sx={{ mr: 1 }} />
-                Preferences
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="Email Notifications"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="SMS Notifications"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControlLabel
-                    control={<Switch />}
-                    label="Auto-save Drafts"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="Compliance Alerts"
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
       </Grid>
     </Box>
   );
